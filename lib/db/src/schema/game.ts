@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, pgTable, text, timestamp, varchar, boolean } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp, uuid, varchar, boolean } from "drizzle-orm/pg-core";
 import { usersTable } from "./auth";
 
 export const charactersTable = pgTable("characters", {
@@ -232,6 +232,76 @@ export const gameConfigTable = pgTable("game_config", {
   config: jsonb("config").notNull().default({}),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
+
+export const friendRequestsTable = pgTable("friend_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  fromCharacterId: varchar("from_character_id"),
+  toCharacterId: varchar("to_character_id"),
+  status: varchar("status").default("pending"),
+  data: jsonb("data").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_friend_requests_from").on(table.fromCharacterId),
+  index("idx_friend_requests_to").on(table.toCharacterId),
+]);
+
+export const friendshipsTable = pgTable("friendships", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId1: varchar("character_id_1"),
+  characterId2: varchar("character_id_2"),
+  data: jsonb("data").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const tradeSessionsTable = pgTable("trade_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  initiatorId: varchar("initiator_id"),
+  receiverId: varchar("receiver_id"),
+  status: varchar("status").default("pending"),
+  data: jsonb("data").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_trade_sessions_initiator").on(table.initiatorId),
+  index("idx_trade_sessions_receiver").on(table.receiverId),
+]);
+
+export const dungeonSessionsTable = pgTable("dungeon_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id"),
+  dungeonId: varchar("dungeon_id"),
+  status: varchar("status").default("active"),
+  data: jsonb("data").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_dungeon_sessions_character").on(table.characterId),
+]);
+
+export const gemLabsTable = pgTable("gem_labs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id"),
+  data: jsonb("data").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_gem_labs_character").on(table.characterId),
+]);
+
+export const privateMessagesTable = pgTable("private_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  fromCharacterId: varchar("from_character_id"),
+  toCharacterId: varchar("to_character_id"),
+  message: text("message"),
+  data: jsonb("data").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_private_messages_from").on(table.fromCharacterId),
+  index("idx_private_messages_to").on(table.toCharacterId),
+]);
 
 export const userRolesTable = pgTable("user_roles", {
   userId: varchar("user_id").primaryKey().references(() => usersTable.id),

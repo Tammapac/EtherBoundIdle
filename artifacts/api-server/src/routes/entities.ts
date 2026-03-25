@@ -14,6 +14,12 @@ import {
   chatMessagesTable,
   mailTable,
   resourcesTable,
+  friendRequestsTable,
+  friendshipsTable,
+  tradeSessionsTable,
+  dungeonSessionsTable,
+  gemLabsTable,
+  privateMessagesTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, sql } from "drizzle-orm";
 
@@ -33,6 +39,12 @@ const tableMap: Record<string, any> = {
   ChatMessage: chatMessagesTable,
   Mail: mailTable,
   Resource: resourcesTable,
+  FriendRequest: friendRequestsTable,
+  Friendship: friendshipsTable,
+  TradeSession: tradeSessionsTable,
+  DungeonSession: dungeonSessionsTable,
+  GemLab: gemLabsTable,
+  PrivateMessage: privateMessagesTable,
 };
 
 const fieldMappings: Record<string, Record<string, string>> = {
@@ -158,6 +170,41 @@ const fieldMappings: Record<string, Record<string, string>> = {
   Resource: {
     character_id: "characterId",
     extra_data: "extraData",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+  },
+  FriendRequest: {
+    from_character_id: "fromCharacterId",
+    to_character_id: "toCharacterId",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+  },
+  Friendship: {
+    character_id_1: "characterId1",
+    character_id_2: "characterId2",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+  },
+  TradeSession: {
+    initiator_id: "initiatorId",
+    receiver_id: "receiverId",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+  },
+  DungeonSession: {
+    character_id: "characterId",
+    dungeon_id: "dungeonId",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+  },
+  GemLab: {
+    character_id: "characterId",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+  },
+  PrivateMessage: {
+    from_character_id: "fromCharacterId",
+    to_character_id: "toCharacterId",
     created_at: "createdAt",
     updated_at: "updatedAt",
   },

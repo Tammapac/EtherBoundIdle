@@ -79,6 +79,8 @@ const entityNames = [
   'Character', 'Item', 'Guild', 'Quest', 'Trade',
   'Party', 'PartyActivity', 'PartyInvite', 'Presence',
   'PlayerSession', 'ChatMessage', 'Mail', 'Resource',
+  'FriendRequest', 'Friendship', 'TradeSession',
+  'DungeonSession', 'GemLab', 'PrivateMessage',
 ];
 
 const entities = {};
