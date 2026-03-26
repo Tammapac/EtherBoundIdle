@@ -169,6 +169,8 @@ const fieldMappings: Record<string, Record<string, string>> = {
   },
   Resource: {
     character_id: "characterId",
+    resource_type: "type",
+    rarity: "name",
     extra_data: "extraData",
     created_at: "createdAt",
     updated_at: "updatedAt",

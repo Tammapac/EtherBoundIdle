@@ -62,8 +62,7 @@ export function useCharacterAutoSave(character, enabled = true) {
 
         await base44.entities.Character.update(character.id, dataToSave);
         lastSavedRef.current = { ...character };
-      } catch (error) {
-        console.error('[Auto-Save] Failed to save character:', error);
+      } catch {
       }
     };
 

@@ -1,3 +1,22 @@
+const MODE_KEY = 'eb_connection_mode';
+const API_URL_KEY = 'eb_api_url';
+
+function getMode() {
+  try { return localStorage.getItem(MODE_KEY) || 'local'; } catch { return 'local'; }
+}
+
+function setMode(mode) {
+  try { localStorage.setItem(MODE_KEY, mode); } catch {}
+}
+
+function getApiUrl() {
+  try { return localStorage.getItem(API_URL_KEY) || ''; } catch { return ''; }
+}
+
+function setApiUrl(url) {
+  try { localStorage.setItem(API_URL_KEY, url); } catch {}
+}
+
 function generateId() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = Math.random() * 16 | 0;
@@ -76,7 +95,7 @@ function applySortAndLimit(records, sort, limit) {
   return records;
 }
 
-function createEntityProxy(entityName) {
+function createLocalEntityProxy(entityName) {
   return {
     async create(data) {
       const records = getStore(entityName);
@@ -156,6 +175,66 @@ function createEntityProxy(entityName) {
   };
 }
 
+async function apiFetch(path, options = {}) {
+  const baseUrl = getApiUrl();
+  const url = `${baseUrl}/api${path}`;
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    ...options,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `API error: ${res.status}`);
+  }
+  return res.json();
+}
+
+function createRemoteEntityProxy(entityName) {
+  return {
+    async create(data) {
+      return apiFetch(`/entities/${entityName}`, { method: 'POST', body: JSON.stringify(data) });
+    },
+    async get(id) {
+      return apiFetch(`/entities/${entityName}/${id}`);
+    },
+    async filter(query = {}, sort, limit) {
+      const params = new URLSearchParams();
+      if (query && Object.keys(query).length) params.set('filter', JSON.stringify(query));
+      if (sort) params.set('sort', sort);
+      if (limit) params.set('limit', String(limit));
+      const qs = params.toString();
+      return apiFetch(`/entities/${entityName}${qs ? '?' + qs : ''}`);
+    },
+    async list(sort, limit) {
+      return this.filter({}, sort, limit);
+    },
+    async update(id, data) {
+      return apiFetch(`/entities/${entityName}/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    async delete(id) {
+      return apiFetch(`/entities/${entityName}/${id}`, { method: 'DELETE' });
+    },
+    subscribe(callback) {
+      if (!subscribers[entityName]) subscribers[entityName] = new Set();
+      subscribers[entityName].add(callback);
+      let active = true;
+      let timeout;
+      const poll = () => {
+        if (!active) return;
+        try { callback({ type: 'poll' }); } catch {}
+        timeout = setTimeout(poll, 15000);
+      };
+      timeout = setTimeout(poll, 15000);
+      return () => {
+        active = false;
+        if (timeout) clearTimeout(timeout);
+        subscribers[entityName]?.delete(callback);
+      };
+    },
+  };
+}
+
 const entityNames = [
   'Character', 'Item', 'Guild', 'Quest', 'Trade',
   'Party', 'PartyActivity', 'PartyInvite', 'Presence',
@@ -164,9 +243,28 @@ const entityNames = [
   'DungeonSession', 'GemLab', 'PrivateMessage',
 ];
 
+const localProxies = {};
+const remoteProxies = {};
+entityNames.forEach(name => {
+  localProxies[name] = createLocalEntityProxy(name);
+  remoteProxies[name] = createRemoteEntityProxy(name);
+});
+
+function createHybridEntityProxy(entityName) {
+  const methods = ['create', 'get', 'filter', 'list', 'update', 'delete', 'subscribe'];
+  const proxy = {};
+  methods.forEach(method => {
+    proxy[method] = (...args) => {
+      const driver = getMode() === 'server' ? remoteProxies[entityName] : localProxies[entityName];
+      return driver[method](...args);
+    };
+  });
+  return proxy;
+}
+
 const entities = {};
 entityNames.forEach(name => {
-  entities[name] = createEntityProxy(name);
+  entities[name] = createHybridEntityProxy(name);
 });
 
 function getLocalUser() {
@@ -178,7 +276,148 @@ function getLocalUser() {
   }
 }
 
-async function handleFunction(functionName, params) {
+const LIFE_SKILL_DROPS = {
+  mining: [
+    { resource: 'iron_ore', label: 'Iron Ore', rarity: 'common', weight: 60 },
+    { resource: 'copper_ore', label: 'Copper Ore', rarity: 'uncommon', weight: 25 },
+    { resource: 'silver_ore', label: 'Silver Ore', rarity: 'rare', weight: 10 },
+    { resource: 'gold_ore', label: 'Gold Ore', rarity: 'epic', weight: 3.5 },
+    { resource: 'platinum_ore', label: 'Platinum Ore', rarity: 'legendary', weight: 1 },
+    { resource: 'void_ore', label: 'Void Ore', rarity: 'mythic', weight: 0.4 },
+    { resource: 'crystal_ore', label: 'Crystal Ore', rarity: 'shiny', weight: 0.1 },
+  ],
+  fishing: [
+    { resource: 'carp', label: 'Carp', rarity: 'common', weight: 60 },
+    { resource: 'salmon', label: 'Salmon', rarity: 'uncommon', weight: 25 },
+    { resource: 'tuna', label: 'Tuna', rarity: 'rare', weight: 10 },
+    { resource: 'swordfish', label: 'Swordfish', rarity: 'epic', weight: 3.5 },
+    { resource: 'dragonfish', label: 'Dragonfish', rarity: 'legendary', weight: 1 },
+    { resource: 'leviathan_fish', label: 'Leviathan Fish', rarity: 'mythic', weight: 0.4 },
+    { resource: 'golden_fish', label: 'Golden Fish', rarity: 'shiny', weight: 0.1 },
+  ],
+  herbalism: [
+    { resource: 'common_herb', label: 'Common Herb', rarity: 'common', weight: 60 },
+    { resource: 'greenleaf', label: 'Greenleaf', rarity: 'uncommon', weight: 25 },
+    { resource: 'blue_herb', label: 'Blue Herb', rarity: 'rare', weight: 10 },
+    { resource: 'shadow_herb', label: 'Shadow Herb', rarity: 'epic', weight: 3.5 },
+    { resource: 'sun_blossom', label: 'Sun Blossom', rarity: 'legendary', weight: 1 },
+    { resource: 'ether_plant', label: 'Ether Plant', rarity: 'mythic', weight: 0.4 },
+    { resource: 'spirit_herb', label: 'Spirit Herb', rarity: 'shiny', weight: 0.1 },
+  ],
+};
+
+const PROCESSING_RECIPES = {
+  smelting: {
+    icon: '🔥', label: 'Smelting', description: 'Smelt ores into bars',
+    requires_skill: 'mining', requires_level: 30,
+    recipes: [
+      { input: 'iron_ore', input_label: 'Iron Ore', output: 'iron_bar', output_label: 'Iron Bar', rarity: 'common' },
+      { input: 'copper_ore', input_label: 'Copper Ore', output: 'copper_bar', output_label: 'Copper Bar', rarity: 'uncommon' },
+      { input: 'silver_ore', input_label: 'Silver Ore', output: 'silver_bar', output_label: 'Silver Bar', rarity: 'rare' },
+      { input: 'gold_ore', input_label: 'Gold Ore', output: 'gold_bar', output_label: 'Gold Bar', rarity: 'epic' },
+      { input: 'platinum_ore', input_label: 'Platinum Ore', output: 'platinum_bar', output_label: 'Platinum Bar', rarity: 'legendary' },
+      { input: 'void_ore', input_label: 'Void Ore', output: 'void_bar', output_label: 'Void Bar', rarity: 'mythic' },
+      { input: 'crystal_ore', input_label: 'Crystal Ore', output: 'crystal_bar', output_label: 'Crystal Bar', rarity: 'shiny' },
+    ],
+  },
+  cooking: {
+    icon: '🍳', label: 'Cooking', description: 'Cook fish into food',
+    requires_skill: 'fishing', requires_level: 30,
+    recipes: [
+      { input: 'carp', input_label: 'Carp', output: 'grilled_carp', output_label: 'Grilled Carp', rarity: 'common' },
+      { input: 'salmon', input_label: 'Salmon', output: 'salmon_steak', output_label: 'Salmon Steak', rarity: 'uncommon' },
+      { input: 'tuna', input_label: 'Tuna', output: 'tuna_soup', output_label: 'Tuna Soup', rarity: 'rare' },
+      { input: 'swordfish', input_label: 'Swordfish', output: 'swordfish_feast', output_label: 'Swordfish Feast', rarity: 'epic' },
+      { input: 'dragonfish', input_label: 'Dragonfish', output: 'dragon_broth', output_label: 'Dragon Broth', rarity: 'legendary' },
+      { input: 'leviathan_fish', input_label: 'Leviathan Fish', output: 'leviathan_stew', output_label: 'Leviathan Stew', rarity: 'mythic' },
+      { input: 'golden_fish', input_label: 'Golden Fish', output: 'golden_banquet', output_label: 'Golden Banquet', rarity: 'shiny' },
+    ],
+  },
+  alchemy: {
+    icon: '⚗️', label: 'Alchemy', description: 'Brew herbs into potions',
+    requires_skill: 'herbalism', requires_level: 30,
+    recipes: [
+      { input: 'common_herb', input_label: 'Common Herb', output: 'healing_salve', output_label: 'Healing Salve', rarity: 'common' },
+      { input: 'greenleaf', input_label: 'Greenleaf', output: 'mana_elixir', output_label: 'Mana Elixir', rarity: 'uncommon' },
+      { input: 'blue_herb', input_label: 'Blue Herb', output: 'strength_brew', output_label: 'Strength Brew', rarity: 'rare' },
+      { input: 'shadow_herb', input_label: 'Shadow Herb', output: 'sun_tincture', output_label: 'Sun Tincture', rarity: 'epic' },
+      { input: 'sun_blossom', input_label: 'Sun Blossom', output: 'ether_draught', output_label: 'Ether Draught', rarity: 'legendary' },
+      { input: 'ether_plant', input_label: 'Ether Plant', output: 'spirit_essence', output_label: 'Spirit Essence', rarity: 'mythic' },
+      { input: 'spirit_herb', input_label: 'Spirit Herb', output: 'minor_potion', output_label: 'Minor Potion', rarity: 'shiny' },
+    ],
+  },
+  forging: {
+    icon: '⚔️', label: 'Forging', description: 'Forge bars into equipment',
+    requires_skill: 'mining', requires_level: 50,
+    recipes: [
+      { input: 'iron_bar', input_label: 'Iron Bar', output: 'iron_sword', output_label: 'Iron Sword', rarity: 'common' },
+      { input: 'copper_bar', input_label: 'Copper Bar', output: 'steel_armor', output_label: 'Steel Armor', rarity: 'uncommon' },
+      { input: 'silver_bar', input_label: 'Silver Bar', output: 'silver_blade', output_label: 'Silver Blade', rarity: 'rare' },
+      { input: 'gold_bar', input_label: 'Gold Bar', output: 'gold_shield', output_label: 'Gold Shield', rarity: 'epic' },
+      { input: 'platinum_bar', input_label: 'Platinum Bar', output: 'platinum_helm', output_label: 'Platinum Helm', rarity: 'legendary' },
+      { input: 'void_bar', input_label: 'Void Bar', output: 'void_weapon', output_label: 'Void Weapon', rarity: 'mythic' },
+      { input: 'crystal_bar', input_label: 'Crystal Bar', output: 'crystal_relic', output_label: 'Crystal Relic', rarity: 'shiny' },
+    ],
+  },
+};
+
+const SKILL_TYPES = ['mining', 'fishing', 'herbalism'];
+
+function rollDrop(dropTable, luckBonus) {
+  const totalWeight = dropTable.reduce((sum, d) => sum + d.weight * (d.rarity !== 'common' ? luckBonus : 1), 0);
+  let roll = Math.random() * totalWeight;
+  for (const drop of dropTable) {
+    const adjustedWeight = drop.weight * (drop.rarity !== 'common' ? luckBonus : 1);
+    roll -= adjustedWeight;
+    if (roll <= 0) return drop;
+  }
+  return dropTable[0];
+}
+
+function ensureLifeSkills(lifeSkills) {
+  for (const st of SKILL_TYPES) {
+    if (!lifeSkills[st]) {
+      lifeSkills[st] = { level: 1, exp: 0, speed_level: 1, luck_level: 1, is_active: false, gather_progress: 0 };
+    }
+  }
+  return lifeSkills;
+}
+
+function buildSkillResponse(lifeSkills, skillType, charId) {
+  const s = lifeSkills[skillType];
+  const baseCycle = 20;
+  const speedReduction = 1 - ((s.speed_level || 1) - 1) * 0.08;
+  const cycleDuration = Math.max(5, baseCycle * speedReduction);
+  const expToNext = s.level * 100;
+  return {
+    id: `${skillType}_${charId}`,
+    skill_type: skillType,
+    level: s.level,
+    exp: s.exp || 0,
+    exp_to_next: expToNext,
+    gather_progress: s.gather_progress || 0,
+    cycle_duration: Math.round(cycleDuration * 10) / 10,
+    xp_per_cycle: 15 + s.level * 2,
+    speed_level: s.speed_level || 1,
+    luck_level: s.luck_level || 1,
+    speed_upgrade_cost: (s.speed_level || 1) * 50,
+    luck_upgrade_cost: (s.luck_level || 1) * 80,
+    is_active: s.is_active || false,
+  };
+}
+
+function buildProcessingResponse(lifeSkills) {
+  const result = {};
+  for (const [key, data] of Object.entries(PROCESSING_RECIPES)) {
+    const reqSkill = data.requires_skill;
+    const reqLevel = data.requires_level;
+    const skillLevel = (lifeSkills[reqSkill]?.level) || 1;
+    result[key] = { ...data, is_unlocked: skillLevel >= reqLevel };
+  }
+  return result;
+}
+
+async function handleLocalFunction(functionName, params) {
   const characterId = params.characterId || params.character_id;
 
   switch (functionName) {
@@ -238,6 +477,7 @@ async function handleFunction(functionName, params) {
         gems: (char.gems || 0) + gemReward,
       };
       setStore('Character', chars);
+      notifySubscribers('Character', { type: 'update', id: characterId, data: chars[idx] });
       return { data: { streak, rewards: { gold: goldReward, gems: gemReward }, character: chars[idx] } };
     }
 
@@ -254,6 +494,7 @@ async function handleFunction(functionName, params) {
       if (charIdx !== -1) {
         chars[charIdx].gold = (chars[charIdx].gold || 0) + goldValue;
         setStore('Character', chars);
+        notifySubscribers('Character', { type: 'update', id: chars[charIdx].id, data: chars[charIdx] });
       }
       items.splice(itemIdx, 1);
       setStore('Item', items);
@@ -277,6 +518,7 @@ async function handleFunction(functionName, params) {
       chars[charIdx].gold = (chars[charIdx].gold || 0) - cost;
       setStore('Item', items);
       setStore('Character', chars);
+      notifySubscribers('Item', { type: 'update', id: itemId, data: items[itemIdx] });
       return { data: { success: true, item: items[itemIdx], gold_spent: cost } };
     }
 
@@ -299,6 +541,7 @@ async function handleFunction(functionName, params) {
         items[itemIdx].star_level = (item.star_level || 0) + 1;
         setStore('Item', items);
         setStore('Character', chars);
+        notifySubscribers('Item', { type: 'update', id: itemId, data: items[itemIdx] });
         return { data: { success: true, item: items[itemIdx], gold_spent: cost } };
       }
       setStore('Character', chars);
@@ -378,35 +621,204 @@ async function handleFunction(functionName, params) {
           changed = true;
         }
       }
-      if (changed) setStore('Quest', quests);
+      if (changed) {
+        setStore('Quest', quests);
+        notifySubscribers('Quest', { type: 'update' });
+      }
       return { data: { success: true } };
     }
 
     case 'lifeSkills': {
-      const { action, skillType } = params;
+      const action = params.action;
+      const skillType = params.skill_type || params.skillType;
+      const charId = params.character_id || characterId;
+
       const chars = getStore('Character');
-      const charIdx = chars.findIndex(c => c.id === characterId);
-      if (charIdx === -1) return { data: { life_skills: {} } };
+      const charIdx = chars.findIndex(c => c.id === charId);
+      if (charIdx === -1) return { data: { skills: [], resources: [], processing: {} } };
       const char = chars[charIdx];
-      const lifeSkills = char.life_skills || {};
-      if (action === 'getState') return { data: { life_skills: lifeSkills } };
-      if (action === 'gather' || action === 'craft' || action === 'process') {
-        const skill = lifeSkills[skillType] || { level: 1, exp: 0 };
-        skill.exp = (skill.exp || 0) + 10;
-        if (skill.exp >= skill.level * 100) { skill.level += 1; skill.exp = 0; }
+      const lifeSkills = ensureLifeSkills(char.life_skills || {});
+
+      if (action === 'get_skills' || action === 'getState') {
+        const resources = getStore('Resource').filter(r => r.character_id === charId);
+        chars[charIdx].life_skills = lifeSkills;
+        setStore('Character', chars);
+        return {
+          data: {
+            skills: SKILL_TYPES.map(st => buildSkillResponse(lifeSkills, st, charId)),
+            resources,
+            processing: buildProcessingResponse(lifeSkills),
+          },
+        };
+      }
+
+      if (action === 'start') {
+        for (const st of SKILL_TYPES) lifeSkills[st].is_active = false;
+        if (lifeSkills[skillType]) {
+          lifeSkills[skillType].is_active = true;
+          lifeSkills[skillType].gather_progress = 0;
+        }
+        chars[charIdx].life_skills = lifeSkills;
+        setStore('Character', chars);
+        return {
+          data: {
+            success: true,
+            skills: SKILL_TYPES.map(st => buildSkillResponse(lifeSkills, st, charId)),
+          },
+        };
+      }
+
+      if (action === 'stop') {
+        if (lifeSkills[skillType]) {
+          lifeSkills[skillType].is_active = false;
+          lifeSkills[skillType].gather_progress = 0;
+        }
+        chars[charIdx].life_skills = lifeSkills;
+        setStore('Character', chars);
+        return {
+          data: {
+            success: true,
+            skills: SKILL_TYPES.map(st => buildSkillResponse(lifeSkills, st, charId)),
+          },
+        };
+      }
+
+      if (action === 'tick') {
+        const skill = lifeSkills[skillType];
+        if (!skill || !skill.is_active) return { data: { success: false, message: 'Skill not active' } };
+
+        const dropTable = LIFE_SKILL_DROPS[skillType] || [];
+        const luckBonus = 1 + ((skill.luck_level || 1) - 1) * 0.15;
+        const droppedResources = [];
+
+        const numDrops = 1 + (Math.random() < 0.3 ? 1 : 0) + (Math.random() < 0.1 ? 1 : 0);
+        for (let i = 0; i < numDrops; i++) {
+          const drop = rollDrop(dropTable, luckBonus);
+          if (drop) droppedResources.push(drop);
+        }
+
+        const resources = getStore('Resource');
+        for (const drop of droppedResources) {
+          const existing = resources.find(r =>
+            r.character_id === charId && r.resource_type === drop.resource && r.rarity === drop.rarity
+          );
+          if (existing) {
+            existing.quantity = (existing.quantity || 0) + 1;
+          } else {
+            resources.push({
+              id: generateId(),
+              character_id: charId,
+              resource_type: drop.resource,
+              rarity: drop.rarity,
+              quantity: 1,
+            });
+          }
+        }
+        setStore('Resource', resources);
+        notifySubscribers('Resource', { type: 'update' });
+
+        const xpGain = 15 + skill.level * 2;
+        skill.exp = (skill.exp || 0) + xpGain;
+        const expToNext = skill.level * 100;
+        let leveledUp = false;
+        let newLevel = skill.level;
+        if (skill.exp >= expToNext) {
+          skill.level += 1;
+          skill.exp = skill.exp - expToNext;
+          leveledUp = true;
+          newLevel = skill.level;
+        }
+
+        skill.gather_progress = 0;
         lifeSkills[skillType] = skill;
         chars[charIdx].life_skills = lifeSkills;
         setStore('Character', chars);
-        return { data: { life_skills: lifeSkills, success: true } };
+
+        return {
+          data: {
+            success: true,
+            resources: droppedResources,
+            leveled_up: leveledUp,
+            new_level: newLevel,
+          },
+        };
       }
+
       if (action === 'upgrade') {
-        const skill = lifeSkills[skillType] || { level: 1, exp: 0 };
-        skill.level += 1;
-        lifeSkills[skillType] = skill;
-        chars[charIdx].life_skills = lifeSkills;
-        setStore('Character', chars);
-        return { data: { life_skills: lifeSkills, success: true } };
+        const upgradeType = params.upgrade_type || params.upgradeType;
+        const skill = lifeSkills[skillType];
+        if (!skill) return { data: { success: false, message: 'Unknown skill' } };
+
+        if (upgradeType === 'speed') {
+          if ((skill.speed_level || 1) >= 10) return { data: { success: false, message: 'Max speed level' } };
+          const cost = (skill.speed_level || 1) * 50;
+          if ((char.gold || 0) < cost) return { data: { success: false, message: 'Not enough gold' } };
+          skill.speed_level = (skill.speed_level || 1) + 1;
+          chars[charIdx].gold = (char.gold || 0) - cost;
+          lifeSkills[skillType] = skill;
+          chars[charIdx].life_skills = lifeSkills;
+          setStore('Character', chars);
+          notifySubscribers('Character', { type: 'update', id: charId, data: chars[charIdx] });
+          return { data: { success: true, gold_spent: cost, new_speed_level: skill.speed_level } };
+        }
+
+        if (upgradeType === 'luck') {
+          if ((skill.luck_level || 1) >= 10) return { data: { success: false, message: 'Max luck level' } };
+          const cost = (skill.luck_level || 1) * 80;
+          if ((char.gold || 0) < cost) return { data: { success: false, message: 'Not enough gold' } };
+          skill.luck_level = (skill.luck_level || 1) + 1;
+          chars[charIdx].gold = (char.gold || 0) - cost;
+          lifeSkills[skillType] = skill;
+          chars[charIdx].life_skills = lifeSkills;
+          setStore('Character', chars);
+          notifySubscribers('Character', { type: 'update', id: charId, data: chars[charIdx] });
+          return { data: { success: true, gold_spent: cost, new_luck_level: skill.luck_level } };
+        }
+
+        return { data: { success: false, message: 'Unknown upgrade type' } };
       }
+
+      if (action === 'process') {
+        const processType = params.process_type;
+        const recipeInput = params.recipe_input;
+        const quantity = params.quantity || 1;
+
+        const recipeGroup = PROCESSING_RECIPES[processType];
+        if (!recipeGroup) return { data: { success: false, message: 'Unknown process type' } };
+
+        const recipe = recipeGroup.recipes.find(r => r.input === recipeInput);
+        if (!recipe) return { data: { success: false, message: 'Recipe not found' } };
+
+        const resources = getStore('Resource');
+        const inputRes = resources.find(r =>
+          r.character_id === charId && r.resource_type === recipe.input && r.rarity === recipe.rarity
+        );
+        if (!inputRes || inputRes.quantity < quantity) {
+          return { data: { success: false, message: 'Not enough resources' } };
+        }
+
+        inputRes.quantity -= quantity;
+
+        const outputRes = resources.find(r =>
+          r.character_id === charId && r.resource_type === recipe.output && r.rarity === recipe.rarity
+        );
+        if (outputRes) {
+          outputRes.quantity += quantity;
+        } else {
+          resources.push({
+            id: generateId(),
+            character_id: charId,
+            resource_type: recipe.output,
+            rarity: recipe.rarity,
+            quantity,
+          });
+        }
+
+        setStore('Resource', resources);
+        notifySubscribers('Resource', { type: 'update' });
+        return { data: { success: true } };
+      }
+
       return { data: { life_skills: lifeSkills } };
     }
 
@@ -467,7 +879,8 @@ async function handleFunction(functionName, params) {
     }
 
     case 'completeTrade': {
-      const { trade_id, action } = params;
+      const { trade_id, action: rawAction } = params;
+      const action = rawAction || 'accept';
       let trades = getStore('TradeSession');
       let idx = trades.findIndex(t => t.id === trade_id);
       if (idx === -1) {
@@ -565,13 +978,203 @@ async function handleFunction(functionName, params) {
       return { data: { success: true } };
     }
 
-    case 'processServerProgression':
-    case 'catchUpOfflineProgress':
-    case 'unifiedPlayerProgression':
+    case 'manageFriends': {
+      const { action, targetCharacterId, requestId } = params;
+      if (action === 'send') {
+        const req = {
+          id: generateId(),
+          from_character_id: characterId,
+          to_character_id: targetCharacterId,
+          status: 'pending',
+          created_date: new Date().toISOString(),
+        };
+        const requests = getStore('FriendRequest');
+        requests.push(req);
+        setStore('FriendRequest', requests);
+        notifySubscribers('FriendRequest', { type: 'create', id: req.id, data: req });
+        return { data: { success: true, request: req } };
+      }
+      if (action === 'accept' && requestId) {
+        const requests = getStore('FriendRequest');
+        const rIdx = requests.findIndex(r => r.id === requestId);
+        if (rIdx === -1) return { data: { success: false, message: 'Request not found' } };
+        requests[rIdx].status = 'accepted';
+        setStore('FriendRequest', requests);
+        const friendship = {
+          id: generateId(),
+          character_id_1: requests[rIdx].from_character_id,
+          character_id_2: requests[rIdx].to_character_id,
+          created_date: new Date().toISOString(),
+        };
+        const friendships = getStore('Friendship');
+        friendships.push(friendship);
+        setStore('Friendship', friendships);
+        notifySubscribers('Friendship', { type: 'create', id: friendship.id, data: friendship });
+        return { data: { success: true, friendship } };
+      }
+      if (action === 'decline' && requestId) {
+        const requests = getStore('FriendRequest');
+        const rIdx = requests.findIndex(r => r.id === requestId);
+        if (rIdx !== -1) {
+          requests[rIdx].status = 'declined';
+          setStore('FriendRequest', requests);
+        }
+        return { data: { success: true } };
+      }
+      if (action === 'remove') {
+        let friendships = getStore('Friendship');
+        friendships = friendships.filter(f =>
+          !((f.character_id_1 === characterId && f.character_id_2 === targetCharacterId) ||
+            (f.character_id_2 === characterId && f.character_id_1 === targetCharacterId))
+        );
+        setStore('Friendship', friendships);
+        return { data: { success: true } };
+      }
       return { data: { success: true } };
+    }
+
+    case 'getLeaderboard': {
+      const chars = getStore('Character');
+      const sorted = [...chars].sort((a, b) => (b.level || 1) - (a.level || 1));
+      const leaderboard = sorted.slice(0, 50).map((c, i) => ({
+        rank: i + 1,
+        id: c.id,
+        name: c.name,
+        class: c.class,
+        level: c.level || 1,
+        total_kills: c.total_kills || 0,
+        prestige_level: c.prestige_level || 0,
+        guild_name: c.guild_name || null,
+      }));
+      return { data: { leaderboard } };
+    }
 
     case 'dungeonAction': {
+      const { action, dungeonId } = params;
+      const chars = getStore('Character');
+      const charIdx = chars.findIndex(c => c.id === characterId);
+      if (charIdx === -1) return { data: { success: false, message: 'Character not found' } };
+      const char = chars[charIdx];
+
+      if (action === 'enter') {
+        const session = {
+          id: generateId(),
+          character_id: characterId,
+          dungeon_id: dungeonId || 'cave_of_shadows',
+          status: 'active',
+          floor: 1,
+          enemies_defeated: 0,
+          boss_hp: 500 + (char.level || 1) * 50,
+          boss_max_hp: 500 + (char.level || 1) * 50,
+          created_date: new Date().toISOString(),
+        };
+        const sessions = getStore('DungeonSession');
+        sessions.push(session);
+        setStore('DungeonSession', sessions);
+        return { data: { success: true, session } };
+      }
+
+      if (action === 'attack') {
+        const sessions = getStore('DungeonSession');
+        const sIdx = sessions.findIndex(s => s.character_id === characterId && s.status === 'active');
+        if (sIdx === -1) return { data: { success: false, message: 'No active dungeon' } };
+
+        const session = sessions[sIdx];
+        const playerDmg = (char.strength || 10) * (1 + Math.random() * 0.5);
+        const enemyDmg = Math.floor(10 + session.floor * 5 * Math.random());
+        session.boss_hp = Math.max(0, (session.boss_hp || 0) - Math.floor(playerDmg));
+
+        let result = { player_damage: Math.floor(playerDmg), enemy_damage: enemyDmg };
+
+        if (session.boss_hp <= 0) {
+          session.enemies_defeated = (session.enemies_defeated || 0) + 1;
+          session.floor = (session.floor || 1) + 1;
+          session.boss_hp = 500 + (char.level || 1) * 50 * session.floor;
+          session.boss_max_hp = session.boss_hp;
+          const goldReward = 50 * session.floor;
+          const expReward = 30 * session.floor;
+          chars[charIdx].gold = (char.gold || 0) + goldReward;
+          chars[charIdx].exp = (char.exp || 0) + expReward;
+          setStore('Character', chars);
+          result.floor_cleared = true;
+          result.rewards = { gold: goldReward, exp: expReward };
+          result.new_floor = session.floor;
+        }
+
+        setStore('DungeonSession', sessions);
+        return { data: { success: true, session, ...result } };
+      }
+
+      if (action === 'flee' || action === 'leave') {
+        const sessions = getStore('DungeonSession');
+        const sIdx = sessions.findIndex(s => s.character_id === characterId && s.status === 'active');
+        if (sIdx !== -1) {
+          sessions[sIdx].status = 'completed';
+          setStore('DungeonSession', sessions);
+        }
+        return { data: { success: true } };
+      }
+
       return { data: { success: true, result: params } };
+    }
+
+    case 'catchUpOfflineProgress': {
+      const chars = getStore('Character');
+      const charIdx = chars.findIndex(c => c.id === characterId);
+      if (charIdx === -1) return { data: { rewards: null, hours: 0 } };
+      const char = chars[charIdx];
+      const lastClaim = char.last_idle_claim ? new Date(char.last_idle_claim).getTime() : Date.now();
+      const offlineMs = Date.now() - lastClaim;
+      const offlineHours = Math.min(offlineMs / (1000 * 60 * 60), 8);
+      if (offlineHours < 0.1) return { data: { rewards: null, hours: 0 } };
+      const goldReward = Math.floor(offlineHours * (char.level || 1) * 50);
+      const expReward = Math.floor(offlineHours * (char.level || 1) * 20);
+      chars[charIdx].gold = (char.gold || 0) + goldReward;
+      chars[charIdx].exp = (char.exp || 0) + expReward;
+      chars[charIdx].last_idle_claim = new Date().toISOString();
+      setStore('Character', chars);
+      return { data: { rewards: { gold: goldReward, exp: expReward }, hours: Math.round(offlineHours * 10) / 10 } };
+    }
+
+    case 'processServerProgression': {
+      const chars = getStore('Character');
+      const charIdx = chars.findIndex(c => c.id === characterId);
+      if (charIdx === -1) return { data: { success: true } };
+      const char = chars[charIdx];
+      if (char.idle_mode) {
+        const goldGain = Math.floor((char.level || 1) * 5);
+        const expGain = Math.floor((char.level || 1) * 2);
+        chars[charIdx].gold = (char.gold || 0) + goldGain;
+        chars[charIdx].exp = (char.exp || 0) + expGain;
+        const expToNext = char.exp_to_next || (char.level || 1) * 100;
+        if (chars[charIdx].exp >= expToNext) {
+          chars[charIdx].level = (char.level || 1) + 1;
+          chars[charIdx].exp = chars[charIdx].exp - expToNext;
+          chars[charIdx].exp_to_next = chars[charIdx].level * 100;
+          chars[charIdx].stat_points = (char.stat_points || 0) + 3;
+        }
+        setStore('Character', chars);
+        return { data: { success: true, gold_gained: goldGain, exp_gained: expGain, character: chars[charIdx] } };
+      }
+      return { data: { success: true } };
+    }
+
+    case 'unifiedPlayerProgression': {
+      const chars = getStore('Character');
+      const charIdx = chars.findIndex(c => c.id === characterId);
+      if (charIdx === -1) return { data: { success: true } };
+      const char = chars[charIdx];
+      const expToNext = char.exp_to_next || (char.level || 1) * 100;
+      if ((char.exp || 0) >= expToNext) {
+        chars[charIdx].level = (char.level || 1) + 1;
+        chars[charIdx].exp = (char.exp || 0) - expToNext;
+        chars[charIdx].exp_to_next = chars[charIdx].level * 100;
+        chars[charIdx].stat_points = (char.stat_points || 0) + 3;
+        chars[charIdx].skill_points = (char.skill_points || 0) + 1;
+        setStore('Character', chars);
+        return { data: { success: true, leveled_up: true, new_level: chars[charIdx].level, character: chars[charIdx] } };
+      }
+      return { data: { success: true, leveled_up: false } };
     }
 
     case 'gameConfigManager': {
@@ -600,39 +1203,44 @@ async function handleFunction(functionName, params) {
   }
 }
 
+async function handleRemoteFunction(functionName, params) {
+  const result = await apiFetch(`/functions/${functionName}`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+  return { data: result.data || result };
+}
+
 export const base44 = {
-  auth: {
-    async me() {
-      let user = getLocalUser();
-      if (!user) {
-        user = {
-          id: 'local-player',
-          email: 'player@local',
-          name: 'Player',
-          role: 'admin',
-        };
-        localStorage.setItem('eb_local_user', JSON.stringify(user));
-      }
-      return user;
-    },
-
-    logout() {
-      localStorage.removeItem('eb_local_user');
-      window.location.reload();
-    },
-
-    redirectToLogin() {
-      window.location.reload();
-    },
-  },
-
   entities,
 
   functions: {
     async invoke(functionName, params = {}) {
-      return handleFunction(functionName, params);
+      if (getMode() === 'server') {
+        return handleRemoteFunction(functionName, params);
+      }
+      return handleLocalFunction(functionName, params);
     },
   },
+
+  auth: {
+    async me() {
+      if (getMode() === 'server') {
+        try {
+          const res = await apiFetch('/auth/me');
+          return res;
+        } catch {
+          return null;
+        }
+      }
+      return getLocalUser() || { id: 'local-player', email: 'player@local', name: 'Player', role: 'admin' };
+    },
+  },
+
+  getMode,
+  setMode,
+  getApiUrl,
+  setApiUrl,
 };
 
 export default base44;
