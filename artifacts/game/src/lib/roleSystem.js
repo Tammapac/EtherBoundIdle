@@ -5,7 +5,7 @@ export const ROLES = {
   player: { value: "player", label: "Player", title: null, color: "text-gray-400" },
   moderator: { value: "moderator", label: "Moderator", title: "Mod", color: "text-blue-400" },
   admin: { value: "admin", label: "Admin", title: "Admin", color: "text-red-500" },
-  superadmin: { value: "superadmin", label: "SuperAdmin", title: "SuperAdmin", color: "text-yellow-500" },
+  superadmin: { value: "superadmin", label: "SuperAdmin", title: "DEV", color: "text-yellow-400" },
 };
 
 const ROLE_HIERARCHY = {

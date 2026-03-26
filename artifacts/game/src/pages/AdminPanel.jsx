@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Users, Shield, AlertCircle, Check, X, ChevronRight, Backpack, Lock, Volume2, Trash2, Edit, Globe, RefreshCw } from "lucide-react";
+import { Users, Shield, AlertCircle, Check, X, ChevronRight, Backpack, Lock, Volume2, Trash2, Edit, Globe, RefreshCw, Swords, LogOut } from "lucide-react";
 import { ROLES } from "@/lib/roleSystem";
 import { useAuth } from "@/lib/AuthContext";
 import { supabaseSync } from "@/lib/supabaseSync";
@@ -21,6 +21,7 @@ export default function AdminPanel() {
   const [editStats, setEditStats] = useState(null);
   const [tempStats, setTempStats] = useState({});
   const [deleteConfirmChar, setDeleteConfirmChar] = useState(null);
+  const [deleteConfirmGuild, setDeleteConfirmGuild] = useState(null);
   const queryClient = useQueryClient();
 
   // Use auth user directly — no extra function call needed
@@ -69,6 +70,24 @@ export default function AdminPanel() {
         setSelectedCharacter(prev => prev ? { ...prev, ...response.data.data } : null);
       }
       queryClient.invalidateQueries({ queryKey: ["allCharacters"] });
+    },
+  });
+
+  const { data: allGuilds = [] } = useQuery({
+    queryKey: ["allGuilds"],
+    queryFn: async () => {
+      const res = await base44.entities.Guild.list();
+      return res || [];
+    },
+    enabled: isAdmin,
+  });
+
+  const deleteGuildMutation = useMutation({
+    mutationFn: (guildId) => base44.functions.invoke("managePlayer", { action: "delete_guild", guild_id: guildId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["allGuilds"] });
+      queryClient.invalidateQueries({ queryKey: ["allCharacters"] });
+      setDeleteConfirmGuild(null);
     },
   });
 
@@ -128,6 +147,7 @@ export default function AdminPanel() {
       <Tabs defaultValue="manage" className="w-full">
         <TabsList className="w-full justify-start">
           <TabsTrigger value="manage" className="gap-1.5"><Users className="w-3.5 h-3.5" /> Manage</TabsTrigger>
+          <TabsTrigger value="guilds" className="gap-1.5"><Swords className="w-3.5 h-3.5" /> Guilds ({allGuilds.length})</TabsTrigger>
           <TabsTrigger value="server-players" className="gap-1.5"><Globe className="w-3.5 h-3.5" /> Server Players ({serverPlayers.length})</TabsTrigger>
         </TabsList>
 
@@ -213,6 +233,85 @@ export default function AdminPanel() {
                 )}
               </div>
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="guilds" className="mt-4">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="p-4 border-b border-border flex items-center gap-3">
+              <Swords className="w-4 h-4 text-primary" />
+              <h2 className="font-semibold">All Guilds ({allGuilds.length})</h2>
+            </div>
+            {allGuilds.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">No guilds exist yet.</div>
+            ) : (
+              <div className="divide-y divide-border max-h-[600px] overflow-y-auto">
+                {allGuilds.map((guild) => {
+                  const members = allCharacters.filter(c => c.guild_id === guild.id);
+                  return (
+                    <div key={guild.id} className="p-4 hover:bg-muted/20 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="font-semibold">{guild.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Level {guild.level || 1} · {members.length} members · {guild.tokens || 0} tokens
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          {currentUser.role === 'superadmin' && (
+                            deleteConfirmGuild === guild.id ? (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="gap-1 h-7 text-xs"
+                                  onClick={() => deleteGuildMutation.mutate(guild.id)}
+                                  disabled={deleteGuildMutation.isPending}
+                                >
+                                  <Check className="w-3 h-3" /> Confirm
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setDeleteConfirmGuild(null)}>
+                                  <X className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="gap-1 h-7 text-xs"
+                                onClick={() => setDeleteConfirmGuild(guild.id)}
+                              >
+                                <Trash2 className="w-3 h-3" /> Delete
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                      {members.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {members.map(m => (
+                            <div key={m.id} className="flex items-center justify-between text-sm bg-muted/30 rounded-lg px-3 py-1.5">
+                              <span className="font-medium">{m.name} <span className="text-xs text-muted-foreground">Lv.{m.level}</span></span>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs gap-1 text-orange-400 hover:text-orange-300"
+                                  onClick={() => managePlayerMutation.mutate({ action: 'kick', target_character_id: m.id })}
+                                  disabled={managePlayerMutation.isPending}
+                                >
+                                  <LogOut className="w-3 h-3" /> Kick
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </TabsContent>
 

@@ -417,9 +417,9 @@ function buildSkillResponse(lifeSkills, skillType, charId) {
     cycle_duration: Math.round(cycleDuration * 10) / 10,
     xp_per_cycle: 15 + s.level * 2,
     speed_level: s.speed_level || 1,
-    luck_level: s.luck_level || 1,
+    xp_boost_level: s.xp_boost_level || s.luck_level || 1,
     speed_upgrade_cost: (s.speed_level || 1) * 50,
-    luck_upgrade_cost: (s.luck_level || 1) * 80,
+    xp_boost_upgrade_cost: (s.xp_boost_level || s.luck_level || 1) * 80,
     is_active: s.is_active || false,
   };
 }
@@ -461,16 +461,53 @@ async function handleLocalFunction(functionName, params) {
       return { data: { success: true } };
 
     case 'managePlayer': {
-      if (params.characterId && params.action) {
+      const targetId = params.target_character_id || params.characterId;
+      const action = params.action;
+      if (targetId && action) {
         const chars = getStore('Character');
-        const idx = chars.findIndex(c => c.id === params.characterId);
+        const idx = chars.findIndex(c => c.id === targetId);
         if (idx !== -1) {
-          if (params.action === 'ban') chars[idx].is_banned = true;
-          else if (params.action === 'unban') chars[idx].is_banned = false;
-          else if (params.action === 'mute') chars[idx].is_muted = true;
-          else if (params.action === 'unmute') chars[idx].is_muted = false;
+          if (action === 'ban') chars[idx].is_banned = true;
+          else if (action === 'unban') chars[idx].is_banned = false;
+          else if (action === 'mute') chars[idx].is_muted = true;
+          else if (action === 'unmute') chars[idx].is_muted = false;
+          else if (action === 'kick') {
+            chars[idx].guild_id = null;
+            chars[idx].guild_name = null;
+          }
+          else if (action === 'delete_from_leaderboard') chars[idx].deleted_from_leaderboard = true;
+          else if (action === 'restore_leaderboard') chars[idx].deleted_from_leaderboard = false;
+          else if (action === 'update_stats' && params.data) {
+            for (const [k, v] of Object.entries(params.data)) {
+              chars[idx][k] = v;
+            }
+          }
+          else if (action === 'delete') {
+            const deleted = chars.splice(idx, 1)[0];
+            setStore('Character', chars);
+            const items = getStore('Item').filter(i => i.owner_id !== targetId);
+            setStore('Item', items);
+            return { data: { success: true, deleted: true } };
+          }
           setStore('Character', chars);
-          return { data: chars[idx] };
+          return { data: { success: true, data: chars[idx] } };
+        }
+      }
+      if (action === 'delete_guild') {
+        const guildId = params.guild_id;
+        if (guildId) {
+          let guilds = getStore('Guild');
+          guilds = guilds.filter(g => g.id !== guildId);
+          setStore('Guild', guilds);
+          const chars = getStore('Character');
+          for (let i = 0; i < chars.length; i++) {
+            if (chars[i].guild_id === guildId) {
+              chars[i].guild_id = null;
+              chars[i].guild_name = null;
+            }
+          }
+          setStore('Character', chars);
+          return { data: { success: true, deleted: true } };
         }
       }
       return { data: { success: true } };
@@ -526,18 +563,37 @@ async function handleLocalFunction(functionName, params) {
       const itemIdx = items.findIndex(i => i.id === itemId);
       if (itemIdx === -1) return { data: { success: false, message: 'Item not found' } };
       const item = items[itemIdx];
-      const cost = ((item.upgrade_level || 0) + 1) * 100;
+      const currentUpgrade = item.upgrade_level || 0;
+      if (currentUpgrade >= 20) return { data: { success: false, message: 'Max upgrade level reached' } };
+      const rarityMults = { common: 1.0, uncommon: 1.3, rare: 1.7, epic: 2.2, legendary: 3.0, mythic: 4.0, set: 3.5, shiny: 5.0 };
+      const rMult = rarityMults[item.rarity] || 1.0;
+      const cost = Math.floor(300 * (currentUpgrade + 1) * rMult);
       const chars = getStore('Character');
       const charIdx = chars.findIndex(c => c.id === item.owner_id);
       if (charIdx === -1 || (chars[charIdx].gold || 0) < cost) {
         return { data: { success: false, message: 'Not enough gold' } };
       }
-      items[itemIdx].upgrade_level = (item.upgrade_level || 0) + 1;
+      items[itemIdx].upgrade_level = currentUpgrade + 1;
+      const newLevel = currentUpgrade + 1;
+      if (item.stats) {
+        const statBoost = 1 + newLevel * 0.05;
+        const prevBoost = 1 + currentUpgrade * 0.05;
+        const baseStats = {};
+        for (const [k, v] of Object.entries(item.stats)) {
+          if (v && v !== 0) {
+            const baseVal = Math.round(v / prevBoost);
+            baseStats[k] = Math.round(baseVal * statBoost);
+          } else {
+            baseStats[k] = v;
+          }
+        }
+        items[itemIdx].stats = baseStats;
+      }
       chars[charIdx].gold = (chars[charIdx].gold || 0) - cost;
       setStore('Item', items);
       setStore('Character', chars);
       notifySubscribers('Item', { type: 'update', id: itemId, data: items[itemIdx] });
-      return { data: { success: true, item: items[itemIdx], gold_spent: cost } };
+      return { data: { success: true, item: items[itemIdx], gold_spent: cost, message: `Upgraded to +${newLevel}` } };
     }
 
     case 'starUpgradeItem': {
@@ -546,24 +602,38 @@ async function handleLocalFunction(functionName, params) {
       const itemIdx = items.findIndex(i => i.id === itemId);
       if (itemIdx === -1) return { data: { success: false, message: 'Item not found' } };
       const item = items[itemIdx];
-      const cost = ((item.star_level || 0) + 1) * 200;
+      const currentStar = item.star_level || 0;
+      if (currentStar >= 7) return { data: { success: false, message: 'Max star level reached' } };
+      const rarityMults = { common: 1.0, uncommon: 1.3, rare: 1.7, epic: 2.2, legendary: 3.0, mythic: 4.0, set: 3.5, shiny: 5.0 };
+      const rMult = rarityMults[item.rarity] || 1.0;
+      const gemCost = Math.ceil(5 * Math.pow(1.5, currentStar) * rMult);
       const chars = getStore('Character');
       const charIdx = chars.findIndex(c => c.id === item.owner_id);
-      if (charIdx === -1 || (chars[charIdx].gold || 0) < cost) {
-        return { data: { success: false, message: 'Not enough gold' } };
+      if (charIdx === -1 || (chars[charIdx].gems || 0) < gemCost) {
+        return { data: { success: false, message: 'Not enough gems' } };
       }
-      chars[charIdx].gold = (chars[charIdx].gold || 0) - cost;
-      const successChance = Math.max(0.3, 1 - (item.star_level || 0) * 0.1);
+      chars[charIdx].gems = (chars[charIdx].gems || 0) - gemCost;
+      const STAR_SUCCESS = { 0: 0.90, 1: 0.75, 2: 0.50, 3: 0.35, 4: 0.12, 5: 0.08, 6: 0.02 };
+      const successChance = STAR_SUCCESS[currentStar] || 0.02;
       const success = Math.random() < successChance;
       if (success) {
-        items[itemIdx].star_level = (item.star_level || 0) + 1;
+        items[itemIdx].star_level = currentStar + 1;
+        if (item.stats) {
+          const starBoost = 1.15;
+          for (const [k, v] of Object.entries(items[itemIdx].stats)) {
+            if (v && v !== 0) items[itemIdx].stats[k] = Math.round(v * starBoost);
+          }
+        }
         setStore('Item', items);
         setStore('Character', chars);
         notifySubscribers('Item', { type: 'update', id: itemId, data: items[itemIdx] });
-        return { data: { success: true, item: items[itemIdx], gold_spent: cost } };
+        return { data: { success: true, item: items[itemIdx], gems_spent: gemCost, message: `Star upgraded to ⭐${currentStar + 1}! Stats boosted by 15%!` } };
       }
+      items.splice(itemIdx, 1);
+      setStore('Item', items);
       setStore('Character', chars);
-      return { data: { success: false, message: 'Star upgrade failed!', gold_spent: cost } };
+      notifySubscribers('Item', { type: 'delete', id: itemId });
+      return { data: { success: false, message: `Star upgrade failed! ${item.name} was destroyed!`, gems_spent: gemCost, itemDestroyed: true } };
     }
 
     case 'awakenItem': {
@@ -571,17 +641,25 @@ async function handleLocalFunction(functionName, params) {
       const items = getStore('Item');
       const itemIdx = items.findIndex(i => i.id === itemId);
       if (itemIdx === -1) return { data: { success: false, message: 'Item not found' } };
-      const cost = 1000;
+      const item = items[itemIdx];
+      if ((item.star_level || 0) < 7) return { data: { success: false, message: 'Requires ⭐7' } };
+      if (item.is_awakened) return { data: { success: false, message: 'Already awakened' } };
+      const gemCost = 50;
       const chars = getStore('Character');
-      const charIdx = chars.findIndex(c => c.id === (items[itemIdx].owner_id));
-      if (charIdx === -1 || (chars[charIdx].gems || 0) < cost) {
+      const charIdx = chars.findIndex(c => c.id === item.owner_id);
+      if (charIdx === -1 || (chars[charIdx].gems || 0) < gemCost) {
         return { data: { success: false, message: 'Not enough gems' } };
       }
-      items[itemIdx].awakened = true;
-      chars[charIdx].gems = (chars[charIdx].gems || 0) - cost;
+      items[itemIdx].is_awakened = true;
+      if (item.stats) {
+        for (const [k, v] of Object.entries(items[itemIdx].stats)) {
+          if (v && v !== 0) items[itemIdx].stats[k] = Math.round(v * 1.5);
+        }
+      }
+      chars[charIdx].gems = (chars[charIdx].gems || 0) - gemCost;
       setStore('Item', items);
       setStore('Character', chars);
-      return { data: { success: true, item: items[itemIdx], gems_spent: cost } };
+      return { data: { success: true, item: items[itemIdx], gems_spent: gemCost, message: 'Item awakened! Stats boosted by 50%!' } };
     }
 
     case 'getShopRotation': {
@@ -866,7 +944,9 @@ async function handleLocalFunction(functionName, params) {
           }
         }
 
-        const xpGain = 15 + skill.level * 2;
+        const xpBoostLevel = skill.xp_boost_level || skill.luck_level || 1;
+        const xpBoostMult = 1 + (xpBoostLevel - 1) * 0.10;
+        const xpGain = Math.floor((15 + skill.level * 2) * xpBoostMult);
         skill.exp = (skill.exp || 0) + xpGain;
         const expToNext = skill.level * 100;
         let leveledUp = false;
@@ -914,17 +994,20 @@ async function handleLocalFunction(functionName, params) {
           return { data: { success: true, gold_spent: cost, new_speed_level: skill.speed_level } };
         }
 
-        if (upgradeType === 'luck') {
-          if ((skill.luck_level || 1) >= 10) return { data: { success: false, message: 'Max luck level' } };
-          const cost = (skill.luck_level || 1) * 80;
+        if (upgradeType === 'luck' || upgradeType === 'xp_boost') {
+          const lvlKey = 'xp_boost_level';
+          const currentLvl = skill[lvlKey] || skill.luck_level || 1;
+          if (currentLvl >= 10) return { data: { success: false, message: 'Max XP boost level' } };
+          const cost = currentLvl * 80;
           if ((char.gold || 0) < cost) return { data: { success: false, message: 'Not enough gold' } };
-          skill.luck_level = (skill.luck_level || 1) + 1;
+          skill[lvlKey] = currentLvl + 1;
+          if (skill.luck_level) delete skill.luck_level;
           chars[charIdx].gold = (char.gold || 0) - cost;
           lifeSkills[skillType] = skill;
           chars[charIdx].life_skills = lifeSkills;
           setStore('Character', chars);
           notifySubscribers('Character', { type: 'update', id: charId, data: chars[charIdx] });
-          return { data: { success: true, gold_spent: cost, new_luck_level: skill.luck_level } };
+          return { data: { success: true, gold_spent: cost, new_xp_boost_level: skill[lvlKey] } };
         }
 
         return { data: { success: false, message: 'Unknown upgrade type' } };
@@ -1003,22 +1086,27 @@ async function handleLocalFunction(functionName, params) {
       const prodMult = 1 + (lab.production_level || 0) * 0.05;
       const speedMult = 1 + (lab.speed_level || 0) * 0.02;
       const effMult = 1 + (lab.efficiency_level || 0) * 0.03;
-      const gemsPerMinute = BASE_PRODUCTION * prodMult * effMult * speedMult;
+      const gemsPerCycle = BASE_PRODUCTION * prodMult * effMult;
+      const cycleSeconds = (10 / speedMult) * 60;
 
       const now = Date.now();
       const lastProcess = lab.last_collection_time ? new Date(lab.last_collection_time).getTime() : now;
-      const elapsedMin = Math.min((now - lastProcess) / 60000, 480);
-      const gemsGenerated = gemsPerMinute * elapsedMin;
+      const elapsedSeconds = Math.min((now - lastProcess) / 1000, 480 * 60);
+      const completedCycles = Math.floor(elapsedSeconds / cycleSeconds);
+      const gemsGenerated = gemsPerCycle * completedCycles;
 
       const labIdx = labs.findIndex(l => l.id === lab.id);
-      labs[labIdx].pending_gems = (labs[labIdx].pending_gems || 0) + gemsGenerated;
-      labs[labIdx].total_gems_generated = (labs[labIdx].total_gems_generated || 0) + gemsGenerated;
-      labs[labIdx].last_collection_time = new Date().toISOString();
+      if (completedCycles > 0) {
+        labs[labIdx].pending_gems = (labs[labIdx].pending_gems || 0) + gemsGenerated;
+        labs[labIdx].total_gems_generated = (labs[labIdx].total_gems_generated || 0) + gemsGenerated;
+        const advanceMs = completedCycles * cycleSeconds * 1000;
+        labs[labIdx].last_collection_time = new Date(lastProcess + advanceMs).toISOString();
+      }
       setStore('GemLab', labs);
       if (supabaseSync.isEnabled()) {
         supabaseSync.syncGemLab(labs[labIdx]).catch(() => {});
       }
-      return { data: { success: true, gemsGenerated, offlineHours: (elapsedMin / 60).toFixed(1) } };
+      return { data: { success: true, gemsGenerated, gemsPerCycle, cycleSeconds, offlineHours: (elapsedSeconds / 3600).toFixed(1) } };
     }
 
     case 'claimGemLabGems': {

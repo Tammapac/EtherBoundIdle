@@ -27,9 +27,9 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
   const xpPerCycle = skill.xp_per_cycle   || 15;
   const expToNext  = skill.exp_to_next    || 100;
   const speedLvl   = skill.speed_level    || 1;
-  const luckLvl    = skill.luck_level     || 1;
+  const xpBoostLvl = skill.xp_boost_level || skill.luck_level || 1;
   const speedCost  = skill.speed_upgrade_cost || 50;
-  const luckCost   = skill.luck_upgrade_cost  || 80;
+  const xpBoostCost = skill.xp_boost_upgrade_cost || skill.luck_upgrade_cost || 80;
 
   // Sync from server whenever skill data refreshes
   useEffect(() => {
@@ -206,15 +206,15 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
               <div className="flex items-center justify-between bg-muted/40 rounded-lg p-2">
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm">🍀</span>
-                    <span className="text-xs font-semibold">Luck Lv.{luckLvl}</span>
-                    {luckLvl >= 10 && <span className="text-xs text-accent">MAX</span>}
+                    <span className="text-sm">📈</span>
+                    <span className="text-xs font-semibold">XP Boost Lv.{xpBoostLvl}</span>
+                    {xpBoostLvl >= 10 && <span className="text-xs text-accent">MAX</span>}
                   </div>
-                  <p className="text-xs text-muted-foreground">+15% rare drop chance</p>
+                  <p className="text-xs text-muted-foreground">+10% XP gain per level</p>
                 </div>
-                <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" disabled={loading || luckLvl >= 10} onClick={() => onUpgrade(skill.skill_type, 'luck')}>
+                <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" disabled={loading || xpBoostLvl >= 10} onClick={() => onUpgrade(skill.skill_type, 'xp_boost')}>
                   <Coins className="w-3 h-3" />
-                  {luckLvl < 10 ? luckCost.toLocaleString() : "MAX"}
+                  {xpBoostLvl < 10 ? xpBoostCost.toLocaleString() : "MAX"}
                 </Button>
               </div>
             </div>

@@ -49,6 +49,9 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
           description: data.message,
           duration: 2000
         });
+        if (data.gold_spent && character) {
+          character.gold = (character.gold || 0) - data.gold_spent;
+        }
         queryClient.invalidateQueries({ queryKey: ["items"] });
         queryClient.invalidateQueries({ queryKey: ["characters"] });
         setTimeout(onClose, 500);
@@ -78,10 +81,16 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
       } else {
         toast({
           title: `💀 DESTROYED!`,
-          description: data.message,
+          description: data.message || 'Item was destroyed!',
           variant: "destructive",
-          duration: 3000
+          duration: 4000
         });
+      }
+      if (data.gems_spent) {
+        const newGems = (character.gems || 0) - data.gems_spent;
+        if (character && newGems >= 0) {
+          character.gems = newGems;
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
@@ -224,16 +233,18 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
                    </div>
                    {item.stats && Object.entries(item.stats).filter(([, v]) => v && v !== 0).length > 0 && (
                      <div className="border-t border-border pt-2 mt-2 space-y-1">
-                       <p className="text-xs text-muted-foreground font-semibold">Stat increase (+1% flat):</p>
+                       <p className="text-xs text-muted-foreground font-semibold">Stat increase (+5% per level):</p>
                        {Object.entries(item.stats)
                          .filter(([, value]) => value && value !== 0)
                          .map(([stat, value]) => {
-                           const nextVal = Math.round(value * (1 + (currentUpgrade + 1) * 0.01));
-                           const curVal = Math.round(value * (1 + currentUpgrade * 0.01));
+                           const prevBoost = 1 + currentUpgrade * 0.05;
+                           const nextBoost = 1 + (currentUpgrade + 1) * 0.05;
+                           const baseVal = Math.round(value / prevBoost);
+                           const nextVal = Math.round(baseVal * nextBoost);
                            return (
                              <div key={stat} className="flex justify-between text-xs">
                                <span className="capitalize text-muted-foreground">{stat.replace(/_/g, ' ')}:</span>
-                               <span className="text-green-400 font-semibold">{curVal} → {nextVal}</span>
+                               <span className="text-green-400 font-semibold">{value} → {nextVal}</span>
                              </div>
                            );
                          })}
@@ -288,13 +299,13 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
                    </div>
                    {item.stats && Object.entries(item.stats).filter(([, v]) => v && v !== 0).length > 0 && (
                      <div className="border-t border-border pt-2 mt-2 space-y-1">
-                       <p className="text-xs text-muted-foreground font-semibold">Stat Boost (+5%):</p>
+                       <p className="text-xs text-muted-foreground font-semibold">Stat Boost (+15% per star):</p>
                        {Object.entries(item.stats)
                          .filter(([, value]) => value && value !== 0)
                          .map(([stat, value]) => (
                            <div key={stat} className="flex justify-between text-xs">
                              <span className="capitalize text-muted-foreground">{stat.replace(/_/g, ' ')}:</span>
-                             <span className="text-yellow-400 font-semibold">{Math.round(value)} → {Math.round(value * 1.05)}</span>
+                             <span className="text-yellow-400 font-semibold">{Math.round(value)} → {Math.round(value * 1.15)}</span>
                            </div>
                          ))}
                      </div>

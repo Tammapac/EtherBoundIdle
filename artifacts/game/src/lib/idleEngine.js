@@ -4,7 +4,7 @@ import { supabaseSync } from '@/lib/supabaseSync';
 const TICK_INTERVALS = {
   fight: 4000,
   lifeSkills: 20000,
-  gemLab: 60000,
+  gemLab: 30000,
   shopRotation: 60000,
   guildBoss: 30000,
   save: 15000,
@@ -140,10 +140,12 @@ async function gemLabTick() {
     if (result?.success) {
       emit('gemLabTick', {
         gemsGenerated: result.gemsGenerated,
+        gemsPerCycle: result.gemsPerCycle,
+        cycleSeconds: result.cycleSeconds,
         offlineHours: result.offlineHours,
       });
 
-      if (supabaseSync.isEnabled()) {
+      if (result.gemsGenerated > 0 && supabaseSync.isEnabled()) {
         supabaseSync.storeTimestamp(_characterId, 'gem_lab_last_collection', Date.now()).catch(() => {});
       }
     }
