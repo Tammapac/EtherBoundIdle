@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { ENEMIES, calculateExpToLevel } from "../lib/gameData";
+import { ENEMIES, calculateExpToLevel, generateLoot, RARITY_SELL_PRICES, RARITY_MULTIPLIER } from "../lib/gameData";
 import { db } from "@workspace/db";
 import {
   charactersTable,
@@ -20,6 +20,7 @@ import {
   dungeonSessionsTable,
   chatMessagesTable,
   presencesTable,
+  gemLabsTable,
 } from "@workspace/db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 
@@ -268,18 +269,70 @@ router.post("/functions/updateUserRole", async (req: Request, res: Response) => 
 router.post("/functions/managePlayer", async (req: Request, res: Response) => {
   if (!(await requireAdmin(req, res))) return;
   try {
-    const { characterId, action, ...rest } = req.body;
-    if (characterId) {
+    const { characterId, action, guildId, stats, ...rest } = req.body;
+
+    if (action === "ban" && characterId) {
+      const [updated] = await db.update(charactersTable).set({ isBanned: true }).where(eq(charactersTable.id, characterId)).returning();
+      res.json({ data: updated ? toClientCharacter(updated) : null }); return;
+    }
+    if (action === "unban" && characterId) {
+      const [updated] = await db.update(charactersTable).set({ isBanned: false }).where(eq(charactersTable.id, characterId)).returning();
+      res.json({ data: updated ? toClientCharacter(updated) : null }); return;
+    }
+    if (action === "mute" && characterId) {
+      const [updated] = await db.update(charactersTable).set({ isMuted: true }).where(eq(charactersTable.id, characterId)).returning();
+      res.json({ data: updated ? toClientCharacter(updated) : null }); return;
+    }
+    if (action === "unmute" && characterId) {
+      const [updated] = await db.update(charactersTable).set({ isMuted: false }).where(eq(charactersTable.id, characterId)).returning();
+      res.json({ data: updated ? toClientCharacter(updated) : null }); return;
+    }
+    if (action === "kick" && characterId) {
+      const [updated] = await db.update(charactersTable).set({ guildId: null }).where(eq(charactersTable.id, characterId)).returning();
+      res.json({ data: updated ? toClientCharacter(updated) : null }); return;
+    }
+    if (action === "delete" && characterId) {
+      await db.delete(itemsTable).where(eq(itemsTable.ownerId, characterId));
+      await db.delete(questsTable).where(eq(questsTable.characterId, characterId));
+      await db.delete(resourcesTable).where(eq(resourcesTable.characterId, characterId));
+      await db.delete(gemLabsTable).where(eq(gemLabsTable.characterId, characterId));
+      await db.delete(charactersTable).where(eq(charactersTable.id, characterId));
+      res.json({ data: { success: true, deleted: characterId } }); return;
+    }
+    if (action === "update_stats" && characterId && stats) {
+      const allowedFields: Record<string, string> = {
+        level: "level", gold: "gold", gems: "gems", stat_points: "statPoints",
+        skill_points: "skillPoints", prestige_level: "prestigeLevel",
+        strength: "strength", dexterity: "dexterity", intelligence: "intelligence",
+        vitality: "vitality", luck: "luck", total_kills: "totalKills",
+      };
       const updateData: Record<string, any> = {};
-      if (action === "ban") updateData.isBanned = true;
-      else if (action === "unban") updateData.isBanned = false;
-      else if (action === "mute") updateData.isMuted = true;
-      else if (action === "unmute") updateData.isMuted = false;
-      else Object.assign(updateData, rest);
+      for (const [key, val] of Object.entries(stats)) {
+        const dbField = allowedFields[key];
+        if (dbField && typeof val === "number") updateData[dbField] = val;
+      }
       if (Object.keys(updateData).length > 0) {
         const [updated] = await db.update(charactersTable).set(updateData).where(eq(charactersTable.id, characterId)).returning();
-        res.json({ data: updated ? toClientCharacter(updated) : null });
-        return;
+        res.json({ data: updated ? toClientCharacter(updated) : null }); return;
+      }
+      res.json({ data: { success: false, message: "No valid stats to update" } }); return;
+    }
+    if (action === "delete_guild" && guildId) {
+      await db.update(charactersTable).set({ guildId: null }).where(eq(charactersTable.guildId, guildId));
+      await db.delete(guildsTable).where(eq(guildsTable.id, guildId));
+      res.json({ data: { success: true, deletedGuild: guildId } }); return;
+    }
+    if (action === "leaderboard") {
+      const chars = await db.select().from(charactersTable).orderBy(desc(charactersTable.level)).limit(100);
+      res.json({ data: chars.map((c, i) => ({ rank: i + 1, ...toClientCharacter(c) })) }); return;
+    }
+
+    if (characterId) {
+      const updateData: Record<string, any> = {};
+      Object.assign(updateData, rest);
+      if (Object.keys(updateData).length > 0) {
+        const [updated] = await db.update(charactersTable).set(updateData).where(eq(charactersTable.id, characterId)).returning();
+        res.json({ data: updated ? toClientCharacter(updated) : null }); return;
       }
     }
     res.json({ data: { success: true } });
@@ -331,10 +384,8 @@ router.post("/functions/sellItem", async (req: Request, res: Response) => {
     const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, itemId));
     if (!item) { res.status(404).json({ error: "Item not found" }); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { res.status(403).json({ error: "Not your item" }); return; }
-    const rarityMultiplier: Record<string, number> = {
-      common: 1, uncommon: 2, rare: 5, epic: 10, legendary: 25, mythic: 50, shiny: 100,
-    };
-    const goldValue = (item.level || 1) * 10 * (rarityMultiplier[item.rarity] || 1);
+    const extraData = (item.extraData as any) || {};
+    const goldValue = extraData.sell_price || Math.floor((RARITY_SELL_PRICES[item.rarity] || 10) * (1 + (item.level || 1) * 0.08));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (char) {
       await db.update(charactersTable).set({ gold: (char.gold || 0) + goldValue }).where(eq(charactersTable.id, char.id));
@@ -354,14 +405,22 @@ router.post("/functions/upgradeItemSafe", async (req: Request, res: Response) =>
     const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, itemId));
     if (!item) { res.status(404).json({ error: "Item not found" }); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { res.status(403).json({ error: "Not your item" }); return; }
-    const cost = (item.upgradeLevel + 1) * 100;
+    const currentUpgrade = item.upgradeLevel || 0;
+    if (currentUpgrade >= 20) { res.json({ data: { success: false, message: "Already at max upgrade level (20)" } }); return; }
+    const rarityMult: Record<string, number> = { common: 1, uncommon: 1.2, rare: 1.5, epic: 2, legendary: 2.8, mythic: 4, set: 3.2, shiny: 6 };
+    const cost = Math.floor(300 * (currentUpgrade + 1) * (rarityMult[item.rarity] || 1));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gold || 0) < cost) {
       res.json({ data: { success: false, message: "Not enough gold" } }); return;
     }
-    const newLevel = (item.upgradeLevel || 0) + 1;
-    const [updated] = await db.update(itemsTable).set({ upgradeLevel: newLevel }).where(eq(itemsTable.id, itemId)).returning();
-    await db.update(charactersTable).set({ gold: char.gold - cost }).where(eq(charactersTable.id, char.id));
+    const newLevel = currentUpgrade + 1;
+    const itemStats = (item.stats as Record<string, number>) || {};
+    const boostedStats: Record<string, number> = {};
+    for (const [stat, val] of Object.entries(itemStats)) {
+      boostedStats[stat] = Math.round(val * 1.05);
+    }
+    const [updated] = await db.update(itemsTable).set({ upgradeLevel: newLevel, stats: boostedStats }).where(eq(itemsTable.id, itemId)).returning();
+    await db.update(charactersTable).set({ gold: (char.gold || 0) - cost }).where(eq(charactersTable.id, char.id));
     res.json({ data: { success: true, item: updated, gold_spent: cost } });
   } catch (err: any) {
     req.log.error({ err }, "upgradeItemSafe error");
@@ -376,20 +435,28 @@ router.post("/functions/starUpgradeItem", async (req: Request, res: Response) =>
     const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, itemId));
     if (!item) { res.status(404).json({ error: "Item not found" }); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { res.status(403).json({ error: "Not your item" }); return; }
-    const cost = ((item.starLevel || 0) + 1) * 200;
+    const currentStar = item.starLevel || 0;
+    if (currentStar >= 7) { res.json({ data: { success: false, message: "Already at max star level (7)" } }); return; }
+    const rarityMult: Record<string, number> = { common: 1, uncommon: 1.2, rare: 1.5, epic: 2, legendary: 2.8, mythic: 4, set: 3.2, shiny: 6 };
+    const cost = Math.ceil(5 * Math.pow(1.5, currentStar) * (rarityMult[item.rarity] || 1));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
-    if (!char || (char.gold || 0) < cost) {
-      res.json({ data: { success: false, message: "Not enough gold" } }); return;
+    if (!char || (char.gems || 0) < cost) {
+      res.json({ data: { success: false, message: `Not enough gems (need ${cost})` } }); return;
     }
-    const successChance = Math.max(0.3, 1 - (item.starLevel || 0) * 0.1);
+    const successChance = Math.max(0.3, 1 - currentStar * 0.1);
     const success = Math.random() < successChance;
+    await db.update(charactersTable).set({ gems: (char.gems || 0) - cost }).where(eq(charactersTable.id, char.id));
     if (success) {
-      const [updated] = await db.update(itemsTable).set({ starLevel: (item.starLevel || 0) + 1 }).where(eq(itemsTable.id, itemId)).returning();
-      await db.update(charactersTable).set({ gold: char.gold - cost }).where(eq(charactersTable.id, char.id));
-      res.json({ data: { success: true, item: updated, gold_spent: cost } });
+      const itemStats = (item.stats as Record<string, number>) || {};
+      const boostedStats: Record<string, number> = {};
+      for (const [stat, val] of Object.entries(itemStats)) {
+        boostedStats[stat] = Math.round(val * 1.15);
+      }
+      const [updated] = await db.update(itemsTable).set({ starLevel: currentStar + 1, stats: boostedStats }).where(eq(itemsTable.id, itemId)).returning();
+      res.json({ data: { success: true, item: updated, gems_spent: cost } });
     } else {
-      await db.update(charactersTable).set({ gold: char.gold - cost }).where(eq(charactersTable.id, char.id));
-      res.json({ data: { success: false, message: "Star upgrade failed!", gold_spent: cost } });
+      await db.delete(itemsTable).where(eq(itemsTable.id, itemId));
+      res.json({ data: { success: false, message: "Star upgrade failed! Item destroyed.", gems_spent: cost, itemDestroyed: true } });
     }
   } catch (err: any) {
     req.log.error({ err }, "starUpgradeItem error");
@@ -404,12 +471,19 @@ router.post("/functions/awakenItem", async (req: Request, res: Response) => {
     const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, itemId));
     if (!item) { res.status(404).json({ error: "Item not found" }); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { res.status(403).json({ error: "Not your item" }); return; }
-    const cost = 1000;
+    if (item.awakened) { res.json({ data: { success: false, message: "Item already awakened" } }); return; }
+    if ((item.starLevel || 0) < 7) { res.json({ data: { success: false, message: "Item must be Star 7 to awaken" } }); return; }
+    const cost = 50;
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gems || 0) < cost) {
-      res.json({ data: { success: false, message: "Not enough gems" } }); return;
+      res.json({ data: { success: false, message: `Not enough gems (need ${cost})` } }); return;
     }
-    const [updated] = await db.update(itemsTable).set({ awakened: true }).where(eq(itemsTable.id, itemId)).returning();
+    const itemStats = (item.stats as Record<string, number>) || {};
+    const awakenedStats: Record<string, number> = {};
+    for (const [stat, val] of Object.entries(itemStats)) {
+      awakenedStats[stat] = Math.round(val * 1.5);
+    }
+    const [updated] = await db.update(itemsTable).set({ awakened: true, stats: awakenedStats }).where(eq(itemsTable.id, itemId)).returning();
     await db.update(charactersTable).set({ gems: (char.gems || 0) - cost }).where(eq(charactersTable.id, char.id));
     res.json({ data: { success: true, item: updated, gems_spent: cost } });
   } catch (err: any) {
@@ -719,13 +793,42 @@ router.post("/functions/processGemLab", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
     const { characterId } = req.body;
-    const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
-    if (!char) { res.status(404).json({ error: "Character not found" }); return; }
-    const gemLab = (char.gemLab as any) || { level: 1, gems_stored: 0 };
-    const gemsGenerated = gemLab.level || 1;
-    gemLab.gems_stored = (gemLab.gems_stored || 0) + gemsGenerated;
-    await db.update(charactersTable).set({ gemLab }).where(eq(charactersTable.id, characterId));
-    res.json({ data: { gem_lab: gemLab, gems_generated: gemsGenerated } });
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
+    let [lab] = await db.select().from(gemLabsTable).where(eq(gemLabsTable.characterId, characterId));
+    if (!lab) {
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const legacy = (char?.gemLab as any) || {};
+      [lab] = await db.insert(gemLabsTable).values({
+        characterId,
+        data: {
+          production_level: legacy?.level ? Math.max(0, legacy.level - 1) : 0,
+          speed_level: 0, efficiency_level: 0,
+          pending_gems: legacy?.gems_stored || 0,
+          total_gems_generated: legacy?.gems_stored || 0,
+          last_collection_time: new Date().toISOString(),
+        },
+      }).returning();
+    }
+    const labData = (lab.data as any) || {};
+    const BASE_PRODUCTION = 0.001;
+    const prodMult = 1 + (labData.production_level || 0) * 0.05;
+    const speedMult = 1 + (labData.speed_level || 0) * 0.02;
+    const effMult = 1 + (labData.efficiency_level || 0) * 0.03;
+    const gemsPerCycle = BASE_PRODUCTION * prodMult * effMult;
+    const cycleSeconds = (10 / speedMult) * 60;
+    const now = Date.now();
+    const lastProcess = labData.last_collection_time ? new Date(labData.last_collection_time).getTime() : now;
+    const elapsedSeconds = Math.min((now - lastProcess) / 1000, 480 * 60);
+    const completedCycles = Math.floor(elapsedSeconds / cycleSeconds);
+    const gemsGenerated = gemsPerCycle * completedCycles;
+    if (completedCycles > 0) {
+      labData.pending_gems = (labData.pending_gems || 0) + gemsGenerated;
+      labData.total_gems_generated = (labData.total_gems_generated || 0) + gemsGenerated;
+      const advanceMs = completedCycles * cycleSeconds * 1000;
+      labData.last_collection_time = new Date(lastProcess + advanceMs).toISOString();
+      await db.update(gemLabsTable).set({ data: labData }).where(eq(gemLabsTable.id, lab.id));
+    }
+    res.json({ data: { success: true, gemsGenerated, gemsPerCycle, cycleSeconds, offlineHours: (elapsedSeconds / 3600).toFixed(1) } });
   } catch (err: any) {
     req.log.error({ err }, "processGemLab error");
     res.status(500).json({ error: err.message });
@@ -736,13 +839,19 @@ router.post("/functions/claimGemLabGems", async (req: Request, res: Response) =>
   if (!requireAuth(req, res)) return;
   try {
     const { characterId } = req.body;
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
+    const [lab] = await db.select().from(gemLabsTable).where(eq(gemLabsTable.characterId, characterId));
+    if (!lab) { res.json({ data: { success: false, claimedGems: 0, newTotal: 0 } }); return; }
+    const labData = (lab.data as any) || {};
+    const gemsToAdd = Math.floor(labData.pending_gems || 0);
+    if (gemsToAdd <= 0) { res.json({ data: { success: false, claimedGems: 0, newTotal: 0 } }); return; }
+    labData.pending_gems = 0;
+    labData.last_collection_time = new Date().toISOString();
+    await db.update(gemLabsTable).set({ data: labData }).where(eq(gemLabsTable.id, lab.id));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
-    if (!char) { res.status(404).json({ error: "Character not found" }); return; }
-    const gemLab = (char.gemLab as any) || { level: 1, gems_stored: 0 };
-    const gemsToAdd = gemLab.gems_stored || 0;
-    gemLab.gems_stored = 0;
-    await db.update(charactersTable).set({ gemLab, gems: (char.gems || 0) + gemsToAdd }).where(eq(charactersTable.id, characterId));
-    res.json({ data: { gems_claimed: gemsToAdd, gem_lab: gemLab } });
+    const newTotal = (char?.gems || 0) + gemsToAdd;
+    await db.update(charactersTable).set({ gems: newTotal }).where(eq(charactersTable.id, characterId));
+    res.json({ data: { success: true, claimedGems: gemsToAdd, newTotal } });
   } catch (err: any) {
     req.log.error({ err }, "claimGemLabGems error");
     res.status(500).json({ error: err.message });
@@ -752,17 +861,27 @@ router.post("/functions/claimGemLabGems", async (req: Request, res: Response) =>
 router.post("/functions/upgradeGemLab", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
-    const { characterId } = req.body;
-    const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
-    if (!char) { res.status(404).json({ error: "Character not found" }); return; }
-    const gemLab = (char.gemLab as any) || { level: 1, gems_stored: 0 };
-    const cost = gemLab.level * 500;
-    if ((char.gold || 0) < cost) {
-      res.json({ data: { success: false, message: "Not enough gold" } }); return;
+    const { characterId, upgradeType } = req.body;
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
+    let [lab] = await db.select().from(gemLabsTable).where(eq(gemLabsTable.characterId, characterId));
+    if (!lab) {
+      [lab] = await db.insert(gemLabsTable).values({
+        characterId,
+        data: { production_level: 0, speed_level: 0, efficiency_level: 0, pending_gems: 0, total_gems_generated: 0, last_collection_time: new Date().toISOString() },
+      }).returning();
     }
-    gemLab.level = (gemLab.level || 1) + 1;
-    await db.update(charactersTable).set({ gemLab, gold: (char.gold || 0) - cost }).where(eq(charactersTable.id, characterId));
-    res.json({ data: { success: true, gem_lab: gemLab, gold_spent: cost } });
+    const labData = (lab.data as any) || {};
+    const levelKey = upgradeType === "production" ? "production_level" : upgradeType === "speed" ? "speed_level" : "efficiency_level";
+    const currentLevel = labData[levelKey] || 0;
+    const cost = Math.floor(1000 * Math.pow(1.15, currentLevel));
+    const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+    if (!char || (char.gold || 0) < cost) {
+      res.json({ data: { success: false, error: "Not enough gold" } }); return;
+    }
+    labData[levelKey] = currentLevel + 1;
+    await db.update(gemLabsTable).set({ data: labData }).where(eq(gemLabsTable.id, lab.id));
+    await db.update(charactersTable).set({ gold: (char.gold || 0) - cost }).where(eq(charactersTable.id, char.id));
+    res.json({ data: { success: true, upgradeType, goldRemaining: (char.gold || 0) - cost } });
   } catch (err: any) {
     req.log.error({ err }, "upgradeGemLab error");
     res.status(500).json({ error: err.message });
@@ -834,6 +953,7 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
     const { characterId, action, partyId, targetCharacterId, targetName, inviteId } = req.body;
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
 
     if (action === "create") {
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
@@ -871,20 +991,29 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
     if (action === "accept" && inviteId) {
       const [inv] = await db.select().from(partyInvitesTable).where(eq(partyInvitesTable.id, inviteId));
       if (!inv || inv.status !== "pending") { res.json({ data: { success: false, message: "Invite not found or expired" } }); return; }
-      await db.update(partyInvitesTable).set({ status: "accepted" }).where(eq(partyInvitesTable.id, inviteId));
+      if (inv.toCharacterId !== characterId) { res.json({ data: { success: false, message: "This invite is not for you" } }); return; }
       const [party] = await db.select().from(partiesTable).where(eq(partiesTable.id, inv.partyId));
       if (!party) { res.json({ data: { success: false, message: "Party no longer exists" } }); return; }
       const members = (party.members as any[]) || [];
-      if (members.length >= (party.maxMembers || 6)) { res.json({ data: { success: false, message: "Party is full" } }); return; }
-      if (members.some((m: any) => m.character_id === characterId)) { res.json({ data: { success: true, message: "Already in party" } }); return; }
+      if (members.length >= (party.maxMembers || 6)) {
+        await db.update(partyInvitesTable).set({ status: "expired" }).where(eq(partyInvitesTable.id, inviteId));
+        res.json({ data: { success: false, message: "Party is full" } }); return;
+      }
+      if (members.some((m: any) => m.character_id === characterId)) {
+        await db.update(partyInvitesTable).set({ status: "accepted" }).where(eq(partyInvitesTable.id, inviteId));
+        res.json({ data: { success: true, message: "Already in party" } }); return;
+      }
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       members.push({ character_id: characterId, name: char?.name || "Unknown", class: char?.class, level: char?.level });
       await db.update(partiesTable).set({ members }).where(eq(partiesTable.id, inv.partyId));
+      await db.update(partyInvitesTable).set({ status: "accepted" }).where(eq(partyInvitesTable.id, inviteId));
       res.json({ data: { success: true } });
       return;
     }
 
     if (action === "decline" && inviteId) {
+      const [inv] = await db.select().from(partyInvitesTable).where(eq(partyInvitesTable.id, inviteId));
+      if (inv && inv.toCharacterId !== characterId) { res.json({ data: { success: false, message: "This invite is not for you" } }); return; }
       await db.update(partyInvitesTable).set({ status: "declined" }).where(eq(partyInvitesTable.id, inviteId));
       res.json({ data: { success: true } });
       return;
@@ -911,7 +1040,12 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
         if (members.length === 0) {
           await db.update(partiesTable).set({ status: "disbanded", members: [] }).where(eq(partiesTable.id, partyId));
         } else {
-          await db.update(partiesTable).set({ members }).where(eq(partiesTable.id, partyId));
+          const updateData: any = { members };
+          if (party.leaderId === characterId) {
+            updateData.leaderId = members[0].character_id;
+            updateData.leaderName = members[0].name;
+          }
+          await db.update(partiesTable).set(updateData).where(eq(partiesTable.id, partyId));
         }
       }
       res.json({ data: { success: true } });
@@ -1240,6 +1374,10 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
     if (!char) { res.status(404).json({ error: "Character not found" }); return; }
 
+    const serverIsBoss = !!enemyData.isBoss;
+    const serverIsElite = !!enemyData.isElite;
+    const serverRegionKey = char.currentRegion || regionKey || null;
+
     const empoweredMult = isEmpowered ? 3 : 1;
     const partyMembers = Math.max(0, (partySize || 1) - 1);
     const partyExpBonus = partyMembers * 0.05;
@@ -1281,6 +1419,39 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       maxMp: newMaxMp,
     }).where(eq(charactersTable.id, characterId)).returning();
 
+    let lootItem = null;
+    try {
+      const charLuck = char.luck || 0;
+      const loot = generateLoot(
+        char.level || 1,
+        charLuck,
+        serverIsBoss,
+        serverRegionKey,
+        char.class || null
+      );
+      if (loot) {
+        const [inserted] = await db.insert(itemsTable).values({
+          ownerId: characterId,
+          name: loot.name,
+          type: loot.type,
+          rarity: loot.rarity,
+          level: loot.item_level || 1,
+          stats: loot.stats || {},
+          setId: loot.set_key || null,
+          extraData: {
+            subtype: loot.subtype || null,
+            level_req: loot.level_req || 1,
+            sell_price: loot.sell_price || 0,
+            set_name: loot.set_name || null,
+            class_restriction: loot.class_restriction || null,
+          },
+        }).returning();
+        lootItem = inserted;
+      }
+    } catch (lootErr: any) {
+      req.log.error({ err: lootErr }, "fight loot generation error");
+    }
+
     try {
       const activeQuests = await db.select().from(questsTable).where(
         and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active"))
@@ -1308,7 +1479,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         partyBonuses: partyMembers > 0 ? { expPct: Math.round(partyExpBonus * 100), goldPct: Math.round(partyGoldBonus * 100) } : null,
         character: toClientCharacter(updated),
         levelsGained,
-        loot: null,
+        loot: lootItem,
         newLevel,
         newExp,
         newGold,

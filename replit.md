@@ -80,11 +80,12 @@ Entity CRUD and function calls automatically route to the correct driver. In ser
 - **Game functions** (`routes/functions.ts`): Full implementations for all game features:
   - **Life Skills**: get_skills, start, stop, tick (with resource drops), upgrade (speed/luck), process (smelting/cooking/alchemy/forging)
   - **Multiplayer**: manageFriends (send/accept/decline/remove/list), getLeaderboard (level/kills/prestige), dungeonAction (enter/attack/flee with floor progression)
-  - **Progression**: fight (server-side combat rewards: XP, gold, leveling, quest updates), getPlayer (character with idle progress applied), processServerProgression (idle tick), unifiedPlayerProgression (level-up), catchUpOfflineProgress (offline rewards)
-  - **Economy**: sellItem, upgradeItemSafe, starUpgradeItem, awakenItem, getShopRotation, completeTrade, transmuteGold
-  - **Social**: manageParty (create/invite/join/leave/disband), manageDailyQuests, updateQuestProgress
-  - **Gem Lab**: processGemLab, claimGemLabGems, upgradeGemLab
-  - **Admin**: getCurrentUser, getAllUsers, getAllCharacters, updateUserRole, managePlayer, gameConfigManager
+  - **Progression**: fight (server-authoritative combat: XP, gold, leveling, quest updates, **loot generation** with zone-based drops, weighted rarities, set items, smart loot — boss/region derived from enemy data + character state, not client), getPlayer (character with idle progress applied), processServerProgression (idle tick), unifiedPlayerProgression (level-up), catchUpOfflineProgress (offline rewards)
+  - **Economy**: sellItem (uses RARITY_SELL_PRICES), upgradeItemSafe (300*(lvl+1)*rarityMult gold, +5% stats, max 20), starUpgradeItem (gems: ceil(5*1.5^star*rarityMult), +15% stats, delete on fail, max 7), awakenItem (50 gems, requires star 7, +50% stats), getShopRotation, completeTrade, transmuteGold
+  - **Social**: manageParty (create/invite/join/leave/disband with owner verification, invite ownership validation, capacity check before accept, leader transfer on leave), manageDailyQuests, updateQuestProgress
+  - **Gem Lab**: processGemLab, claimGemLabGems, upgradeGemLab — all use `gemLabsTable` entity (not character JSONB) with production/speed/efficiency upgrade types, cost = floor(1000 * 1.15^level)
+  - **Admin**: getCurrentUser, getAllUsers, getAllCharacters, updateUserRole, managePlayer (ban/unban/mute/unmute/kick/delete/update_stats/delete_guild/leaderboard), gameConfigManager
+- **Loot generation** (`lib/gameData.ts`): Full loot system with ZONE_LOOT weights, ITEM_NAMES per zone/type/subtype, TYPE_STAT_POOLS, generateItemStats, ZONE_SET_DROPS, SET_STAT_THEMES, generateSetItemStats, smart loot (class-aware weapon/armor drops), boss weight bonuses
 
 ### Database (lib/db)
 
