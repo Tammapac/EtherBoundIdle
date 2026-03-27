@@ -1,29 +1,32 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { motion } from "framer-motion";
+import { useAuth } from "@/lib/AuthContext";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, Mail, User, Lock, ChevronRight } from "lucide-react";
+import { Shield, Mail, User, Lock, ChevronRight, CheckCircle, AlertCircle } from "lucide-react";
 
-export default function Auth({ onAuthSuccess }) {
+export default function Auth() {
+  const { register, login } = useAuth();
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setIsLoading(true);
     try {
-      const result = await base44.auth.login({ id: email, email });
-      if (result.user) {
-        localStorage.setItem('eb_local_user', JSON.stringify(result.user));
-        if (onAuthSuccess) onAuthSuccess(result.user);
+      const result = await login(email, password);
+      if (!result.success) {
+        setError(result.error || "Login failed. Check your credentials.");
       }
     } catch (err) {
-      setError(err.message || "Login failed");
+      setError("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -32,104 +35,209 @@ export default function Auth({ onAuthSuccess }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (!username.trim()) {
+      setError("Please enter a username.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const result = await base44.auth.register({
-        id: email,
-        email,
-        firstName: username,
-      });
-      if (result.user) {
-        localStorage.setItem('eb_local_user', JSON.stringify(result.user));
-        if (onAuthSuccess) onAuthSuccess(result.user);
+      const result = await register(email, password, username.trim());
+      if (!result.success) {
+        setError(result.error || "Registration failed.");
+      } else if (result.needsConfirmation) {
+        setSuccess("Account created! Check your email to confirm, then log in.");
+        setMode("login");
+        setPassword("");
       }
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setError("Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="w-full max-w-md relative z-10"
       >
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Shield className="w-8 h-8 text-cyan-400" />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Ether Bound
+        <div className="text-center mb-10">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="inline-flex items-center gap-3 mb-4"
+          >
+            <Shield className="w-10 h-10 text-cyan-400" />
+            <h1 className="font-orbitron text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent tracking-wider">
+              EtherBound
             </h1>
-          </div>
-          <p className="text-muted-foreground">
-            {mode === "login" ? "Welcome back, adventurer" : "Begin your journey"}
+          </motion.div>
+          <p className="text-muted-foreground text-sm tracking-wide">
+            {mode === "login" ? "Welcome back, Adventurer" : "Begin your journey"}
           </p>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-          <div className="flex gap-2 mb-4">
+        <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6 md:p-8 shadow-lg shadow-cyan-500/5">
+          <div className="flex gap-2 mb-6">
             <Button
-              variant={mode === "login" ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setMode("login")}
+              variant={mode === "login" ? "default" : "ghost"}
+              className={`flex-1 font-orbitron tracking-wider transition-all ${mode === "login" ? "shadow-md shadow-primary/20" : ""}`}
+              onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
             >
               Login
             </Button>
             <Button
-              variant={mode === "register" ? "default" : "outline"}
-              className="flex-1"
-              onClick={() => setMode("register")}
+              variant={mode === "register" ? "default" : "ghost"}
+              className={`flex-1 font-orbitron tracking-wider transition-all ${mode === "register" ? "shadow-md shadow-primary/20" : ""}`}
+              onClick={() => { setMode("register"); setError(""); setSuccess(""); }}
             >
               Register
             </Button>
           </div>
 
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2"
+              >
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <p className="text-red-400 text-sm">{error}</p>
+              </motion.div>
+            )}
+            {success && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-start gap-2"
+              >
+                <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+                <p className="text-green-400 text-sm">{success}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form onSubmit={mode === "login" ? handleLogin : handleRegister} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground flex items-center gap-2">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                 <Mail className="w-4 h-4" /> Email
               </label>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="adventurer@etherbound.com"
+                placeholder="your@email.com"
+                className="bg-muted/50 border-border/50 focus:border-primary/50"
                 required
+                disabled={isLoading}
               />
             </div>
 
-            {mode === "register" && (
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground flex items-center gap-2">
-                  <User className="w-4 h-4" /> Username
-                </label>
-                <Input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Choose a username"
-                  required
-                />
-              </div>
-            )}
+            <AnimatePresence>
+              {mode === "register" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                    <User className="w-4 h-4" /> Username
+                  </label>
+                  <Input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Your hero name"
+                    className="bg-muted/50 border-border/50 focus:border-primary/50"
+                    maxLength={20}
+                    required={mode === "register"}
+                    disabled={isLoading}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {error && (
-              <p className="text-sm text-red-400">{error}</p>
-            )}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                <Lock className="w-4 h-4" /> Password
+              </label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="bg-muted/50 border-border/50 focus:border-primary/50"
+                required
+                minLength={6}
+                disabled={isLoading}
+              />
+              {mode === "register" && (
+                <p className="text-xs text-muted-foreground mt-1">Minimum 6 characters</p>
+              )}
+            </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Loading..." : (
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full h-12 font-orbitron text-base tracking-wider shadow-md shadow-primary/20"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  {mode === "login" ? "Logging in..." : "Creating account..."}
+                </div>
+              ) : (
                 <>
                   {mode === "login" ? "Login" : "Create Account"}
-                  <ChevronRight className="w-4 h-4 ml-2" />
+                  <ChevronRight className="w-5 h-5 ml-2" />
                 </>
               )}
             </Button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {mode === "login" ? "No account yet?" : "Already have an account?"}
+            </p>
+            <Button
+              variant="link"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setError("");
+                setSuccess("");
+              }}
+              className="text-primary hover:text-primary/80 font-medium"
+              disabled={isLoading}
+            >
+              {mode === "login" ? "Create one" : "Login instead"}
+            </Button>
+          </div>
         </div>
+
+        <p className="text-center text-muted-foreground/50 text-xs mt-8 tracking-wide">
+          All rights reserved and copyright by Tammapac
+        </p>
       </motion.div>
     </div>
   );

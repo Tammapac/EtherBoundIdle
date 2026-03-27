@@ -9,6 +9,7 @@ import React, { useState, useEffect } from "react";
 import GameLayout from "./components/layout/GameLayout";
 import CharacterCreation from "./pages/CharacterCreation";
 import CharacterSelection from "./pages/CharacterSelection";
+import Auth from "./pages/Auth";
 import Battle from "./pages/Battle";
 import Inventory from "./pages/Inventory";
 import WorldMap from "./pages/WorldMap";
@@ -156,26 +157,20 @@ const GameApp = () => {
 };
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isAuthenticated } = useAuth();
 
   if (isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-background gap-4">
-        <h1 className="font-orbitron text-3xl font-bold text-primary tracking-wider">IDLE REALM</h1>
+        <h1 className="font-orbitron text-3xl font-bold text-primary tracking-wider">ETHERBOUND</h1>
         <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <p className="text-muted-foreground text-sm">Loading...</p>
       </div>
     );
   }
 
   if (!isAuthenticated) {
-    navigateToLogin();
-    return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center bg-background gap-4">
-        <h1 className="font-orbitron text-3xl font-bold text-primary tracking-wider">IDLE REALM</h1>
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-        <p className="text-muted-foreground text-sm">Redirecting to login...</p>
-      </div>
-    );
+    return <Auth />;
   }
 
   return <GameApp />;
