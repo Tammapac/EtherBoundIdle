@@ -76,7 +76,9 @@ router.post("/auth/register", async (req: Request, res: Response) => {
         })
         .returning();
     } catch (dbErr: any) {
-      if (dbErr?.code === "23505" || dbErr?.constraint?.includes("email")) {
+      const pgCode = dbErr?.code || dbErr?.cause?.code;
+      const pgConstraint = dbErr?.constraint || dbErr?.cause?.constraint || "";
+      if (pgCode === "23505" || pgConstraint.includes("email")) {
         res.status(409).json({ error: "An account with this email already exists." });
         return;
       }
