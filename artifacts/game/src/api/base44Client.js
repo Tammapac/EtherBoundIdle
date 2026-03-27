@@ -13,8 +13,20 @@ function setMode(mode) {
   try { localStorage.setItem(MODE_KEY, mode); } catch {}
 }
 
+function detectApiUrl() {
+  const host = window.location.hostname;
+  if (host.includes('replit.dev') || host.includes('replit.app') || host === 'localhost' || host === '127.0.0.1') {
+    return window.location.origin;
+  }
+  return DEFAULT_API_URL;
+}
+
 function getApiUrl() {
-  try { return localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL; } catch { return DEFAULT_API_URL; }
+  try {
+    const stored = localStorage.getItem(API_URL_KEY);
+    if (stored) return stored;
+    return detectApiUrl();
+  } catch { return DEFAULT_API_URL; }
 }
 
 function setApiUrl(url) {
@@ -1739,13 +1751,21 @@ export const base44 = {
     async me() {
       if (getMode() === 'server') {
         try {
-          const res = await apiFetch('/auth/me');
-          return res;
+          const res = await apiFetch('/auth/user');
+          return res.user || null;
         } catch {
-          return null;
+          return getLocalUser() || null;
         }
       }
       return getLocalUser() || { id: 'local-player', email: 'player@local', name: 'Player', role: 'admin' };
+    },
+    async logout() {
+      try {
+        await apiFetch('/auth/logout', { method: 'POST' });
+      } catch {}
+      try { localStorage.removeItem('eb_local_user'); } catch {}
+      try { sessionStorage.removeItem('activeCharacter'); } catch {}
+      window.location.reload();
     },
   },
 

@@ -3,8 +3,20 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 const API_URL_KEY = 'eb_api_url';
 const DEFAULT_API_URL = 'http://46.224.121.242:3000';
 
+function detectApiUrl() {
+  const host = window.location.hostname;
+  if (host.includes('replit.dev') || host.includes('replit.app') || host === 'localhost' || host === '127.0.0.1') {
+    return window.location.origin;
+  }
+  return DEFAULT_API_URL;
+}
+
 function getApiUrl() {
-  try { return localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL; } catch { return DEFAULT_API_URL; }
+  try {
+    const stored = localStorage.getItem(API_URL_KEY);
+    if (stored) return stored;
+    return detectApiUrl();
+  } catch { return DEFAULT_API_URL; }
 }
 
 const AuthContext = createContext();

@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import PageNotFound from "./lib/PageNotFound";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
 import React, { useState, useEffect } from "react";
+import base44 from "./api/base44Client";
 
 import GameLayout from "./components/layout/GameLayout";
 import CharacterCreation from "./pages/CharacterCreation";
@@ -34,6 +35,30 @@ import { supabaseSync } from "@/lib/supabaseSync";
 import { idleEngine } from "@/lib/idleEngine";
 
 const GameApp = () => {
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const user = await base44.auth.me();
+
+        if (!user || !user.user) {
+          console.log("🔐 Kein User → registriere automatisch");
+
+          await base44.auth.register({
+            id: Math.random().toString(36).substring(2) + Date.now(),, // wichtig!
+            email: `test_${Date.now()}@test.de`,
+            firstName: "Test",
+            lastName: "User"
+          });
+        } else {
+          console.log("✅ User bereits eingeloggt");
+        }
+      } catch (err) {
+        console.error("Auth Fehler:", err);
+      }
+    };
+
+    initAuth();
+  }, []);
   const { isAuthenticated } = useAuth();
 
   const [character, setCharacterState] = useState(() => {
