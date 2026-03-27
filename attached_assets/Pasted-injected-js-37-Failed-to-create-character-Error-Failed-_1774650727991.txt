@@ -1,0 +1,102 @@
+injected.js:37 Failed to create character: Error: Failed query: insert into "characters" ("id", "created_by", "name", "class", "level", "exp", "exp_to_next", "hp", "max_hp", "mp", "max_mp", "strength", "dexterity", "intelligence", "vitality", "luck", "stat_points", "skill_points", "gold", "gems", "current_region", "equipment", "skills", "hotbar_skills", "idle_mode", "total_kills", "total_damage", "prestige_level", "achievements", "daily_quests_completed", "weekly_quests_completed", "last_idle_claim", "guild_id", "is_banned", "is_muted", "title", "life_skills", "gem_lab", "daily_login_streak", "last_daily_login", "dungeon_data", "skill_tree_data", "extra_data", "created_at", "updated_at") values (default, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, default, $23, $24, $25, $26, $27, $28, $29, $30, default, default, default, default, default, default, default, default, default, default, default, default, default) returning "id", "created_by", "name", "class", "level", "exp", "exp_to_next", "hp", "max_hp", "mp", "max_mp", "strength", "dexterity", "intelligence", "vitality", "luck", "stat_points", "skill_points", "gold", "gems", "current_region", "equipment", "skills", "hotbar_skills", "idle_mode", "total_kills", "total_damage", "prestige_level", "achievements", "daily_quests_completed", "weekly_quests_completed", "last_idle_claim", "guild_id", "is_banned", "is_muted", "title", "life_skills", "gem_lab", "daily_login_streak", "last_daily_login", "dungeon_data", "skill_tree_data", "extra_data", "created_at", "updated_at"
+params: tammapac@yahoo.de,Tammapac,mage,1,0,100,150,150,140,140,5,7,15,8,5,0,0,100,10,verdant_forest,{},["fireball"],false,0,0,0,[],0,0,2026-03-27T22:31:26.188Z
+    at apiFetch (base44Client.js:29:11)
+    at async Object.mutationFn (CharacterCreation.jsx:26:22)
+(anonymous) @ injected.js:37
+mutationFn @ CharacterCreation.jsx:56
+await in mutationFn
+fn @ @tanstack_react-query.js?v=3e1b2c76:1989
+run @ @tanstack_react-query.js?v=3e1b2c76:798
+start @ @tanstack_react-query.js?v=3e1b2c76:840
+execute @ @tanstack_react-query.js?v=3e1b2c76:2030
+await in execute
+mutate @ @tanstack_react-query.js?v=3e1b2c76:2366
+(anonymous) @ @tanstack_react-query.js?v=3e1b2c76:3586
+onClick @ CharacterCreation.jsx:131
+executeDispatch @ react-dom_client.js?v=3e1b2c76:11736
+runWithFiberInDEV @ react-dom_client.js?v=3e1b2c76:1485
+processDispatchQueue @ react-dom_client.js?v=3e1b2c76:11772
+(anonymous) @ react-dom_client.js?v=3e1b2c76:12182
+batchedUpdates$1 @ react-dom_client.js?v=3e1b2c76:2628
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=3e1b2c76:11877
+dispatchEvent @ react-dom_client.js?v=3e1b2c76:14792
+dispatchDiscreteEvent @ react-dom_client.js?v=3e1b2c76:14773
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=3e1b2c76:250
+_c @ button.jsx:40
+react-stack-bottom-frame @ react-dom_client.js?v=3e1b2c76:17424
+renderWithHooks @ react-dom_client.js?v=3e1b2c76:4206
+updateForwardRef @ react-dom_client.js?v=3e1b2c76:6461
+beginWork @ react-dom_client.js?v=3e1b2c76:7864
+runWithFiberInDEV @ react-dom_client.js?v=3e1b2c76:1485
+performUnitOfWork @ react-dom_client.js?v=3e1b2c76:10868
+workLoopSync @ react-dom_client.js?v=3e1b2c76:10728
+renderRootSync @ react-dom_client.js?v=3e1b2c76:10711
+performWorkOnRoot @ react-dom_client.js?v=3e1b2c76:10330
+performSyncWorkOnRoot @ react-dom_client.js?v=3e1b2c76:11635
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=3e1b2c76:11536
+processRootScheduleInMicrotask @ react-dom_client.js?v=3e1b2c76:11558
+(anonymous) @ react-dom_client.js?v=3e1b2c76:11649
+<Button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=3e1b2c76:250
+CharacterCreation @ CharacterCreation.jsx:127
+react-stack-bottom-frame @ react-dom_client.js?v=3e1b2c76:17424
+renderWithHooks @ react-dom_client.js?v=3e1b2c76:4206
+updateFunctionComponent @ react-dom_client.js?v=3e1b2c76:6619
+beginWork @ react-dom_client.js?v=3e1b2c76:7654
+runWithFiberInDEV @ react-dom_client.js?v=3e1b2c76:1485
+performUnitOfWork @ react-dom_client.js?v=3e1b2c76:10868
+workLoopSync @ react-dom_client.js?v=3e1b2c76:10728
+renderRootSync @ react-dom_client.js?v=3e1b2c76:10711
+performWorkOnRoot @ react-dom_client.js?v=3e1b2c76:10330
+performSyncWorkOnRoot @ react-dom_client.js?v=3e1b2c76:11635
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=3e1b2c76:11536
+processRootScheduleInMicrotask @ react-dom_client.js?v=3e1b2c76:11558
+(anonymous) @ react-dom_client.js?v=3e1b2c76:11649
+<CharacterCreation>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=3e1b2c76:250
+GameApp @ App.jsx:113
+react-stack-bottom-frame @ react-dom_client.js?v=3e1b2c76:17424
+renderWithHooks @ react-dom_client.js?v=3e1b2c76:4206
+updateFunctionComponent @ react-dom_client.js?v=3e1b2c76:6619
+beginWork @ react-dom_client.js?v=3e1b2c76:7654
+runWithFiberInDEV @ react-dom_client.js?v=3e1b2c76:1485
+performUnitOfWork @ react-dom_client.js?v=3e1b2c76:10868
+workLoopSync @ react-dom_client.js?v=3e1b2c76:10728
+renderRootSync @ react-dom_client.js?v=3e1b2c76:10711
+performWorkOnRoot @ react-dom_client.js?v=3e1b2c76:10330
+performSyncWorkOnRoot @ react-dom_client.js?v=3e1b2c76:11635
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=3e1b2c76:11536
+processRootScheduleInMicrotask @ react-dom_client.js?v=3e1b2c76:11558
+(anonymous) @ react-dom_client.js?v=3e1b2c76:11649
+<GameApp>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=3e1b2c76:250
+AuthenticatedApp @ App.jsx:168
+react-stack-bottom-frame @ react-dom_client.js?v=3e1b2c76:17424
+renderWithHooks @ react-dom_client.js?v=3e1b2c76:4206
+updateFunctionComponent @ react-dom_client.js?v=3e1b2c76:6619
+beginWork @ react-dom_client.js?v=3e1b2c76:7654
+runWithFiberInDEV @ react-dom_client.js?v=3e1b2c76:1485
+performUnitOfWork @ react-dom_client.js?v=3e1b2c76:10868
+workLoopSync @ react-dom_client.js?v=3e1b2c76:10728
+renderRootSync @ react-dom_client.js?v=3e1b2c76:10711
+performWorkOnRoot @ react-dom_client.js?v=3e1b2c76:10330
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=3e1b2c76:11623
+performWorkUntilDeadline @ react-dom_client.js?v=3e1b2c76:36
+<AuthenticatedApp>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=3e1b2c76:250
+App @ App.jsx:176
+react-stack-bottom-frame @ react-dom_client.js?v=3e1b2c76:17424
+renderWithHooks @ react-dom_client.js?v=3e1b2c76:4206
+updateFunctionComponent @ react-dom_client.js?v=3e1b2c76:6619
+beginWork @ react-dom_client.js?v=3e1b2c76:7654
+runWithFiberInDEV @ react-dom_client.js?v=3e1b2c76:1485
+performUnitOfWork @ react-dom_client.js?v=3e1b2c76:10868
+workLoopSync @ react-dom_client.js?v=3e1b2c76:10728
+renderRootSync @ react-dom_client.js?v=3e1b2c76:10711
+performWorkOnRoot @ react-dom_client.js?v=3e1b2c76:10330
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=3e1b2c76:11623
+performWorkUntilDeadline @ react-dom_client.js?v=3e1b2c76:36
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=3e1b2c76:250
+(anonymous) @ main.jsx:7
