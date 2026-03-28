@@ -1,0 +1,189 @@
+You are a senior fullstack engineer. Fix my entire project end-to-end so that it is fully working, minimal, and production-ready. Do NOT explain — just fix and implement.
+
+## CONTEXT
+
+* Project: Idle RPG (React frontend + Node.js/Express backend)
+* Hosting: Hetzner server (PM2)
+* Database: Supabase (PostgreSQL via connection string)
+* Current problems:
+
+  * Login returns "id is required"
+  * Login returns "Tenant or user not found"
+  * Backend sometimes fails to connect to DB
+  * Frontend and backend are not fully synced
+  * Some systems (shop, gem lab, quests, idle) stopped working
+  * Project structure is messy and duplicated
+
+---
+
+## YOUR TASKS
+
+### 1. FIX AUTH SYSTEM (CRITICAL)
+
+* Remove ANY requirement for "id" in login/register
+* Login MUST use:
+
+  * email
+  * password
+* Register MUST create:
+
+  * id (auto-generated UUID)
+  * email
+  * password (hashed)
+* Fix backend route `/api/auth/login`:
+
+  * Validate email + password
+  * Query database
+  * Return user + sessionId
+* Fix error "Tenant or user not found"
+
+  * Ensure Supabase is not using external auth
+  * Use own users table instead
+
+---
+
+### 2. DATABASE (SUPABASE)
+
+* Ensure DATABASE_URL is used correctly (dotenv)
+* Use pg or ORM correctly
+* Create tables if missing:
+
+Users table:
+
+* id (uuid, primary key)
+* email (unique)
+* password (hashed)
+
+Characters table:
+
+* id
+
+* user_id
+
+* level
+
+* stats
+
+* gold
+
+* etc.
+
+* Ensure backend connects using:
+  process.env.DATABASE_URL
+
+---
+
+### 3. BACKEND CLEANUP
+
+* Remove duplicate folders (api, backend, src duplicates)
+* Final structure MUST be:
+
+backend/
+src/
+routes/
+models/
+services/
+index.ts
+dist/
+package.json
+
+* Ensure:
+
+  * "start": "node dist/index.js"
+  * dotenv is loaded
+* Ensure server runs on PORT 3000
+* Fix ALL routes:
+
+  * /api/auth/login
+  * /api/auth/register
+  * /api/game/*
+* Ensure no crashes
+
+---
+
+### 4. FRONTEND FIX
+
+* Fix API connection:
+
+  * Use correct server IP (http://YOUR_SERVER_IP:3000)
+
+* Ensure login sends:
+  {
+  email,
+  password
+  }
+
+* REMOVE any usage of:
+
+  * id in login
+
+* Fix base44Client if needed
+
+* Ensure:
+
+  * login works
+  * register works
+
+---
+
+### 5. GAME SYSTEMS (RESTORE)
+
+Fix and reconnect:
+
+* Shop (buy items)
+* Gem lab (real-time production)
+* Life skills (real-time)
+* Idle combat (continues in background)
+* Quests (load + display)
+
+All must:
+
+* Use backend API
+* Persist in database
+
+---
+
+### 6. REAL-TIME / IDLE LOGIC
+
+* Move important calculations server-side:
+
+  * gold gain
+  * idle progress
+* Allow offline progress
+* Sync on login
+
+---
+
+### 7. BUILD + DEPLOY
+
+* Ensure:
+  npm run build works
+* Ensure:
+  pm2 start dist/index.js works
+* Ensure frontend builds with vite
+
+---
+
+### 8. FINAL RESULT
+
+After your changes:
+
+* Login works (NO "id is required")
+* No "Tenant or user not found"
+* DB connected
+* Game works fully
+* Clean minimal structure
+* No duplicated folders
+* Production-ready
+
+---
+
+## IMPORTANT RULES
+
+* Do NOT break working code
+* Do NOT leave TODOs
+* Do NOT explain — implement everything
+* Keep code minimal and clean
+* Fix EVERYTHING automatically
+
+Return full updated code.
