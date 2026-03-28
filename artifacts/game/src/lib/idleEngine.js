@@ -140,37 +140,25 @@ async function shopRotationTick() {
 }
 
 const BOSS_MAX_ATTACKS = 10;
-const BOSS_WINDOW_MS = 8 * 60 * 60 * 1000;
-
-function getBossAttackData(characterId) {
-  try {
-    const raw = localStorage.getItem(`eb_guild_boss_attacks_${characterId}`);
-    if (!raw) return { attacks: [], windowStart: 0 };
-    const data = JSON.parse(raw);
-    const now = Date.now();
-    if (now - (data.windowStart || 0) >= BOSS_WINDOW_MS) {
-      return { attacks: [], windowStart: now };
-    }
-    return data;
-  } catch { return { attacks: [], windowStart: Date.now() }; }
-}
 
 async function guildBossTick() {
   if (!_characterId) return;
   try {
-    const data = getBossAttackData(_characterId);
-    const now = Date.now();
-    const windowRemaining = Math.max(0, BOSS_WINDOW_MS - (now - (data.windowStart || 0)));
-    const attacksUsed = data.attacks.length;
-    const attacksLeft = Math.max(0, BOSS_MAX_ATTACKS - attacksUsed);
-
+    const result = await base44.functions.invoke('guildBossAttack', {
+      characterId: _characterId,
+      action: 'status',
+    });
+    const attacksLeft = result.attacksLeft ?? 0;
+    const windowRemaining = result.windowRemaining ?? 0;
     emit('guildBossStatus', {
       ready: attacksLeft > 0,
-      attacksUsed,
+      attacksUsed: result.attacksUsed ?? 0,
       attacksLeft,
-      maxAttacks: BOSS_MAX_ATTACKS,
+      maxAttacks: result.maxAttacks ?? BOSS_MAX_ATTACKS,
       windowRemaining,
-      windowFormatted: attacksLeft > 0 ? `${attacksLeft}/${BOSS_MAX_ATTACKS} attacks left` : `Resets in ${formatTime(windowRemaining)}`,
+      windowFormatted: attacksLeft > 0
+        ? `${attacksLeft}/${result.maxAttacks ?? BOSS_MAX_ATTACKS} attacks left`
+        : `Resets in ${formatTime(windowRemaining)}`,
     });
   } catch {}
 }
@@ -179,6 +167,20 @@ async function saveTick() {
   if (!_characterId || _inFlight.save) return;
   _inFlight.save = true;
   try {
+    const char = getCharacter();
+    if (char?.id) {
+      try {
+        const data = {};
+        const fields = [
+          'level', 'exp', 'gold', 'gems', 'hp', 'mp', 'max_hp', 'max_mp',
+          'strength', 'dexterity', 'intelligence', 'vitality', 'luck',
+          'stat_points', 'skill_points', 'current_region', 'idle_mode',
+          'total_kills', 'total_damage', 'equipment', 'life_skills',
+        ];
+        fields.forEach(f => { if (char[f] !== undefined) data[f] = char[f]; });
+        await base44.entities.Character.update(char.id, data);
+      } catch {}
+    }
     emit('autoSave', { timestamp: Date.now() });
   } finally { _inFlight.save = false; }
 }
@@ -260,41 +262,52 @@ const idleEngine = {
     listeners[event] = listeners[event].filter(fn => fn !== cb);
   },
 
-  recordGuildBossAttack(characterId) {
-    const now = Date.now();
-    const data = getBossAttackData(characterId);
-    if (data.attacks.length === 0 || now - (data.windowStart || 0) >= BOSS_WINDOW_MS) {
-      data.windowStart = now;
-      data.attacks = [now];
-    } else {
-      data.attacks.push(now);
+  async recordGuildBossAttack(characterId) {
+    try {
+      const result = await base44.functions.invoke('guildBossAttack', {
+        characterId,
+        action: 'record',
+      });
+      const attacksLeft = result.attacksLeft ?? 0;
+      const windowRemaining = result.windowRemaining ?? 0;
+      emit('guildBossStatus', {
+        ready: attacksLeft > 0,
+        attacksUsed: result.attacksUsed ?? 0,
+        attacksLeft,
+        maxAttacks: result.maxAttacks ?? BOSS_MAX_ATTACKS,
+        windowRemaining,
+        windowFormatted: attacksLeft > 0
+          ? `${attacksLeft}/${result.maxAttacks ?? BOSS_MAX_ATTACKS} attacks left`
+          : `Resets in ${formatTime(windowRemaining)}`,
+      });
+      return result;
+    } catch (e) {
+      console.warn('[GuildBoss] record failed:', e.message);
+      return { ready: false, attacksLeft: 0 };
     }
-    localStorage.setItem(`eb_guild_boss_attacks_${characterId}`, JSON.stringify(data));
-    const attacksLeft = Math.max(0, BOSS_MAX_ATTACKS - data.attacks.length);
-    const windowRemaining = Math.max(0, BOSS_WINDOW_MS - (now - data.windowStart));
-    emit('guildBossStatus', {
-      ready: attacksLeft > 0,
-      attacksUsed: data.attacks.length,
-      attacksLeft,
-      maxAttacks: BOSS_MAX_ATTACKS,
-      windowRemaining,
-      windowFormatted: attacksLeft > 0 ? `${attacksLeft}/${BOSS_MAX_ATTACKS} attacks left` : `Resets in ${formatTime(windowRemaining)}`,
-    });
   },
 
-  getBossAttackStatus(characterId) {
-    const data = getBossAttackData(characterId);
-    const now = Date.now();
-    const windowRemaining = Math.max(0, BOSS_WINDOW_MS - (now - (data.windowStart || 0)));
-    const attacksLeft = Math.max(0, BOSS_MAX_ATTACKS - data.attacks.length);
-    return {
-      ready: attacksLeft > 0,
-      attacksUsed: data.attacks.length,
-      attacksLeft,
-      maxAttacks: BOSS_MAX_ATTACKS,
-      windowRemaining,
-      windowFormatted: attacksLeft > 0 ? `${attacksLeft}/${BOSS_MAX_ATTACKS} attacks left` : `Resets in ${formatTime(windowRemaining)}`,
-    };
+  async getBossAttackStatus(characterId) {
+    try {
+      const result = await base44.functions.invoke('guildBossAttack', {
+        characterId,
+        action: 'status',
+      });
+      const attacksLeft = result.attacksLeft ?? 0;
+      const windowRemaining = result.windowRemaining ?? 0;
+      return {
+        ready: attacksLeft > 0,
+        attacksUsed: result.attacksUsed ?? 0,
+        attacksLeft,
+        maxAttacks: result.maxAttacks ?? BOSS_MAX_ATTACKS,
+        windowRemaining,
+        windowFormatted: attacksLeft > 0
+          ? `${attacksLeft}/${result.maxAttacks ?? BOSS_MAX_ATTACKS} attacks left`
+          : `Resets in ${formatTime(windowRemaining)}`,
+      };
+    } catch {
+      return { ready: false, attacksUsed: 0, attacksLeft: 0, maxAttacks: BOSS_MAX_ATTACKS, windowRemaining: 0 };
+    }
   },
 
   async validateGuildBossAttack(characterId) {

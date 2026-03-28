@@ -72,7 +72,7 @@ const GameApp = () => {
     });
   };
 
-  useCharacterAutoSave(character, !!character);
+  const { saveNow } = useCharacterAutoSave(character, !!character);
 
   const handleCharacterSelected = (selectedCharacter) => {
     if (selectedCharacter === null) {

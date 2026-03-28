@@ -1628,6 +1628,57 @@ router.post("/functions/getPlayer", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/functions/guildBossAttack", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const { characterId, action } = req.body;
+    if (!characterId) return sendError(res, 400, "characterId required");
+
+    const [char] = await db.select({ createdBy: charactersTable.createdBy })
+      .from(charactersTable)
+      .where(eq(charactersTable.id, characterId));
+    if (!char || char.createdBy !== (req as any).user.id) {
+      return sendError(res, 403, "Not your character");
+    }
+
+    const BOSS_MAX_ATTACKS = 10;
+    const BOSS_WINDOW_MS = 8 * 60 * 60 * 1000;
+    const configKey = `guild_boss_attacks_${characterId}`;
+
+    const [existing] = await db.select().from(gameConfigTable).where(eq(gameConfigTable.id, configKey));
+    let data: any = existing?.config || { attacks: [], windowStart: 0 };
+    const now = Date.now();
+
+    if (now - (data.windowStart || 0) >= BOSS_WINDOW_MS) {
+      data = { attacks: [], windowStart: now };
+    }
+
+    if (action === "record") {
+      if (data.attacks.length >= BOSS_MAX_ATTACKS) {
+        return sendError(res, 400, "No attacks remaining in this window");
+      }
+      data.attacks.push(now);
+      await db.insert(gameConfigTable)
+        .values({ id: configKey, config: data })
+        .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: data } });
+    }
+
+    const attacksLeft = Math.max(0, BOSS_MAX_ATTACKS - data.attacks.length);
+    const windowRemaining = Math.max(0, BOSS_WINDOW_MS - (now - (data.windowStart || 0)));
+
+    sendSuccess(res, {
+      ready: attacksLeft > 0,
+      attacksUsed: data.attacks.length,
+      attacksLeft,
+      maxAttacks: BOSS_MAX_ATTACKS,
+      windowRemaining,
+    });
+  } catch (err: any) {
+    req.log.error({ err }, "guildBossAttack error");
+    sendError(res, 500, err.message);
+  }
+});
+
 router.post("/functions/:name", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   req.log.warn({ functionName: req.params.name }, "Unhandled function call");

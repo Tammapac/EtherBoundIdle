@@ -84,12 +84,14 @@ Character, Item, Guild, Quest, Trade, Party, PartyActivity, PartyInvite, Presenc
 ## Key Design Decisions
 
 - **Server-authoritative**: All game logic (combat, loot, upgrades) validated on backend
-- **No local/hybrid mode**: Frontend is purely server-connected, no localStorage game logic
+- **Server-persistent**: All game data saved to Supabase PostgreSQL via backend API. localStorage used only for auth session token (`eb_session_id`) and transient client-side cache (`hybridPersistence`)
 - **Items schema**: No subtype/levelReq/sellPrice/setName columns — stored in `extraData` JSONB; `setId` column holds setKey
 - **GemLab**: Uses `gem_labs` table (characterId, data JSONB) — NOT character.gemLab JSONB. Frontend reads `gemLab.data.production_level` etc.
 - **IdleEngine**: `start(characterId, characterData)` takes initial char; `setCharacterData(char)` syncs updates from App.jsx
 - **Quest fields**: `type` (daily/weekly/story), `progress`, `target`, `reward` (singular object)
 - **Shop**: Backend generates seeded level-based items (weapon/armor/etc) with rarity/stats; `buy_price`/`sell_price` fields; force refresh costs 5 gems server-side
+- **AutoSave**: `useCharacterAutoSave` hook saves character data to server every 10s (delta-only); `idleEngine.saveTick` also saves every 15s
+- **Guild Boss Attacks**: Tracked server-side in `game_config` table via `guildBossAttack` function (NOT localStorage)
 - **Gear upgrades**: Safe = 300*(upgrade+1)*rarityMult gold, +5%; Star = ceil(5*1.5^star*rarityMult) gems, +15%/destroy, max 7; Awaken = 50 gems (star 7), +50%
 - **Fight**: regionKey from char.currentRegion, isBoss/isElite from ENEMIES definition
 - **Auth**: Custom bcrypt email/password auth (NOT Supabase Auth). Passwords hashed with bcrypt (12 rounds). Sessions stored in `sessions` table, cookie `sid` set httpOnly. Frontend calls backend via `fetch` with `credentials: 'include'`. Cookie `secure` flag is env-aware (true in production only).
