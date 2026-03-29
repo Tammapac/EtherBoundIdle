@@ -95,6 +95,7 @@ export default function Shop({ character, onCharacterUpdate }) {
       const newGold = (character.gold || 0) - shopItem.buy_price;
       await base44.entities.Character.update(character.id, { gold: newGold });
       onCharacterUpdate({ ...character, gold: newGold });
+      setShopItems(prev => prev.filter(i => i.id !== shopItem.id));
       queryClient.invalidateQueries({ queryKey: ["items"] });
       toast({ title: `Purchased ${shopItem.name}!`, duration: 1000 });
     },

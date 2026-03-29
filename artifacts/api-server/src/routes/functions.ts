@@ -598,17 +598,21 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
       sendSuccess(res, { quests: existing }); return;
     }
     const questTemplates = [
-      { title: "Monster Slayer", description: "Kill 10 enemies", type: "daily", target: 10, reward: { gold: 200, exp: 100 } },
-      { title: "Gold Hoarder", description: "Earn 500 gold", type: "daily", target: 500, reward: { gold: 300, gems: 1 } },
-      { title: "Level Up", description: "Gain a level", type: "daily", target: 1, reward: { gold: 500, gems: 2 } },
+      { title: "Monster Slayer", description: "Kill 10 enemies", type: "daily", objectiveType: "combat_kills", target: 10, reward: { gold: 200, exp: 100 } },
+      { title: "Gold Hoarder", description: "Earn 500 gold", type: "daily", objectiveType: "gold_earned", target: 500, reward: { gold: 300, gems: 1 } },
+      { title: "Level Up", description: "Gain a level", type: "daily", objectiveType: "level_up", target: 1, reward: { gold: 500, gems: 2 } },
     ];
+    const existingTitles = new Set(activeQuests.map(q => q.title));
     const newQuests = [];
-    for (const template of questTemplates.slice(0, 3 - activeQuests.length)) {
+    for (const template of questTemplates) {
+      if (activeQuests.length + newQuests.length >= 3) break;
+      if (existingTitles.has(template.title)) continue;
       const [quest] = await db.insert(questsTable).values({
         characterId,
         type: template.type,
         title: template.title,
         description: template.description,
+        objective: { type: template.objectiveType },
         target: template.target,
         reward: template.reward,
         status: "active",
@@ -625,10 +629,13 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
 router.post("/functions/updateQuestProgress", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
-    const { characterId, questType, amount } = req.body;
+    const { characterId, questType, objectiveType, amount } = req.body;
     const quests = await db.select().from(questsTable).where(eq(questsTable.characterId, characterId));
     const active = quests.filter(q => q.status === "active");
+    const targetType = objectiveType || questType;
     for (const quest of active) {
+      const objType = (quest.objective as any)?.type || quest.type;
+      if (targetType && objType !== targetType) continue;
       const newProgress = Math.min((quest.progress || 0) + (amount || 1), quest.target);
       const newStatus = newProgress >= quest.target ? "completed" : "active";
       await db.update(questsTable).set({ progress: newProgress, status: newStatus }).where(eq(questsTable.id, quest.id));
@@ -1242,80 +1249,261 @@ router.post("/functions/getLeaderboard", async (req: Request, res: Response) => 
   }
 });
 
+// Dungeon boss data keyed by dungeon ID
+const DUNGEON_BOSSES: Record<string, { name: string; hpBase: number; hpPerLevel: number; dmgBase: number; dmgPerLevel: number; dungeonName: string }> = {
+  inferno_keep: { name: "Flame Tyrant", hpBase: 800, hpPerLevel: 40, dmgBase: 15, dmgPerLevel: 3, dungeonName: "Inferno Keep" },
+  frost_citadel: { name: "Frost Warden", hpBase: 1500, hpPerLevel: 60, dmgBase: 25, dmgPerLevel: 5, dungeonName: "Frost Citadel" },
+  void_sanctum: { name: "Void Reaper", hpBase: 3000, hpPerLevel: 100, dmgBase: 40, dmgPerLevel: 8, dungeonName: "Void Sanctum" },
+  storm_peak: { name: "Storm Colossus", hpBase: 5000, hpPerLevel: 150, dmgBase: 60, dmgPerLevel: 12, dungeonName: "Storm Peak" },
+  poison_swamp: { name: "Plague Matriarch", hpBase: 2000, hpPerLevel: 80, dmgBase: 30, dmgPerLevel: 6, dungeonName: "Plague Swamp" },
+  sand_tomb: { name: "Sand King", hpBase: 4000, hpPerLevel: 120, dmgBase: 50, dmgPerLevel: 10, dungeonName: "Sand Tomb of Kings" },
+};
+
+// Skill data for damage multipliers (mirrored from frontend gameData)
+const SKILL_DATA: Record<string, { damage: number; mp: number }> = {
+  power_strike: { damage: 1.5, mp: 10 }, shield_bash: { damage: 1.2, mp: 8 },
+  war_cry: { damage: 0, mp: 15 }, berserker_rage: { damage: 2.5, mp: 25 },
+  fireball: { damage: 1.8, mp: 12 }, ice_lance: { damage: 1.4, mp: 10 },
+  arcane_shield: { damage: 0, mp: 20 }, meteor: { damage: 3.0, mp: 30 },
+  arrow_rain: { damage: 1.6, mp: 12 }, poison_shot: { damage: 1.0, mp: 8 },
+  eagle_eye: { damage: 0, mp: 10 }, multishot: { damage: 2.2, mp: 20 },
+  backstab: { damage: 2.0, mp: 10 }, smoke_bomb: { damage: 0, mp: 12 },
+  blade_dance: { damage: 1.8, mp: 15 }, assassinate: { damage: 3.5, mp: 30 },
+};
+
+function buildSessionResponse(session: any): any {
+  const d = (session.data as any) || {};
+  return {
+    id: session.id,
+    dungeon_name: d.dungeon_name || "Unknown Dungeon",
+    boss_name: d.boss_name || "Boss",
+    boss_hp: d.boss_hp ?? 0,
+    boss_max_hp: d.boss_max_hp ?? 0,
+    status: d.status || session.status || "waiting",
+    members: d.members || [],
+    current_turn_index: d.current_turn_index ?? 0,
+    leader_id: d.leader_id || session.characterId,
+    turn_deadline: d.turn_deadline || null,
+    combat_log: d.combat_log || [],
+  };
+}
+
 router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
   try {
-    const { characterId, action, dungeonId } = req.body;
+    const { characterId, action, dungeonId, sessionId, skillId } = req.body;
     if (!(await requireCharacterOwner(req, res, characterId))) return;
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
     if (!char) { sendError(res, 404, "Character not found"); return; }
 
+    // === CREATE: make a new dungeon session in "waiting" state ===
     if (action === "enter" || action === "create") {
-      const activeSessions = await db.select().from(dungeonSessionsTable).where(
-        and(eq(dungeonSessionsTable.characterId, characterId), eq(dungeonSessionsTable.status, "active"))
+      // Check for existing active/waiting session
+      const existing = await db.select().from(dungeonSessionsTable).where(
+        and(eq(dungeonSessionsTable.characterId, characterId),
+          sql`${dungeonSessionsTable.status} IN ('active', 'waiting')`)
       );
-      if (activeSessions.length > 0) {
-        sendSuccess(res, { success: true, session: activeSessions[0] }); return;
+      if (existing.length > 0) {
+        sendSuccess(res, { success: true, session: buildSessionResponse(existing[0]) }); return;
       }
-      const bossHp = 500 + (char.level || 1) * 50;
+
+      const boss = DUNGEON_BOSSES[dungeonId] || DUNGEON_BOSSES.inferno_keep;
+      const bossHp = boss.hpBase + (char.level || 1) * boss.hpPerLevel;
+      const memberHp = 100 + (char.vitality || 8) * 10 + (char.level || 1) * 5;
+      const sessionData = {
+        dungeon_name: boss.dungeonName,
+        boss_name: boss.name,
+        boss_hp: bossHp,
+        boss_max_hp: bossHp,
+        boss_dmg_base: boss.dmgBase,
+        boss_dmg_per_level: boss.dmgPerLevel,
+        status: "waiting",
+        leader_id: characterId,
+        members: [{
+          character_id: characterId,
+          name: char.name || "Unknown",
+          class: char.class || "warrior",
+          level: char.level || 1,
+          hp: memberHp,
+          max_hp: memberHp,
+        }],
+        current_turn_index: 0,
+        turn_deadline: null,
+        combat_log: [{ type: "system", text: `${char.name} entered ${boss.dungeonName}.` }],
+      };
       const [session] = await db.insert(dungeonSessionsTable).values({
         characterId,
-        dungeonId: dungeonId || "cave_of_shadows",
-        status: "active",
-        data: { floor: 1, enemies_defeated: 0, boss_hp: bossHp, boss_max_hp: bossHp },
+        dungeonId: dungeonId || "inferno_keep",
+        status: "waiting",
+        data: sessionData,
       }).returning();
-      sendSuccess(res, { success: true, session });
+      sendSuccess(res, { success: true, session: buildSessionResponse(session) });
       return;
     }
 
+    // === JOIN: add player to an existing session ===
     if (action === "join") {
-      const { sessionId } = req.body;
       if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
-      const [session] = await db.select().from(dungeonSessionsTable).where(
-        and(eq(dungeonSessionsTable.id, sessionId), eq(dungeonSessionsTable.status, "active"))
-      );
-      if (!session) { sendSuccess(res, { success: false, error: "Session not found or already ended" }); return; }
-      sendSuccess(res, { success: true, session });
+      const [session] = await db.select().from(dungeonSessionsTable).where(eq(dungeonSessionsTable.id, sessionId));
+      if (!session) { sendSuccess(res, { success: false, error: "Session not found" }); return; }
+      const d = (session.data as any) || {};
+      if (d.status !== "waiting") { sendSuccess(res, { success: false, error: "Session already started or ended" }); return; }
+      const members = d.members || [];
+      if (members.length >= 6) { sendSuccess(res, { success: false, error: "Session is full" }); return; }
+      if (members.some((m: any) => m.character_id === characterId)) {
+        sendSuccess(res, { success: true, session: buildSessionResponse(session) }); return;
+      }
+      const memberHp = 100 + (char.vitality || 8) * 10 + (char.level || 1) * 5;
+      members.push({
+        character_id: characterId,
+        name: char.name || "Unknown",
+        class: char.class || "warrior",
+        level: char.level || 1,
+        hp: memberHp,
+        max_hp: memberHp,
+      });
+      d.members = members;
+      d.combat_log = d.combat_log || [];
+      d.combat_log.push({ type: "system", text: `${char.name} joined the party.` });
+      await db.update(dungeonSessionsTable).set({ data: d }).where(eq(dungeonSessionsTable.id, session.id));
+      sendSuccess(res, { success: true, session: buildSessionResponse({ ...session, data: d }) });
       return;
     }
 
-    if (action === "attack") {
-      const [session] = await db.select().from(dungeonSessionsTable).where(
-        and(eq(dungeonSessionsTable.characterId, characterId), eq(dungeonSessionsTable.status, "active"))
-      );
-      if (!session) { sendSuccess(res, { success: false, message: "No active dungeon" }); return; }
+    // === START: leader starts the boss fight ===
+    if (action === "start") {
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [session] = await db.select().from(dungeonSessionsTable).where(eq(dungeonSessionsTable.id, sessionId));
+      if (!session) { sendSuccess(res, { success: false, error: "Session not found" }); return; }
+      const d = (session.data as any) || {};
+      if (d.leader_id !== characterId) { sendSuccess(res, { success: false, error: "Only the leader can start" }); return; }
+      if (d.status !== "waiting") { sendSuccess(res, { success: false, error: "Session already started" }); return; }
+      d.status = "active";
+      d.current_turn_index = 0;
+      d.turn_deadline = new Date(Date.now() + 8000).toISOString();
+      d.combat_log.push({ type: "system", text: `Battle begins! ${d.boss_name} appears!` });
+      await db.update(dungeonSessionsTable).set({ status: "active", data: d }).where(eq(dungeonSessionsTable.id, session.id));
+      sendSuccess(res, { success: true, session: buildSessionResponse({ ...session, data: d }) });
+      return;
+    }
 
-      const sData = (session.data as any) || { floor: 1, boss_hp: 500, boss_max_hp: 500, enemies_defeated: 0 };
-      const playerDmg = Math.floor((char.strength || 10) * (1 + Math.random() * 0.5));
-      const enemyDmg = Math.floor(10 + (sData.floor || 1) * 5 * Math.random());
-      sData.boss_hp = Math.max(0, (sData.boss_hp || 0) - playerDmg);
+    // === ATTACK / SKILL: player takes their turn ===
+    if (action === "attack" || action === "skill") {
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [session] = await db.select().from(dungeonSessionsTable).where(eq(dungeonSessionsTable.id, sessionId));
+      if (!session) { sendSuccess(res, { success: false, error: "Session not found" }); return; }
+      const d = (session.data as any) || {};
+      if (d.status !== "active") { sendSuccess(res, { success: false, error: "Combat not active" }); return; }
+      const members = d.members || [];
+      const myIdx = members.findIndex((m: any) => m.character_id === characterId);
+      if (myIdx < 0) { sendSuccess(res, { success: false, error: "Not in this session" }); return; }
+      if (d.current_turn_index !== myIdx) { sendSuccess(res, { success: false, error: "Not your turn" }); return; }
+      const me = members[myIdx];
+      if (me.hp <= 0) { sendSuccess(res, { success: false, error: "You are KO'd" }); return; }
 
-      const result: any = { player_damage: playerDmg, enemy_damage: enemyDmg };
+      // Calculate player damage
+      const baseDmg = (char.strength || 10) + (char.dexterity || 8) * 0.5 + (char.intelligence || 5) * 0.3;
+      let dmgMult = 1.0;
+      let skillName = "Basic Attack";
+      if (action === "skill" && skillId && SKILL_DATA[skillId]) {
+        dmgMult = SKILL_DATA[skillId].damage || 1.0;
+        skillName = skillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      }
+      const playerDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
+      const isCrit = Math.random() < (char.luck || 5) * 0.02;
+      const finalDmg = isCrit ? Math.floor(playerDmg * 1.5) : playerDmg;
+      d.boss_hp = Math.max(0, d.boss_hp - finalDmg);
+      d.combat_log.push({
+        type: "player_attack",
+        text: `${me.name} uses ${skillName} for ${finalDmg} damage${isCrit ? " (CRIT!)" : ""}!`,
+      });
 
-      if (sData.boss_hp <= 0) {
-        sData.enemies_defeated = (sData.enemies_defeated || 0) + 1;
-        sData.floor = (sData.floor || 1) + 1;
-        const newBossHp = 500 + (char.level || 1) * 50 * sData.floor;
-        sData.boss_hp = newBossHp;
-        sData.boss_max_hp = newBossHp;
-        const goldReward = 50 * sData.floor;
-        const expReward = 30 * sData.floor;
-        await db.update(charactersTable).set({
-          gold: (char.gold || 0) + goldReward,
-          exp: (char.exp || 0) + expReward,
-        }).where(eq(charactersTable.id, characterId));
-        result.floor_cleared = true;
-        result.rewards = { gold: goldReward, exp: expReward };
-        result.new_floor = sData.floor;
+      // Check victory
+      if (d.boss_hp <= 0) {
+        d.status = "victory";
+        d.combat_log.push({ type: "victory", text: `${d.boss_name} has been defeated! Victory!` });
+        // Reward all members
+        const goldReward = 100 + (char.level || 1) * 20;
+        const expReward = 80 + (char.level || 1) * 15;
+        for (const m of members) {
+          try {
+            await db.update(charactersTable).set({
+              gold: sql`COALESCE(gold, 0) + ${goldReward}`,
+              exp: sql`COALESCE(exp, 0) + ${expReward}`,
+            }).where(eq(charactersTable.id, m.character_id));
+          } catch {}
+        }
+        d.combat_log.push({ type: "system", text: `Each player earned ${goldReward} gold and ${expReward} exp!` });
+        await db.update(dungeonSessionsTable).set({ status: "completed", data: d }).where(eq(dungeonSessionsTable.id, session.id));
+        sendSuccess(res, { success: true, session: buildSessionResponse({ ...session, data: d }) });
+        return;
       }
 
-      await db.update(dungeonSessionsTable).set({ data: sData }).where(eq(dungeonSessionsTable.id, session.id));
-      sendSuccess(res, { success: true, session: { ...session, data: sData }, ...result });
+      // Boss counter-attack on the acting player
+      const bossDmgBase = d.boss_dmg_base || 15;
+      const bossDmgPerLvl = d.boss_dmg_per_level || 3;
+      const bossDmg = Math.max(1, Math.floor((bossDmgBase + (char.level || 1) * bossDmgPerLvl * 0.3) * (0.8 + Math.random() * 0.4)));
+      const defense = (char.defense || 0) + (char.vitality || 8) * 0.5;
+      const actualBossDmg = Math.max(1, bossDmg - Math.floor(defense * 0.3));
+      me.hp = Math.max(0, me.hp - actualBossDmg);
+      d.combat_log.push({
+        type: "boss_attack",
+        text: `${d.boss_name} strikes ${me.name} for ${actualBossDmg} damage!`,
+      });
+      if (me.hp <= 0) {
+        d.combat_log.push({ type: "system", text: `${me.name} has been knocked out!` });
+      }
+      members[myIdx] = me;
+
+      // Check defeat (all members KO'd)
+      const allDead = members.every((m: any) => m.hp <= 0);
+      if (allDead) {
+        d.status = "defeat";
+        d.combat_log.push({ type: "defeat", text: `All party members have fallen. Defeat.` });
+        await db.update(dungeonSessionsTable).set({ status: "completed", data: d }).where(eq(dungeonSessionsTable.id, session.id));
+        sendSuccess(res, { success: true, session: buildSessionResponse({ ...session, data: d }) });
+        return;
+      }
+
+      // Advance to next alive member
+      let nextIdx = (myIdx + 1) % members.length;
+      let attempts = 0;
+      while (members[nextIdx].hp <= 0 && attempts < members.length) {
+        nextIdx = (nextIdx + 1) % members.length;
+        attempts++;
+      }
+      d.current_turn_index = nextIdx;
+      d.turn_deadline = new Date(Date.now() + 8000).toISOString();
+      d.members = members;
+
+      await db.update(dungeonSessionsTable).set({ data: d }).where(eq(dungeonSessionsTable.id, session.id));
+      sendSuccess(res, { success: true, session: buildSessionResponse({ ...session, data: d }) });
       return;
     }
 
+    // === LEAVE: exit the dungeon ===
     if (action === "flee" || action === "leave") {
-      await db.update(dungeonSessionsTable).set({ status: "completed" })
-        .where(and(eq(dungeonSessionsTable.characterId, characterId), eq(dungeonSessionsTable.status, "active")));
+      if (sessionId) {
+        const [session] = await db.select().from(dungeonSessionsTable).where(eq(dungeonSessionsTable.id, sessionId));
+        if (session) {
+          const d = (session.data as any) || {};
+          const members = (d.members || []).filter((m: any) => m.character_id !== characterId);
+          if (members.length === 0) {
+            d.status = "completed";
+            d.members = [];
+            await db.update(dungeonSessionsTable).set({ status: "completed", data: d }).where(eq(dungeonSessionsTable.id, session.id));
+          } else {
+            d.members = members;
+            if (d.leader_id === characterId) d.leader_id = members[0].character_id;
+            if (d.current_turn_index >= members.length) d.current_turn_index = 0;
+            d.combat_log.push({ type: "system", text: `${char.name} left the dungeon.` });
+            await db.update(dungeonSessionsTable).set({ data: d }).where(eq(dungeonSessionsTable.id, session.id));
+          }
+        }
+      } else {
+        await db.update(dungeonSessionsTable).set({ status: "completed" })
+          .where(and(eq(dungeonSessionsTable.characterId, characterId),
+            sql`${dungeonSessionsTable.status} IN ('active', 'waiting')`));
+      }
       sendSuccess(res, { success: true });
       return;
     }
@@ -1540,7 +1728,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active"))
       );
       for (const q of activeQuests) {
-        const objType = q.type;
+        const objType = (q.objective as any)?.type || q.type;
         let increment = 0;
         if (objType === "combat_kills") increment = 1;
         else if (objType === "gold_earned") increment = goldGain;
