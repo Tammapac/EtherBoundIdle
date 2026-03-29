@@ -1249,7 +1249,7 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
     if (!char) { sendError(res, 404, "Character not found"); return; }
 
-    if (action === "enter") {
+    if (action === "enter" || action === "create") {
       const activeSessions = await db.select().from(dungeonSessionsTable).where(
         and(eq(dungeonSessionsTable.characterId, characterId), eq(dungeonSessionsTable.status, "active"))
       );
@@ -1263,6 +1263,17 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
         status: "active",
         data: { floor: 1, enemies_defeated: 0, boss_hp: bossHp, boss_max_hp: bossHp },
       }).returning();
+      sendSuccess(res, { success: true, session });
+      return;
+    }
+
+    if (action === "join") {
+      const { sessionId } = req.body;
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [session] = await db.select().from(dungeonSessionsTable).where(
+        and(eq(dungeonSessionsTable.id, sessionId), eq(dungeonSessionsTable.status, "active"))
+      );
+      if (!session) { sendSuccess(res, { success: false, error: "Session not found or already ended" }); return; }
       sendSuccess(res, { success: true, session });
       return;
     }
