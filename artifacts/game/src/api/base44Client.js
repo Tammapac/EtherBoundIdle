@@ -16,7 +16,7 @@ export const base44 = {
         },
         async update(id, data) {
           return apiFetch(`/entities/${entity}/${id}`, {
-            method: "PUT",
+            method: "PATCH",
             body: JSON.stringify(data),
           });
         },
@@ -28,8 +28,15 @@ export const base44 = {
         async list() {
           return apiFetch(`/entities/${entity}`);
         },
-        async filter() {
-          return apiFetch(`/entities/${entity}`);
+        async filter(query = {}, sort, limit) {
+          const params = new URLSearchParams();
+          if (Object.keys(query).length > 0) {
+            params.set("filter", JSON.stringify(query));
+          }
+          if (sort) params.set("sort", sort);
+          if (limit) params.set("limit", String(limit));
+          const qs = params.toString();
+          return apiFetch(`/entities/${entity}${qs ? `?${qs}` : ""}`);
         },
         async get(id) {
           return apiFetch(`/entities/${entity}/${id}`);
