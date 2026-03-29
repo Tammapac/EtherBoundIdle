@@ -18,6 +18,13 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       const me = await base44.auth.me();
       if (me) {
+        // Fetch role from user_roles table
+        try {
+          const roleData = await base44.functions.invoke("getCurrentUser", {});
+          if (roleData?.role) {
+            me.role = roleData.role;
+          }
+        } catch {}
         setUser(me);
         setIsAuthenticated(true);
       } else {
