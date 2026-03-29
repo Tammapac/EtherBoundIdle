@@ -15,12 +15,12 @@ import { sendSuccess, sendError } from "../lib/response";
 const router = Router();
 const SALT_ROUNDS = 12;
 
-const isProduction = process.env.NODE_ENV === "production";
+const useSecureCookie = process.env.COOKIE_SECURE === "true";
 
 function setSessionCookie(res: Response, sid: string) {
   res.cookie("sid", sid, {
     httpOnly: true,
-    secure: isProduction,
+    secure: useSecureCookie,
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL,
