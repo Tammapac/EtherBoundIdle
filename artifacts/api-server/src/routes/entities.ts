@@ -403,7 +403,8 @@ router.post("/entities/:entity", async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/entities/:entity/:id", async (req: Request, res: Response) => {
+// Entity update handler — supports PATCH, PUT, and POST to /:entity/:id
+async function handleEntityUpdate(req: Request, res: Response) {
   if (!requireAuth(req, res)) return;
 
   const { entity, id } = req.params;
@@ -429,7 +430,10 @@ router.patch("/entities/:entity/:id", async (req: Request, res: Response) => {
     req.log.error({ err }, "Entity update error");
     sendError(res, 500, err.message);
   }
-});
+}
+router.patch("/entities/:entity/:id", handleEntityUpdate);
+router.put("/entities/:entity/:id", handleEntityUpdate);
+router.post("/entities/:entity/:id", handleEntityUpdate);
 
 router.delete("/entities/:entity/:id", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
