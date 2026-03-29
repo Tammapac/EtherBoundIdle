@@ -1,4 +1,3 @@
-import session from "express-session";
 import express, { type Express, type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -16,7 +15,7 @@ const app: Express = express();
 
   app.use(cors({
   credentials: true,
-  origin: "http://46.224.121.242:3000",
+  origin: process.env.CORS_ORIGIN || "http://46.224.121.242:3000",
 }));
 
 app.use(
@@ -39,17 +38,6 @@ app.use(
   }),
 );
 app.use(cookieParser());
-
-app.use(session({
-  secret: "supersecret",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax",
-  },
-}));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));

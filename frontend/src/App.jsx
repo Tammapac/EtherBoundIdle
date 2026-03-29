@@ -39,24 +39,13 @@ const GameApp = () => {
   const initAuth = async () => {
     try {
       const user = await base44.auth.me();
-
-      if (!user) {
-        console.log("🔐 Kein User → login");
-
-        await base44.auth.login({
-          email: "test@test.de",
-          password: "123456"
-        });
-
-      } else {
-        console.log("✅ User eingeloggt");
+      if (user) {
+        console.log("User logged in");
       }
-
     } catch (err) {
-      console.error("Auth Fehler:", err);
+      console.error("Auth check failed:", err);
     }
   };
-
   initAuth();
 }, []);
     

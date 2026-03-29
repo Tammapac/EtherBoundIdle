@@ -1,4 +1,3 @@
-import { getSession, getSessionId } from "../lib/session";
 import { Router, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
 import { db, usersTable } from "@workspace/db";
@@ -6,6 +5,7 @@ import { eq } from "drizzle-orm";
 import {
   clearSession,
   getSessionId,
+  getSession,
   createSession,
   SESSION_COOKIE,
   SESSION_TTL,
