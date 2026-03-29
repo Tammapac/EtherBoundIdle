@@ -82,6 +82,7 @@ const fieldMappings: Record<string, Record<string, string>> = {
   },
   Item: {
     owner_id: "ownerId",
+    item_level: "level",
     set_id: "setId",
     upgrade_level: "upgradeLevel",
     star_level: "starLevel",
@@ -219,16 +220,38 @@ const timestampFields = new Set([
   "expiresAt", "lastSeen", "bossExpiresAt",
 ]);
 
+function getTableColumns(entityName: string): Set<string> | null {
+  const table = tableMap[entityName];
+  if (!table) return null;
+  // Drizzle tables expose column names as object keys
+  const cols = new Set<string>();
+  for (const key of Object.keys(table)) {
+    if (key.startsWith("_") || key === "getSQL" || key === "$inferInsert" || key === "$inferSelect") continue;
+    cols.add(key);
+  }
+  return cols;
+}
+
 function toDb(entityName: string, data: Record<string, any>): Record<string, any> {
   const mappings = fieldMappings[entityName] || {};
+  const columns = getTableColumns(entityName);
   const result: Record<string, any> = {};
+  const extraFields: Record<string, any> = {};
   for (const [key, value] of Object.entries(data)) {
     const mappedKey = mappings[key] || key;
     if (timestampFields.has(mappedKey) && value !== null && value !== undefined && !(value instanceof Date)) {
       result[mappedKey] = new Date(value);
+    } else if (columns && !columns.has(mappedKey)) {
+      // Unknown field: store in extraData so it's not lost
+      extraFields[key] = value;
     } else {
       result[mappedKey] = value;
     }
+  }
+  // Merge unknown fields into extraData
+  if (Object.keys(extraFields).length > 0) {
+    const existing = (result.extraData && typeof result.extraData === "object") ? result.extraData : {};
+    result.extraData = { ...existing, ...extraFields };
   }
   delete result.createdAt;
   delete result.updatedAt;
