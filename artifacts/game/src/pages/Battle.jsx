@@ -384,29 +384,52 @@ export default function Battle({ character, onCharacterUpdate }) {
     setTimeout(() => spawnEnemy(), 2500);
   }, [enemy, character, partySize, queryClient, spawnEnemy]);
 
-  // ── AUTO-ATTACK TIMER (5s in player turn) ────────────────────────────────
+  // ── AUTO-ATTACK TIMER (5s in player turn, timestamp-based for tab-out resilience) ──
+  const autoAttackStartRef = useRef(null);
   useEffect(() => {
     if (combatPhase !== "player_turn" || !enemy || enemyHp <= 0) {
       if (autoAttackTimerRef.current) { clearInterval(autoAttackTimerRef.current); autoAttackTimerRef.current = null; }
       setAutoAttackCountdown(null);
+      autoAttackStartRef.current = null;
       return;
     }
 
+    autoAttackStartRef.current = Date.now();
     setAutoAttackCountdown(5);
     autoAttackTimerRef.current = setInterval(() => {
-      setAutoAttackCountdown(prev => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          clearInterval(autoAttackTimerRef.current);
-          autoAttackTimerRef.current = null;
-          doPlayerAttack(null); // auto basic attack
-          return null;
-        }
-        return prev - 1;
-      });
+      if (!autoAttackStartRef.current) return;
+      const elapsed = Math.floor((Date.now() - autoAttackStartRef.current) / 1000);
+      const remaining = Math.max(0, 5 - elapsed);
+      if (remaining <= 0) {
+        clearInterval(autoAttackTimerRef.current);
+        autoAttackTimerRef.current = null;
+        autoAttackStartRef.current = null;
+        setAutoAttackCountdown(null);
+        doPlayerAttack(null); // auto basic attack
+      } else {
+        setAutoAttackCountdown(remaining);
+      }
     }, 1000);
 
-    return () => { if (autoAttackTimerRef.current) clearInterval(autoAttackTimerRef.current); };
+    // Also handle tab visibility change — catch up immediately
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !autoAttackStartRef.current) return;
+      const elapsed = Math.floor((Date.now() - autoAttackStartRef.current) / 1000);
+      if (elapsed >= 5) {
+        if (autoAttackTimerRef.current) { clearInterval(autoAttackTimerRef.current); autoAttackTimerRef.current = null; }
+        autoAttackStartRef.current = null;
+        setAutoAttackCountdown(null);
+        doPlayerAttack(null);
+      } else {
+        setAutoAttackCountdown(Math.max(0, 5 - elapsed));
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      if (autoAttackTimerRef.current) clearInterval(autoAttackTimerRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [combatPhase, enemy?.key, enemyHp]);
 
   // ── IDLE AUTO-BATTLE: pick random usable skill or basic attack ───────────

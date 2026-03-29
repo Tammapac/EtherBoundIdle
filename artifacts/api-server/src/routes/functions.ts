@@ -380,7 +380,8 @@ router.post("/functions/sellItem", async (req: Request, res: Response) => {
       await db.update(charactersTable).set({ gold: (char.gold || 0) + goldValue }).where(eq(charactersTable.id, char.id));
     }
     await db.delete(itemsTable).where(eq(itemsTable.id, itemId));
-    sendSuccess(res, { success: true, gold_earned: goldValue });
+    const newGold = (char?.gold || 0) + goldValue;
+    sendSuccess(res, { success: true, gold_earned: goldValue, newGold, sellPrice: goldValue });
   } catch (err: any) {
     req.log.error({ err }, "sellItem error");
     sendError(res, 500, err.message);

@@ -27,6 +27,7 @@ let _lastFightEnemy = null;
 let _fightPaused = false;
 let _lifeSkillsPaused = false;
 let _inFlight = { fight: false, lifeSkills: false, gemLab: false, guildBoss: false, save: false };
+let _visibilityHandler = null;
 
 function getCharacter() {
   return _characterData;
@@ -218,6 +219,21 @@ const idleEngine = {
     _intervals.guildBoss = setInterval(guildBossTick, TICK_INTERVALS.guildBoss);
     _intervals.save = setInterval(saveTick, TICK_INTERVALS.save);
 
+    // Re-trigger all ticks when tab becomes visible again (browsers throttle
+    // setInterval in background tabs, so ticks get delayed/skipped)
+    if (_visibilityHandler) document.removeEventListener('visibilitychange', _visibilityHandler);
+    _visibilityHandler = () => {
+      if (document.visibilityState === 'visible' && _running) {
+        fightTick();
+        lifeSkillsTick();
+        gemLabTick();
+        shopRotationTick();
+        saveTick();
+        emit('tabResumed', { characterId: _characterId });
+      }
+    };
+    document.addEventListener('visibilitychange', _visibilityHandler);
+
     emit('started', { characterId });
   },
 
@@ -227,6 +243,10 @@ const idleEngine = {
       clearInterval(_intervals[key]);
     }
     _intervals = {};
+    if (_visibilityHandler) {
+      document.removeEventListener('visibilitychange', _visibilityHandler);
+      _visibilityHandler = null;
+    }
     _characterId = null;
     _characterData = null;
     _inFlight = { fight: false, lifeSkills: false, gemLab: false, guildBoss: false, save: false };
