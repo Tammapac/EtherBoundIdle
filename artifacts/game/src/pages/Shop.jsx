@@ -87,6 +87,7 @@ export default function Shop({ character, onCharacterUpdate }) {
         rarity: shopItem.rarity,
         stats: shopItem.stats,
         item_level: shopItem.item_level,
+        level_req: shopItem.level_req || Math.max(1, (shopItem.item_level || 1) - 2),
         owner_id: character.id,
         sell_price: shopItem.sell_price || Math.floor(shopItem.buy_price * 0.3),
         buy_price: shopItem.buy_price,

@@ -551,6 +551,7 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
         type,
         rarity,
         item_level: itemLevel,
+        level_req: Math.max(1, itemLevel - 2),
         stats,
         buy_price: buyPrice,
         sell_price: sellPrice,

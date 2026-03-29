@@ -269,6 +269,14 @@ function toClient(entityName: string, row: Record<string, any>): Record<string, 
     const clientKey = reverseMappings[key] || key;
     result[clientKey] = value;
   }
+  // Spread extraData fields onto the top-level object so the frontend can access them directly
+  if (result.extraData && typeof result.extraData === "object") {
+    for (const [key, value] of Object.entries(result.extraData)) {
+      if (!(key in result)) {
+        result[key] = value;
+      }
+    }
+  }
   return result;
 }
 
