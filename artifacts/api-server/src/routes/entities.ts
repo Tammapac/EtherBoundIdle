@@ -187,7 +187,9 @@ const fieldMappings: Record<string, Record<string, string>> = {
     updated_at: "updatedAt",
   },
   Friendship: {
+    character_id: "characterId1",
     character_id_1: "characterId1",
+    friend_id: "characterId2",
     character_id_2: "characterId2",
     created_at: "createdAt",
     updated_at: "updatedAt",

@@ -11,9 +11,9 @@ export const ENEMIES: Record<string, { name: string; expReward: number; goldRewa
   goblin_shaman: { name: "Goblin Shaman", expReward: 25, goldReward: 12 },
   treant_sprout: { name: "Treant Sprout", expReward: 18, goldReward: 7 },
   thornback_boar: { name: "Thornback Boar", expReward: 19, goldReward: 8 },
-  ancient_treant: { name: "Ancient Treant", expReward: 300, goldReward: 150, isElite: true },
-  forest_troll: { name: "Forest Troll", expReward: 350, goldReward: 175, isElite: true },
-  forest_guardian: { name: "Forest Guardian", expReward: 150, goldReward: 80, isBoss: true },
+  ancient_treant: { name: "Ancient Treant", expReward: 120, goldReward: 80, isElite: true },
+  forest_troll: { name: "Forest Troll", expReward: 140, goldReward: 90, isElite: true },
+  forest_guardian: { name: "Forest Guardian", expReward: 80, goldReward: 50, isBoss: true },
   sand_scorpion: { name: "Sand Scorpion", expReward: 35, goldReward: 15 },
   desert_bandit: { name: "Desert Bandit", expReward: 40, goldReward: 20 },
   sand_golem: { name: "Sand Golem", expReward: 45, goldReward: 22 },
@@ -27,9 +27,9 @@ export const ENEMIES: Record<string, { name: string; expReward: number; goldRewa
   sand_phantom: { name: "Sand Phantom", expReward: 48, goldReward: 24 },
   flame_jackal: { name: "Flame Jackal", expReward: 46, goldReward: 22 },
   tomb_guardian: { name: "Tomb Guardian", expReward: 52, goldReward: 26 },
-  sand_titan: { name: "Sand Titan", expReward: 600, goldReward: 300, isElite: true },
-  fire_colossus: { name: "Fire Colossus", expReward: 700, goldReward: 350, isElite: true },
-  desert_wyrm: { name: "Desert Wyrm", expReward: 400, goldReward: 200, isBoss: true },
+  sand_titan: { name: "Sand Titan", expReward: 250, goldReward: 150, isElite: true },
+  fire_colossus: { name: "Fire Colossus", expReward: 300, goldReward: 180, isElite: true },
+  desert_wyrm: { name: "Desert Wyrm", expReward: 180, goldReward: 100, isBoss: true },
   frost_wolf: { name: "Frost Wolf", expReward: 70, goldReward: 30 },
   ice_elemental: { name: "Ice Elemental", expReward: 85, goldReward: 40 },
   yeti: { name: "Yeti", expReward: 100, goldReward: 50 },
@@ -43,9 +43,9 @@ export const ENEMIES: Record<string, { name: string; expReward: number; goldRewa
   ice_basilisk: { name: "Ice Basilisk", expReward: 98, goldReward: 48 },
   polar_bear_spirit: { name: "Polar Bear Spirit", expReward: 105, goldReward: 52 },
   crystal_golem: { name: "Crystal Golem", expReward: 108, goldReward: 54 },
-  frost_colossus: { name: "Frost Colossus", expReward: 1200, goldReward: 600, isElite: true },
-  blizzard_titan: { name: "Blizzard Titan", expReward: 1400, goldReward: 700, isElite: true },
-  frost_dragon: { name: "Frost Dragon", expReward: 1000, goldReward: 500, isBoss: true },
+  frost_colossus: { name: "Frost Colossus", expReward: 500, goldReward: 300, isElite: true },
+  blizzard_titan: { name: "Blizzard Titan", expReward: 600, goldReward: 350, isElite: true },
+  frost_dragon: { name: "Frost Dragon", expReward: 400, goldReward: 250, isBoss: true },
   shadow_wraith: { name: "Shadow Wraith", expReward: 150, goldReward: 70 },
   demon_knight: { name: "Demon Knight", expReward: 200, goldReward: 90 },
   void_walker: { name: "Void Walker", expReward: 180, goldReward: 85 },
@@ -59,9 +59,9 @@ export const ENEMIES: Record<string, { name: string; expReward: number; goldRewa
   void_assassin: { name: "Void Assassin", expReward: 215, goldReward: 105 },
   rift_stalker: { name: "Rift Stalker", expReward: 220, goldReward: 108 },
   shadow_dragon: { name: "Shadow Dragon", expReward: 230, goldReward: 112 },
-  void_titan: { name: "Void Titan", expReward: 3000, goldReward: 1500, isElite: true },
-  blood_colossus: { name: "Blood Colossus", expReward: 3500, goldReward: 1800, isElite: true },
-  shadow_lord: { name: "Shadow Lord", expReward: 3000, goldReward: 1500, isBoss: true },
+  void_titan: { name: "Void Titan", expReward: 1200, goldReward: 700, isElite: true },
+  blood_colossus: { name: "Blood Colossus", expReward: 1400, goldReward: 800, isElite: true },
+  shadow_lord: { name: "Shadow Lord", expReward: 1000, goldReward: 600, isBoss: true },
   celestial_guardian: { name: "Celestial Guardian", expReward: 350, goldReward: 150 },
   seraph_warrior: { name: "Seraph Warrior", expReward: 400, goldReward: 180 },
   titan: { name: "Titan", expReward: 500, goldReward: 250 },
@@ -75,13 +75,17 @@ export const ENEMIES: Record<string, { name: string; expReward: number; goldRewa
   starfire_drake: { name: "Starfire Drake", expReward: 460, goldReward: 215 },
   void_seraph: { name: "Void Seraph", expReward: 480, goldReward: 225 },
   genesis_elemental: { name: "Genesis Elemental", expReward: 510, goldReward: 240 },
-  celestial_titan: { name: "Celestial Titan", expReward: 12000, goldReward: 6000, isElite: true },
-  omega_seraph: { name: "Omega Seraph", expReward: 14000, goldReward: 7000, isElite: true },
-  cosmic_overlord: { name: "Cosmic Overlord", expReward: 10000, goldReward: 5000, isBoss: true },
+  celestial_titan: { name: "Celestial Titan", expReward: 2500, goldReward: 1200, isElite: true },
+  omega_seraph: { name: "Omega Seraph", expReward: 3000, goldReward: 1500, isElite: true },
+  cosmic_overlord: { name: "Cosmic Overlord", expReward: 2000, goldReward: 1000, isBoss: true },
 };
 
 export function calculateExpToLevel(level: number): number {
-  return Math.floor(100 * Math.pow(1.15, level - 1));
+  // Steeper curve: base growth 1.18 per level + quadratic scaling at higher levels
+  // Lv1=100, Lv10=~430, Lv20=~2750, Lv37=~45000, Lv50=~350000, Lv100=~45M
+  const base = 100 * Math.pow(1.18, level - 1);
+  const quadratic = level > 10 ? Math.pow(level - 10, 2) * 15 : 0;
+  return Math.floor(base + quadratic);
 }
 
 const RARITY_STAT_MULTIPLIERS: Record<string, number> = {

@@ -120,6 +120,41 @@ router.get("/auth/user", async (req: any, res: Response) => {
     return res.status(500).json({ success: false, error: "Server error" });
   }
 });
+// ================= RESET PASSWORD =================
+router.post("/auth/reset-password", async (req: Request, res: Response) => {
+  try {
+    const { email, newPassword } = req.body ?? {};
+
+    if (!email || !isValidEmail(email)) {
+      return sendError(res, 400, "Invalid email");
+    }
+    if (!newPassword || newPassword.length < 6) {
+      return sendError(res, 400, "Password must be at least 6 characters");
+    }
+
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email.toLowerCase().trim()));
+
+    if (!user) {
+      // Don't reveal if email exists
+      return sendSuccess(res, { message: "If the email exists, the password has been reset." });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await db
+      .update(usersTable)
+      .set({ passwordHash })
+      .where(eq(usersTable.id, user.id));
+
+    return sendSuccess(res, { message: "Password reset successfully. You can now login with your new password." });
+  } catch (err) {
+    console.error("RESET PASSWORD ERROR:", err);
+    return sendError(res, 500, "Password reset failed");
+  }
+});
+
 // ================= LOGOUT =================
 router.post("/auth/logout", async (req: Request, res: Response) => {
   const sid = getSessionId(req);

@@ -18,10 +18,23 @@ import InlineChat from "@/components/game/InlineChat";
 import { idleEngine } from "@/lib/idleEngine";
 import { calculateFinalStats, rollDamage } from "@/lib/statSystem";
 
+// Each boss template has 3 raid tiers with increasing HP and token multipliers
 const GUILD_BOSSES = [
-  { name: "Ancient Golem", baseHp: 50000 },
-  { name: "Shadow Hydra", baseHp: 100000 },
-  { name: "Cosmic Titan", baseHp: 250000 },
+  { name: "Ancient Golem", baseHp: 50000, tiers: [
+    { level: 1, hpMult: 1, tokenMult: 1 },
+    { level: 2, hpMult: 2, tokenMult: 1.5 },
+    { level: 3, hpMult: 4, tokenMult: 2.5 },
+  ]},
+  { name: "Shadow Hydra", baseHp: 100000, tiers: [
+    { level: 1, hpMult: 1, tokenMult: 1.5 },
+    { level: 2, hpMult: 2.5, tokenMult: 2 },
+    { level: 3, hpMult: 5, tokenMult: 3 },
+  ]},
+  { name: "Cosmic Titan", baseHp: 250000, tiers: [
+    { level: 1, hpMult: 1, tokenMult: 2 },
+    { level: 2, hpMult: 3, tokenMult: 3 },
+    { level: 3, hpMult: 6, tokenMult: 5 },
+  ]},
 ];
 
 export default function GuildPage({ character, onCharacterUpdate }) {
@@ -147,12 +160,26 @@ export default function GuildPage({ character, onCharacterUpdate }) {
     },
   });
 
+  // Determine current raid tier based on guild boss kill count
+  const bossKills = myGuild?.boss_kills || 0;
+  const raidTier = Math.min(2, Math.floor(bossKills / 3)); // Every 3 kills advances tier (0,1,2 = Lv.1,2,3)
+
   const activateBossMutation = useMutation({
     mutationFn: async () => {
-      const bossTemplate = GUILD_BOSSES[Math.min((myGuild.level || 1) - 1, GUILD_BOSSES.length - 1)];
-      const hp = Math.floor(bossTemplate.baseHp * (1 + (myGuild.level - 1) * 0.5));
+      const bossIdx = Math.min((myGuild.level || 1) - 1, GUILD_BOSSES.length - 1);
+      const bossTemplate = GUILD_BOSSES[bossIdx];
+      const tier = bossTemplate.tiers[raidTier] || bossTemplate.tiers[0];
+      const hp = Math.floor(bossTemplate.baseHp * tier.hpMult * (1 + (myGuild.level - 1) * 0.5));
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      await base44.entities.Guild.update(myGuild.id, { boss_active: true, boss_name: bossTemplate.name, boss_hp: hp, boss_max_hp: hp, boss_expires_at: expires });
+      await base44.entities.Guild.update(myGuild.id, {
+        boss_active: true,
+        boss_name: `${bossTemplate.name} (Raid Lv.${tier.level})`,
+        boss_hp: hp,
+        boss_max_hp: hp,
+        boss_expires_at: expires,
+        boss_raid_tier: raidTier,
+        boss_token_mult: tier.tokenMult,
+      });
       refetch();
     },
   });
@@ -191,8 +218,12 @@ export default function GuildPage({ character, onCharacterUpdate }) {
       if (newHp <= 0) {
         updates.boss_active = false;
         const bossLevel = Math.min((myGuild.level || 1), 3);
-        const tokenReward = 100 * bossLevel + Math.floor(dmg / 50);
+        const tokenMult = myGuild.boss_token_mult || 1;
+        const tokenReward = Math.floor((100 * bossLevel + Math.floor(dmg / 50)) * tokenMult);
         updates.guild_tokens = (myGuild.guild_tokens || 0) + tokenReward;
+        updates.boss_kills = (myGuild.boss_kills || 0) + 1; // Track kills for raid tier progression
+        // Reset damage for all members
+        updates.members = newMembers.map(m => ({ ...m, boss_damage_today: 0 }));
         const newExp = (myGuild.exp || 0) + 500;
         updates.exp = newExp;
         if (newExp >= (myGuild.exp_to_next || 1000)) {
@@ -212,6 +243,32 @@ export default function GuildPage({ character, onCharacterUpdate }) {
     mutationFn: async (item) => {
       if ((myGuild.guild_tokens || 0) < item.cost) throw new Error("Not enough tokens");
       await base44.entities.Guild.update(myGuild.id, { guild_tokens: (myGuild.guild_tokens || 0) - item.cost });
+
+      // Apply buff effect for scrolls/runes (duration-based items)
+      if (item.durationMs && character?.id) {
+        const BUFF_EFFECTS = {
+          exp_scroll: { type: "exp_bonus", value: 50 },
+          gold_scroll: { type: "gold_bonus", value: 50 },
+          damage_rune: { type: "damage_bonus", value: 30 },
+          defense_rune: { type: "defense_bonus", value: 30 },
+        };
+        const effect = BUFF_EFFECTS[item.id];
+        if (effect) {
+          const activeBuffs = character.active_buffs || [];
+          const newBuff = {
+            id: item.id,
+            name: item.name,
+            type: effect.type,
+            value: effect.value,
+            expires_at: new Date(Date.now() + item.durationMs).toISOString(),
+          };
+          // Replace existing buff of same type or add new
+          const filtered = activeBuffs.filter(b => b.type !== effect.type);
+          filtered.push(newBuff);
+          await base44.entities.Character.update(character.id, { active_buffs: filtered });
+          onCharacterUpdate({ ...character, active_buffs: filtered });
+        }
+      }
       refetch();
     },
   });
@@ -288,6 +345,7 @@ export default function GuildPage({ character, onCharacterUpdate }) {
                 guild={myGuild}
                 onBuy={(item) => shopBuyMutation.mutate(item)}
                 isBuying={shopBuyMutation.isPending}
+                characterId={character?.id}
               />
             </TabsContent>
 

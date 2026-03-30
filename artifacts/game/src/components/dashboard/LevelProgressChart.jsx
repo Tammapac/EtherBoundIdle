@@ -5,11 +5,12 @@ export default function LevelProgressChart({ character }) {
   if (!character) return null;
 
   // Simulate character progression history based on current level
-  // Each level threshold represents 15% growth from previous
   const generateProgressData = () => {
     const data = [];
     for (let i = 1; i <= character.level; i++) {
-      const expToLevel = Math.floor(100 * Math.pow(1.15, i - 1));
+      const base = 100 * Math.pow(1.18, i - 1);
+      const quadratic = i > 10 ? Math.pow(i - 10, 2) * 15 : 0;
+      const expToLevel = Math.floor(base + quadratic);
       data.push({
         level: i,
         expRequired: expToLevel,

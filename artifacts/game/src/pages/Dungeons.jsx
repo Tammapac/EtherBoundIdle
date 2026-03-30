@@ -145,6 +145,14 @@ export default function Dungeons({ character, onCharacterUpdate }) {
   const [showJoin, setShowJoin] = useState(false);
   const { toast } = useToast();
 
+  // Dungeon entry limit status
+  const { data: entryStatus, refetch: refetchEntryStatus } = useQuery({
+    queryKey: ["dungeonEntries", character?.id],
+    queryFn: () => base44.functions.invoke("dungeonEntryStatus", { characterId: character.id }),
+    enabled: !!character?.id,
+    refetchInterval: 60000,
+  });
+
   // Get current party
   const { data: partyData } = useQuery({
     queryKey: ["party", character?.id],
@@ -184,6 +192,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
       });
       if (res?.success) {
         setActiveSession(res.session);
+        refetchEntryStatus();
         await broadcastDungeonEntry(res.session.id, dungeon.id, dungeon.name);
       } else {
         toast({ title: res?.error || "Failed to create session", variant: "destructive" });
@@ -267,6 +276,18 @@ export default function Dungeons({ character, onCharacterUpdate }) {
             <Skull className="w-5 h-5 text-destructive" /> Dungeons
           </h2>
           <p className="text-xs text-muted-foreground">Real-time party boss encounters with exclusive loot</p>
+          {entryStatus && (
+            <p className="text-xs mt-1">
+              <span className={entryStatus.entriesLeft > 0 ? "text-green-400" : "text-red-400"}>
+                Entries: {entryStatus.entriesLeft}/{entryStatus.maxEntries}
+              </span>
+              {entryStatus.entriesLeft === 0 && entryStatus.windowRemaining > 0 && (
+                <span className="text-yellow-400 ml-2">
+                  Resets in {Math.ceil(entryStatus.windowRemaining / 60000)}m
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button

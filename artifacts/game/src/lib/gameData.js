@@ -828,7 +828,10 @@ export function generateLoot(enemyLevel, luck, isBoss = false, regionKey = null,
 export { rollDamage as calculateDamage } from "./statSystem.js";
 
 export function calculateExpToLevel(level) {
-  return Math.floor(100 * Math.pow(1.15, level - 1));
+  // Steeper curve: base growth 1.18 per level + quadratic scaling at higher levels
+  const base = 100 * Math.pow(1.18, level - 1);
+  const quadratic = level > 10 ? Math.pow(level - 10, 2) * 15 : 0;
+  return Math.floor(base + quadratic);
 }
 
 // ===== IDLE CALCULATION =====

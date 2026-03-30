@@ -1,19 +1,47 @@
 import React, { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { apiFetch } from "@/api/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, Mail, User, Lock, ChevronRight, CheckCircle, AlertCircle } from "lucide-react";
+import { Shield, Mail, User, Lock, ChevronRight, CheckCircle, AlertCircle, KeyRound } from "lucide-react";
 
 export default function Auth() {
   const { register, login } = useAuth();
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState("login"); // "login" | "register" | "reset"
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    if (!email) { setError("Please enter your email."); return; }
+    if (!newPassword || newPassword.length < 6) { setError("New password must be at least 6 characters."); return; }
+    setIsLoading(true);
+    try {
+      const res = await apiFetch("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email, newPassword }),
+      });
+      if (res?.success) {
+        setSuccess(res.data?.message || "Password reset successfully! You can now login.");
+        setNewPassword("");
+        setTimeout(() => { setMode("login"); setSuccess(""); }, 3000);
+      } else {
+        setError(res?.error || "Reset failed.");
+      }
+    } catch (err) {
+      setError("Reset failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -86,7 +114,7 @@ export default function Auth() {
             </h1>
           </motion.div>
           <p className="text-muted-foreground text-sm tracking-wide">
-            {mode === "login" ? "Welcome back, Adventurer" : "Begin your journey"}
+            {mode === "reset" ? "Reset your password" : mode === "login" ? "Welcome back, Adventurer" : "Begin your journey"}
           </p>
         </div>
 
@@ -133,7 +161,7 @@ export default function Auth() {
             )}
           </AnimatePresence>
 
-          <form onSubmit={mode === "login" ? handleLogin : handleRegister} className="space-y-4">
+          <form onSubmit={mode === "reset" ? handleResetPassword : mode === "login" ? handleLogin : handleRegister} className="space-y-4">
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                 <Mail className="w-4 h-4" /> Email
@@ -173,24 +201,54 @@ export default function Auth() {
               )}
             </AnimatePresence>
 
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                <Lock className="w-4 h-4" /> Password
-              </label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="bg-muted/50 border-border/50 focus:border-primary/50"
-                required
-                minLength={6}
-                disabled={isLoading}
-              />
-              {mode === "register" && (
+            {mode !== "reset" && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                  <Lock className="w-4 h-4" /> Password
+                </label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="bg-muted/50 border-border/50 focus:border-primary/50"
+                  required
+                  minLength={6}
+                  disabled={isLoading}
+                />
+                {mode === "register" && (
+                  <p className="text-xs text-muted-foreground mt-1">Minimum 6 characters</p>
+                )}
+                {mode === "login" && (
+                  <button
+                    type="button"
+                    onClick={() => { setMode("reset"); setError(""); setSuccess(""); }}
+                    className="text-xs text-primary hover:text-primary/80 mt-1"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+            )}
+
+            {mode === "reset" && (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                  <KeyRound className="w-4 h-4" /> New Password
+                </label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="bg-muted/50 border-border/50 focus:border-primary/50"
+                  required
+                  minLength={6}
+                  disabled={isLoading}
+                />
                 <p className="text-xs text-muted-foreground mt-1">Minimum 6 characters</p>
-              )}
-            </div>
+              </div>
+            )}
 
             <Button
               type="submit"
@@ -201,11 +259,11 @@ export default function Auth() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {mode === "login" ? "Logging in..." : "Creating account..."}
+                  {mode === "reset" ? "Resetting..." : mode === "login" ? "Logging in..." : "Creating account..."}
                 </div>
               ) : (
                 <>
-                  {mode === "login" ? "Login" : "Create Account"}
+                  {mode === "reset" ? "Reset Password" : mode === "login" ? "Login" : "Create Account"}
                   <ChevronRight className="w-5 h-5 ml-2" />
                 </>
               )}
@@ -214,19 +272,19 @@ export default function Auth() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              {mode === "login" ? "No account yet?" : "Already have an account?"}
+              {mode === "reset" ? "Remember your password?" : mode === "login" ? "No account yet?" : "Already have an account?"}
             </p>
             <Button
               variant="link"
               onClick={() => {
-                setMode(mode === "login" ? "register" : "login");
+                setMode(mode === "reset" ? "login" : mode === "login" ? "register" : "login");
                 setError("");
                 setSuccess("");
               }}
               className="text-primary hover:text-primary/80 font-medium"
               disabled={isLoading}
             >
-              {mode === "login" ? "Create one" : "Login instead"}
+              {mode === "reset" ? "Back to Login" : mode === "login" ? "Create one" : "Login instead"}
             </Button>
           </div>
         </div>

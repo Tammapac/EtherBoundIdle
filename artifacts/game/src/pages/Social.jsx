@@ -1,13 +1,39 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Users, Mail, ArrowLeftRight, Bell } from "lucide-react";
+import { Users, Mail, ArrowLeftRight, Bell, AlertTriangle } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import FriendPanel from "@/components/social/FriendPanel";
 import MessagesPanel from "@/components/social/MessagesPanel";
 import MailPanel from "@/components/social/MailPanel";
 import TradePanel from "@/components/social/TradePanel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+// Error boundary to prevent black screen on component crashes
+class SocialErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-yellow-400 mx-auto" />
+          <p className="text-sm text-muted-foreground">Something went wrong in the Social panel.</p>
+          <Button size="sm" onClick={() => this.setState({ hasError: false, error: null })}>
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function Social({ character, onCharacterUpdate }) {
   const [activeTab, setActiveTab] = useState("friends");
@@ -79,6 +105,7 @@ export default function Social({ character, onCharacterUpdate }) {
   if (!character) return null;
 
   return (
+    <SocialErrorBoundary>
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
         <Users className="w-5 h-5 text-primary" /> Social
@@ -129,5 +156,6 @@ export default function Social({ character, onCharacterUpdate }) {
         </TabsContent>
       </Tabs>
     </div>
+    </SocialErrorBoundary>
   );
 }

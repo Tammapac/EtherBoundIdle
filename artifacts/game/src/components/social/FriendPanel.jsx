@@ -190,17 +190,17 @@ export default function FriendPanel({ character }) {
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
-                      <span className={`text-sm font-bold ${cls?.color}`}>{f.friend_name[0]}</span>
+                      <span className={`text-sm font-bold ${cls?.color}`}>{(f.friend_name || "?")[0]}</span>
                     </div>
                     <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${STATUS_COLOR[status]}`} />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold">{f.friend_name}</p>
+                      <p className="text-sm font-semibold">{f.friend_name || "Unknown"}</p>
                       {f.is_favorite && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Lv.{f.friend_level} {cls?.name} · <span className="capitalize">{STATUS_LABEL[status]}</span>
+                      Lv.{f.friend_level || "?"} {cls?.name || "Unknown"} · <span className="capitalize">{STATUS_LABEL[status]}</span>
                       {presence?.current_zone && status !== "offline" && ` · ${presence.current_zone.replace(/_/g, " ")}`}
                     </p>
                   </div>
@@ -289,7 +289,7 @@ export default function FriendPanel({ character }) {
           )}
           {friends.filter(f => f.is_blocked).map(f => (
             <div key={f.id} className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
-              <p className="text-sm">{f.friend_name}</p>
+              <p className="text-sm">{f.friend_name || "Unknown"}</p>
               <Button variant="outline" size="sm" onClick={() => base44.entities.Friendship.update(f.id, { is_blocked: false }).then(() => qc.invalidateQueries({ queryKey: ["friends", character.id] }))}>
                 Unblock
               </Button>
