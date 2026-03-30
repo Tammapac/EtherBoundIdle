@@ -20,23 +20,16 @@ const CLASS_ICONS = {
 export default function CharacterSelection({ onCharacterSelected }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const { data: characters = [], isLoading, isError, error } = useQuery({
     queryKey: ["characters", user?.id],
     queryFn: async () => {
-      try {
-        // Filter characters to only those created by the current user
-        const filter = user?.id ? JSON.stringify({ created_by: user.id }) : "";
-        const url = filter ? `/entities/Character?filter=${encodeURIComponent(filter)}` : "/entities/Character";
-	const chars = await apiFetch(url);
-        return chars || [];
-      } catch (err) {
-        console.error("Failed to fetch characters:", err);
-        return [];
-      }
+      if (!user?.id) return [];
+      const filter = JSON.stringify({ created_by: user.id });
+      const chars = await apiFetch(`/entities/Character?filter=${encodeURIComponent(filter)}`);
+      return chars || [];
     },
-    enabled: !!user?.id,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     staleTime: 0,
@@ -163,7 +156,7 @@ export default function CharacterSelection({ onCharacterSelected }) {
             size="lg"
             variant="outline"
             className="flex-1 gap-2"
-            onClick={() => base44.auth.logout()}
+            onClick={() => logout()}
           >
             <LogOut className="w-5 h-5" /> Logout
           </Button>
