@@ -11,12 +11,16 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { RARITY_CONFIG } from "@/lib/gameData";
 
-export default function EquipmentUpgradePanel({ item, character, onClose }) {
+export default function EquipmentUpgradePanel({ item: initialItem, character, onClose, onItemUpdated }) {
   const [activeTab, setActiveTab] = useState("safe"); // safe, star, awaken
   const [confirmStar, setConfirmStar] = useState(false);
   const [confirmAwaken, setConfirmAwaken] = useState(false);
+  const [result, setResult] = useState(null); // { type: "success"|"destroyed"|"failed", title, message }
+  const [liveItem, setLiveItem] = useState(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const item = liveItem || initialItem;
 
   // Success chances for star upgrades
   const STAR_SUCCESS_CHANCES = {
@@ -37,6 +41,8 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
   const goldCost = Math.floor(300 * (currentUpgrade + 1) * rarityMult);
 
   // Mutations
+  const clearResult = () => setResult(null);
+
   const safeMutation = useMutation({
     mutationFn: async () => {
       const response = await base44.functions.invoke('upgradeItemSafe', { itemId: item.id });
@@ -44,25 +50,22 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast({
-          title: `✅ Upgraded!`,
-          description: data.message,
-          duration: 2000
-        });
+        setResult({ type: "success", title: "UPGRADED!", message: `+${(item.upgrade_level || 0) + 1} Success` });
         if (data.gold_spent && character) {
           character.gold = (character.gold || 0) - data.gold_spent;
         }
+        if (data.item) {
+          setLiveItem({ ...item, ...data.item, upgrade_level: data.item.upgrade_level ?? data.item.upgradeLevel });
+          onItemUpdated?.(data.item);
+        }
         queryClient.invalidateQueries({ queryKey: ["items"] });
         queryClient.invalidateQueries({ queryKey: ["characters"] });
-        setTimeout(onClose, 500);
+      } else {
+        setResult({ type: "failed", title: "FAILED", message: data.message || "Upgrade failed" });
       }
     },
     onError: (error) => {
-      toast({
-        title: "Upgrade failed",
-        description: error.response?.data?.error || "Unknown error",
-        variant: "destructive"
-      });
+      setResult({ type: "failed", title: "ERROR", message: error.response?.data?.error || "Unknown error" });
     }
   });
 
@@ -72,37 +75,29 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
       return response;
     },
     onSuccess: (data) => {
-      if (data.success) {
-        toast({
-          title: `⭐ SUCCESS!`,
-          description: data.message,
-          duration: 3000
-        });
-      } else {
-        toast({
-          title: `💀 DESTROYED!`,
-          description: data.message || 'Item was destroyed!',
-          variant: "destructive",
-          duration: 4000
-        });
-      }
       if (data.gems_spent) {
         const newGems = (character.gems || 0) - data.gems_spent;
         if (character && newGems >= 0) {
           character.gems = newGems;
         }
       }
+      if (data.success) {
+        setResult({ type: "success", title: "STAR UP!", message: `⭐ ${(item.star_level || 0) + 1} Success!` });
+        if (data.item) {
+          setLiveItem({ ...item, ...data.item, star_level: data.item.star_level ?? data.item.starLevel });
+          onItemUpdated?.(data.item);
+        }
+      } else if (data.itemDestroyed) {
+        setResult({ type: "destroyed", title: "DESTROYED!", message: data.message || "Item was destroyed!" });
+      } else {
+        setResult({ type: "failed", title: "FAILED", message: data.message || "Star upgrade failed" });
+      }
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
       setConfirmStar(false);
-      setTimeout(onClose, 1000);
     },
     onError: (error) => {
-      toast({
-        title: "Star upgrade failed",
-        description: error.response?.data?.error || "Unknown error",
-        variant: "destructive"
-      });
+      setResult({ type: "failed", title: "ERROR", message: error.response?.data?.error || "Unknown error" });
     }
   });
 
@@ -113,23 +108,20 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast({
-          title: `✨ AWAKENED!`,
-          description: data.message,
-          duration: 3000
-        });
+        setResult({ type: "success", title: "AWAKENED!", message: "Item has been awakened with immense power!" });
+        if (data.item) {
+          setLiveItem({ ...item, ...data.item, is_awakened: true });
+          onItemUpdated?.(data.item);
+        }
+      } else {
+        setResult({ type: "failed", title: "FAILED", message: data.message || "Awakening failed" });
       }
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
       setConfirmAwaken(false);
-      setTimeout(onClose, 500);
     },
     onError: (error) => {
-      toast({
-        title: "Awakening failed",
-        description: error.response?.data?.error || "Unknown error",
-        variant: "destructive"
-      });
+      setResult({ type: "failed", title: "ERROR", message: error.response?.data?.error || "Unknown error" });
     }
   });
 
@@ -202,6 +194,51 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
           <Sparkles className="w-4 h-4" /> Awaken
         </button>
       </div>
+
+      {/* Result Overlay — big and centered */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="relative z-10"
+          >
+            <div
+              className={`rounded-xl p-6 text-center border-2 cursor-pointer ${
+                result.type === "success"
+                  ? "bg-green-500/20 border-green-500/60"
+                  : result.type === "destroyed"
+                  ? "bg-red-500/20 border-red-500/60"
+                  : "bg-orange-500/20 border-orange-500/60"
+              }`}
+              onClick={clearResult}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", damping: 8, stiffness: 200 }}
+              >
+                <p className={`text-3xl font-black tracking-wider mb-1 ${
+                  result.type === "success" ? "text-green-400"
+                  : result.type === "destroyed" ? "text-red-400"
+                  : "text-orange-400"
+                }`}>
+                  {result.type === "success" ? "✅" : result.type === "destroyed" ? "💀" : "❌"} {result.title}
+                </p>
+              </motion.div>
+              <p className={`text-sm font-medium mt-2 ${
+                result.type === "success" ? "text-green-300"
+                : result.type === "destroyed" ? "text-red-300"
+                : "text-orange-300"
+              }`}>
+                {result.message}
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">Click to continue</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Tab Content */}
       <div className="space-y-3">

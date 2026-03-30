@@ -258,8 +258,11 @@ export default function Inventory({ character, onCharacterUpdate }) {
           return i;
         });
       await applyEquipmentStats(newEquip, updatedItems);
+      // Optimistically update the items cache so UI reflects immediately
+      queryClient.setQueryData(["items", character?.id], updatedItems);
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      setSelectedItem(null);
+      // Update selected item to show equipped state
+      setSelectedItem({ ...item, equipped: true });
     },
   });
 
@@ -271,8 +274,9 @@ export default function Inventory({ character, onCharacterUpdate }) {
       delete newEquip[slot];
       const updatedItems = items.map(i => i.id === item.id ? { ...i, equipped: false } : i);
       await applyEquipmentStats(newEquip, updatedItems);
+      queryClient.setQueryData(["items", character?.id], updatedItems);
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      setSelectedItem(null);
+      setSelectedItem({ ...item, equipped: false });
     },
   });
 

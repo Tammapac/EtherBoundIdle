@@ -28,6 +28,43 @@ import { eq, desc, and, or, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+// ── Game Config loader (DB-backed, cached 60s) ────────────────────────────
+let _configCache: { config: Record<string, any>; ts: number } | null = null;
+const CONFIG_CACHE_MS = 60_000; // refresh every 60s
+
+const CONFIG_DEFAULTS: Record<string, any> = {
+  PROGRESSION: { BASE_EXP: 100, EXP_GROWTH: 1.18, STAT_POINTS_PER_LEVEL: 3, SKILL_POINTS_PER_LEVEL: 1, HP_PER_LEVEL: 5, MP_PER_LEVEL: 3, MAX_LEVEL: 100 },
+  COMBAT: { BASE_ATTACK_INTERVAL_MS: 1000, BASE_CRIT_CHANCE: 0.05, CRIT_DAMAGE_MULTIPLIER: 1.5, BASE_EVASION: 0.05, BASE_BLOCK: 0.05, BLOCK_REDUCTION: 0.5, DEFENSE_TO_REDUCTION: 0.002, MAX_DAMAGE_REDUCTION: 0.6, MAX_LIFESTEAL: 50, ENEMY_DMG_VARIANCE: 0.4, IDLE_REWARD_MULTIPLIER: 0.5, AUTO_POTION_THRESHOLD: 0.4, EXP_GAIN_MULTIPLIER: 1.0, GOLD_GAIN_MULTIPLIER: 1.0, MONSTER_DMG_MULTIPLIER: 1.0 },
+  ECONOMY: { STARTING_GOLD: 100, STARTING_GEMS: 10, MAX_OFFLINE_HOURS: 168, TRANSMUTE_COST_BASE: 1000, TRANSMUTE_COST_SCALING: 1.5, TRANSMUTE_GEMS_REWARD: 1, GEM_LAB_BASE_RATE: 0.1, GEM_LAB_PRODUCTION_BONUS: 0.05, GEM_LAB_SPEED_REDUCTION: 0.1, GEM_LAB_EFFICIENCY_BONUS: 0.1, SHOP_ROTATION_HOURS: 4 },
+  LOOT: { BASE_DROP_CHANCE: 0.01, MAX_DROP_CHANCE: 0.04, LUCK_DROP_BONUS: 0.0003, BOSS_DROP_CHANCE: 0.25, SMART_LOOT_CHANCE: 0.65, SMART_LOOT_WEAPON_CHANCE: 0.40, SMART_LOOT_ARMOR_CHANCE: 0.35, LUCK_RARITY_BONUS_PER_POINT: 0.1 },
+  UPGRADES: { SAFE_GOLD_BASE: 500, SAFE_GOLD_SCALING: 1, SAFE_ORE_BASE: 5, SAFE_ORE_SCALING: 2, SAFE_STAT_BONUS_PER_LEVEL: 0.02, SAFE_MAX_LEVEL: 20, STAR_SUCCESS_CHANCES: [90, 75, 50, 35, 12, 8, 2], STAR_GEM_BASE: 5, STAR_GEM_GROWTH: 1.5, STAR_STAT_BONUS_PER_STAR: 0.05, STAR_MAX_LEVEL: 7, AWAKEN_GEM_COST: 50, AWAKEN_STAT_BONUS: 0.5 },
+  GUILDS: { MAX_MEMBERS: 20, MAX_LEVEL: 30, BASE_EXP_TO_NEXT: 1000, EXP_GROWTH: 1.3, PERK_BONUS_PER_LEVEL: 0.05, MAX_PERK_LEVEL: 10, BOSS_RESPAWN_HOURS: 24, BOSS_HP_BASE: 10000, BOSS_HP_PER_GUILD_LEVEL: 5000, TOKEN_REWARD_PER_BOSS_DAMAGE: 0.01 },
+  PARTIES: { MAX_SIZE: 6, EXP_BONUS_PER_MEMBER: 0.05, GOLD_BONUS_PER_MEMBER: 0.05, INVITE_EXPIRY_MINUTES: 5 },
+  DAILY_LOGIN: { BASE_GOLD: 100, BASE_GEMS: 2, STREAK_GOLD_MULTIPLIER: 1.1, MAX_STREAK_BONUS_DAYS: 30 },
+  LIFE_SKILLS: { BASE_GATHER_TICKS_PER_ITEM: 5, SPEED_REDUCTION_PER_LEVEL: 0.1, LUCK_RARE_BONUS_PER_LEVEL: 0.05, MAX_GATHER_LEVEL: 99, EXP_GROWTH: 1.12 },
+  RARITY_MULTIPLIERS: { common: 1.0, uncommon: 1.3, rare: 1.7, epic: 2.2, legendary: 3.0, mythic: 4.0, set: 3.5, shiny: 5.0 },
+  SELL_PRICES: { common: 5, uncommon: 20, rare: 60, epic: 200, legendary: 600, mythic: 2000, set: 800, shiny: 3000 },
+};
+
+async function getGameConfig(): Promise<Record<string, any>> {
+  if (_configCache && Date.now() - _configCache.ts < CONFIG_CACHE_MS) {
+    return _configCache.config;
+  }
+  try {
+    const [row] = await db.select().from(gameConfigTable).where(eq(gameConfigTable.id, "global"));
+    const dbConfig = (row?.config as Record<string, any>) || {};
+    // Merge: DB values override defaults, section by section
+    const merged: Record<string, any> = {};
+    for (const [section, defaults] of Object.entries(CONFIG_DEFAULTS)) {
+      merged[section] = { ...(defaults as Record<string, any>), ...(dbConfig[section] || {}) };
+    }
+    _configCache = { config: merged, ts: Date.now() };
+    return merged;
+  } catch {
+    return CONFIG_DEFAULTS;
+  }
+}
+
 
 async function requireAdmin(req: Request, res: Response): Promise<boolean> {
   if (!requireAuth(req, res)) return false;
@@ -443,8 +480,10 @@ router.post("/functions/sellItem", async (req: Request, res: Response) => {
     const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, itemId));
     if (!item) { sendError(res, 404, "Item not found"); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { sendError(res, 403, "Not your item"); return; }
+    const cfg = await getGameConfig();
+    const sellPrices = cfg.SELL_PRICES || {};
     const extraData = (item.extraData as any) || {};
-    const goldValue = extraData.sell_price || Math.floor((RARITY_SELL_PRICES[item.rarity] || 10) * (1 + (item.level || 1) * 0.08));
+    const goldValue = extraData.sell_price || Math.floor((sellPrices[item.rarity] || RARITY_SELL_PRICES[item.rarity] || 10) * (1 + (item.level || 1) * 0.08));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (char) {
       await db.update(charactersTable).set({ gold: (char.gold || 0) + goldValue }).where(eq(charactersTable.id, char.id));
@@ -465,10 +504,12 @@ router.post("/functions/upgradeItemSafe", async (req: Request, res: Response) =>
     const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, itemId));
     if (!item) { sendError(res, 404, "Item not found"); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { sendError(res, 403, "Not your item"); return; }
+    const cfg = await getGameConfig();
+    const upgCfg = cfg.UPGRADES;
     const currentUpgrade = item.upgradeLevel || 0;
-    if (currentUpgrade >= 20) { sendSuccess(res, { success: false, message: "Already at max upgrade level (20)" }); return; }
-    const rarityMult: Record<string, number> = { common: 1, uncommon: 1.2, rare: 1.5, epic: 2, legendary: 2.8, mythic: 4, set: 3.2, shiny: 6 };
-    const cost = Math.floor(300 * (currentUpgrade + 1) * (rarityMult[item.rarity] || 1));
+    if (currentUpgrade >= (upgCfg.SAFE_MAX_LEVEL || 20)) { sendSuccess(res, { success: false, message: `Already at max upgrade level (${upgCfg.SAFE_MAX_LEVEL || 20})` }); return; }
+    const rarityMult = cfg.RARITY_MULTIPLIERS || {};
+    const cost = Math.floor((upgCfg.SAFE_GOLD_BASE || 500) * (currentUpgrade + 1) * (rarityMult[item.rarity] || 1));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gold || 0) < cost) {
       sendSuccess(res, { success: false, message: "Not enough gold" }); return;
@@ -477,7 +518,7 @@ router.post("/functions/upgradeItemSafe", async (req: Request, res: Response) =>
     const itemStats = (item.stats as Record<string, number>) || {};
     const boostedStats: Record<string, number> = {};
     for (const [stat, val] of Object.entries(itemStats)) {
-      boostedStats[stat] = Math.round(val * 1.05);
+      boostedStats[stat] = Math.round(val * (1 + (upgCfg.SAFE_STAT_BONUS_PER_LEVEL || 0.02)));
     }
     const [updated] = await db.update(itemsTable).set({ upgradeLevel: newLevel, stats: boostedStats }).where(eq(itemsTable.id, itemId)).returning();
     await db.update(charactersTable).set({ gold: (char.gold || 0) - cost }).where(eq(charactersTable.id, char.id));
@@ -495,22 +536,27 @@ router.post("/functions/starUpgradeItem", async (req: Request, res: Response) =>
     const [item] = await db.select().from(itemsTable).where(eq(itemsTable.id, itemId));
     if (!item) { sendError(res, 404, "Item not found"); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { sendError(res, 403, "Not your item"); return; }
+    const cfg = await getGameConfig();
+    const upgCfg = cfg.UPGRADES;
     const currentStar = item.starLevel || 0;
-    if (currentStar >= 7) { sendSuccess(res, { success: false, message: "Already at max star level (7)" }); return; }
-    const rarityMult: Record<string, number> = { common: 1, uncommon: 1.2, rare: 1.5, epic: 2, legendary: 2.8, mythic: 4, set: 3.2, shiny: 6 };
-    const cost = Math.ceil(5 * Math.pow(1.5, currentStar) * (rarityMult[item.rarity] || 1));
+    const maxStar = upgCfg.STAR_MAX_LEVEL || 7;
+    if (currentStar >= maxStar) { sendSuccess(res, { success: false, message: `Already at max star level (${maxStar})` }); return; }
+    const rarityMult = cfg.RARITY_MULTIPLIERS || {};
+    const cost = Math.ceil((upgCfg.STAR_GEM_BASE || 5) * Math.pow(upgCfg.STAR_GEM_GROWTH || 1.5, currentStar) * (rarityMult[item.rarity] || 1));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gems || 0) < cost) {
       sendSuccess(res, { success: false, message: `Not enough gems (need ${cost})` }); return;
     }
-    const successChance = Math.max(0.3, 1 - currentStar * 0.1);
-    const success = Math.random() < successChance;
+    const chances = upgCfg.STAR_SUCCESS_CHANCES || [90, 75, 50, 35, 12, 8, 2];
+    const successPct = chances[currentStar] ?? 50;
+    const success = Math.random() * 100 < successPct;
     await db.update(charactersTable).set({ gems: (char.gems || 0) - cost }).where(eq(charactersTable.id, char.id));
     if (success) {
       const itemStats = (item.stats as Record<string, number>) || {};
       const boostedStats: Record<string, number> = {};
+      const starBonus = upgCfg.STAR_STAT_BONUS_PER_STAR || 0.05;
       for (const [stat, val] of Object.entries(itemStats)) {
-        boostedStats[stat] = Math.round(val * 1.15);
+        boostedStats[stat] = Math.round(val * (1 + starBonus));
       }
       const [updated] = await db.update(itemsTable).set({ starLevel: currentStar + 1, stats: boostedStats }).where(eq(itemsTable.id, itemId)).returning();
       sendSuccess(res, { success: true, item: updated, gems_spent: cost });
@@ -532,16 +578,20 @@ router.post("/functions/awakenItem", async (req: Request, res: Response) => {
     if (!item) { sendError(res, 404, "Item not found"); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { sendError(res, 403, "Not your item"); return; }
     if (item.awakened) { sendSuccess(res, { success: false, message: "Item already awakened" }); return; }
-    if ((item.starLevel || 0) < 7) { sendSuccess(res, { success: false, message: "Item must be Star 7 to awaken" }); return; }
-    const cost = 50;
+    const cfg = await getGameConfig();
+    const upgCfg = cfg.UPGRADES;
+    const maxStar = upgCfg.STAR_MAX_LEVEL || 7;
+    if ((item.starLevel || 0) < maxStar) { sendSuccess(res, { success: false, message: `Item must be Star ${maxStar} to awaken` }); return; }
+    const cost = upgCfg.AWAKEN_GEM_COST || 50;
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gems || 0) < cost) {
       sendSuccess(res, { success: false, message: `Not enough gems (need ${cost})` }); return;
     }
     const itemStats = (item.stats as Record<string, number>) || {};
     const awakenedStats: Record<string, number> = {};
+    const awakenBonus = upgCfg.AWAKEN_STAT_BONUS || 0.5;
     for (const [stat, val] of Object.entries(itemStats)) {
-      awakenedStats[stat] = Math.round(val * 1.5);
+      awakenedStats[stat] = Math.round(val * (1 + awakenBonus));
     }
     const [updated] = await db.update(itemsTable).set({ awakened: true, stats: awakenedStats }).where(eq(itemsTable.id, itemId)).returning();
     await db.update(charactersTable).set({ gems: (char.gems || 0) - cost }).where(eq(charactersTable.id, char.id));
@@ -1054,11 +1104,13 @@ router.post("/functions/processGemLab", async (req: Request, res: Response) => {
         },
       }).returning();
     }
+    const cfg = await getGameConfig();
+    const ecoCfg = cfg.ECONOMY;
     const labData = (lab.data as any) || {};
-    const BASE_PRODUCTION = 0.001;
-    const prodMult = 1 + (labData.production_level || 0) * 0.05;
-    const speedMult = 1 + (labData.speed_level || 0) * 0.02;
-    const effMult = 1 + (labData.efficiency_level || 0) * 0.03;
+    const BASE_PRODUCTION = ecoCfg.GEM_LAB_BASE_RATE || 0.001;
+    const prodMult = 1 + (labData.production_level || 0) * (ecoCfg.GEM_LAB_PRODUCTION_BONUS || 0.05);
+    const speedMult = 1 + (labData.speed_level || 0) * (ecoCfg.GEM_LAB_SPEED_REDUCTION || 0.02);
+    const effMult = 1 + (labData.efficiency_level || 0) * (ecoCfg.GEM_LAB_EFFICIENCY_BONUS || 0.03);
     const gemsPerCycle = BASE_PRODUCTION * prodMult * effMult;
     const cycleSeconds = (10 / speedMult) * 60;
     const now = Date.now();
@@ -1902,12 +1954,17 @@ router.post("/functions/catchUpOfflineProgress", async (req: Request, res: Respo
     if (!char) { sendError(res, 404, "Character not found"); return; }
     const lastClaim = char.lastIdleClaim ? new Date(char.lastIdleClaim).getTime() : Date.now();
     const offlineMs = Date.now() - lastClaim;
-    const offlineHours = Math.min(offlineMs / (1000 * 60 * 60), 8);
+    const cfg = await getGameConfig();
+    const ecoCfg = cfg.ECONOMY;
+    const combatCfg = cfg.COMBAT;
+    const maxOfflineHours = ecoCfg.MAX_OFFLINE_HOURS || 168;
+    const offlineHours = Math.min(offlineMs / (1000 * 60 * 60), maxOfflineHours);
     if (offlineHours < 0.1) {
       sendSuccess(res, { success: true, hours_offline: 0, results: {} }); return;
     }
-    const goldReward = Math.floor(offlineHours * (char.level || 1) * 50);
-    const expReward = Math.floor(offlineHours * (char.level || 1) * 20);
+    const idleMult = combatCfg.IDLE_REWARD_MULTIPLIER || 0.5;
+    const goldReward = Math.floor(offlineHours * (char.level || 1) * 50 * idleMult);
+    const expReward = Math.floor(offlineHours * (char.level || 1) * 20 * idleMult);
 
     // Calculate life skill XP for active skills during offline time
     const lifeSkills = ensureLifeSkills((char.lifeSkills as any) || {});
@@ -1940,10 +1997,10 @@ router.post("/functions/catchUpOfflineProgress", async (req: Request, res: Respo
       const [lab] = await db.select().from(gemLabsTable).where(eq(gemLabsTable.characterId, characterId));
       if (lab) {
         const labData = (lab.data as any) || {};
-        const prodMult = 1 + (labData.production_level || 0) * 0.05;
-        const speedMult = 1 + (labData.speed_level || 0) * 0.02;
-        const effMult = 1 + (labData.efficiency_level || 0) * 0.03;
-        const gemsPerCycle = 0.001 * prodMult * effMult;
+        const prodMult = 1 + (labData.production_level || 0) * (ecoCfg.GEM_LAB_PRODUCTION_BONUS || 0.05);
+        const speedMult = 1 + (labData.speed_level || 0) * (ecoCfg.GEM_LAB_SPEED_REDUCTION || 0.02);
+        const effMult = 1 + (labData.efficiency_level || 0) * (ecoCfg.GEM_LAB_EFFICIENCY_BONUS || 0.03);
+        const gemsPerCycle = (ecoCfg.GEM_LAB_BASE_RATE || 0.001) * prodMult * effMult;
         const cycleSeconds = (10 / speedMult) * 60;
         const completedCycles = Math.floor((offlineHours * 3600) / cycleSeconds);
         gemLabGains = gemsPerCycle * completedCycles;
@@ -2017,6 +2074,8 @@ router.post("/functions/gameConfigManager", async (req: Request, res: Response) 
         target: gameConfigTable.id,
         set: { config: newConfig || {}, updatedAt: new Date() },
       });
+      // Invalidate cache so changes take effect immediately
+      _configCache = null;
       sendSuccess(res, { success: true, id: configId, config: newConfig || {} });
       return;
     }
@@ -2069,10 +2128,15 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     const serverIsElite = !!enemyData.isElite;
     const serverRegionKey = char.currentRegion || regionKey || null;
 
+    const cfg = await getGameConfig();
+    const progCfg = cfg.PROGRESSION;
+    const combatCfg = cfg.COMBAT;
+    const partyCfg = cfg.PARTIES;
+
     const empoweredMult = isEmpowered ? 2 : 1;
     const partyMembers = Math.max(0, (partySize || 1) - 1);
-    const partyExpBonus = partyMembers * 0.05;
-    const partyGoldBonus = partyMembers * 0.10;
+    const partyExpBonus = partyMembers * (partyCfg.EXP_BONUS_PER_MEMBER || 0.05);
+    const partyGoldBonus = partyMembers * (partyCfg.GOLD_BONUS_PER_MEMBER || 0.05);
 
     // Apply guild perk bonuses (exp_bonus, gold_bonus as percentages)
     let guildExpBonus = 0;
@@ -2100,8 +2164,8 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       }
     }
 
-    const expGain = Math.round(enemyData.expReward * empoweredMult * (1 + partyExpBonus + guildExpBonus + buffExpBonus));
-    const goldGain = Math.round(enemyData.goldReward * empoweredMult * (1 + partyGoldBonus + guildGoldBonus + buffGoldBonus));
+    const expGain = Math.round(enemyData.expReward * empoweredMult * (combatCfg.EXP_GAIN_MULTIPLIER || 1) * (1 + partyExpBonus + guildExpBonus + buffExpBonus));
+    const goldGain = Math.round(enemyData.goldReward * empoweredMult * (combatCfg.GOLD_GAIN_MULTIPLIER || 1) * (1 + partyGoldBonus + guildGoldBonus + buffGoldBonus));
 
     let newExp = (char.exp || 0) + expGain;
     let newLevel = char.level || 1;
@@ -2114,14 +2178,14 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       newExp -= newExpToNext;
       newLevel++;
       newExpToNext = calculateExpToLevel(newLevel);
-      newStatPoints += 3;
-      newSkillPoints += 1;
+      newStatPoints += progCfg.STAT_POINTS_PER_LEVEL || 3;
+      newSkillPoints += progCfg.SKILL_POINTS_PER_LEVEL || 1;
       levelsGained.push(newLevel);
     }
 
     const levelDiff = newLevel - (char.level || 1);
-    const newMaxHp = (char.maxHp || 100) + levelDiff * 5;
-    const newMaxMp = (char.maxMp || 50) + levelDiff * 3;
+    const newMaxHp = (char.maxHp || 100) + levelDiff * (progCfg.HP_PER_LEVEL || 5);
+    const newMaxMp = (char.maxMp || 50) + levelDiff * (progCfg.MP_PER_LEVEL || 3);
     const newGold = (char.gold || 0) + goldGain;
     const newTotalKills = (char.totalKills || 0) + 1;
     const damageDealt = enemyData.hp || Math.floor((char.strength || 10) * 2);

@@ -128,6 +128,9 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                 item={selectedItem}
                 character={character}
                 onClose={() => setSelectedItem(null)}
+                onItemUpdated={(updatedItem) => {
+                  setSelectedItem(prev => prev ? { ...prev, ...updatedItem, upgrade_level: updatedItem.upgrade_level ?? updatedItem.upgradeLevel, star_level: updatedItem.star_level ?? updatedItem.starLevel, is_awakened: updatedItem.is_awakened ?? updatedItem.awakened } : prev);
+                }}
               />
             </div>
           </motion.div>
