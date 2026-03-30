@@ -26,6 +26,26 @@ function formatTimeLeft(nextRefreshAt) {
   return `${h}h ${m}m`;
 }
 
+function getPurchasedIds(charId) {
+  try {
+    const data = JSON.parse(localStorage.getItem(`shop_purchased_${charId}`) || "{}");
+    const ROTATION_MS = 4 * 60 * 60 * 1000;
+    const currentSeed = Math.floor(Date.now() / ROTATION_MS);
+    if (data.seed !== currentSeed) return new Set();
+    return new Set(data.ids || []);
+  } catch { return new Set(); }
+}
+function addPurchasedId(charId, itemId) {
+  try {
+    const ROTATION_MS = 4 * 60 * 60 * 1000;
+    const currentSeed = Math.floor(Date.now() / ROTATION_MS);
+    const data = JSON.parse(localStorage.getItem(`shop_purchased_${charId}`) || "{}");
+    const ids = data.seed === currentSeed ? (data.ids || []) : [];
+    ids.push(itemId);
+    localStorage.setItem(`shop_purchased_${charId}`, JSON.stringify({ seed: currentSeed, ids }));
+  } catch {}
+}
+
 export default function Shop({ character, onCharacterUpdate }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -40,7 +60,8 @@ export default function Shop({ character, onCharacterUpdate }) {
       const res = await base44.functions.invoke("getShopRotation", {
         characterId: character.id, forceRefresh
       });
-      setShopItems(res?.items || []);
+      const purchased = getPurchasedIds(character.id);
+      setShopItems((res?.items || []).filter(i => !purchased.has(i.id)));
       setNextRefreshAt(res?.refreshes_at || res?.nextRefreshAt || null);
       if (res?.gemsSpent > 0) {
         const newGems = (character.gems || 0) - res.gemsSpent;
@@ -96,6 +117,7 @@ export default function Shop({ character, onCharacterUpdate }) {
       const newGold = (character.gold || 0) - shopItem.buy_price;
       await base44.entities.Character.update(character.id, { gold: newGold });
       onCharacterUpdate({ ...character, gold: newGold });
+      addPurchasedId(character.id, shopItem.id);
       setShopItems(prev => prev.filter(i => i.id !== shopItem.id));
       queryClient.invalidateQueries({ queryKey: ["items"] });
       toast({ title: `Purchased ${shopItem.name}!`, duration: 1000 });

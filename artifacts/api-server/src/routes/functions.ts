@@ -32,7 +32,7 @@ const router: IRouter = Router();
 async function requireAdmin(req: Request, res: Response): Promise<boolean> {
   if (!requireAuth(req, res)) return false;
   const [roleRow] = await db.select().from(userRolesTable).where(eq(userRolesTable.userId, req.user!.id));
-  if (!roleRow || (roleRow.role !== "admin" && roleRow.role !== "moderator")) {
+  if (!roleRow || !["admin", "moderator", "superadmin"].includes(roleRow.role)) {
     sendError(res, 403, "Admin access required");
     return false;
   }
@@ -223,6 +223,7 @@ router.post("/functions/getAllUsers", async (req: Request, res: Response) => {
         email: u.email,
         first_name: u.firstName,
         last_name: u.lastName,
+        full_name: [u.firstName, u.lastName].filter(Boolean).join(" ") || null,
         role: roleMap[u.id] || "player",
       })));
   } catch (err: any) {
@@ -245,7 +246,8 @@ router.post("/functions/getAllCharacters", async (req: Request, res: Response) =
 router.post("/functions/updateUserRole", async (req: Request, res: Response) => {
   if (!(await requireAdmin(req, res))) return;
   try {
-    const { userId, role } = req.body;
+    const userId = req.body.userId || req.body.target_user_id;
+    const role = req.body.role || req.body.new_role;
     await db.insert(userRolesTable).values({ userId, role }).onConflictDoUpdate({
       target: userRolesTable.userId,
       set: { role, updatedAt: new Date() },
@@ -260,7 +262,9 @@ router.post("/functions/updateUserRole", async (req: Request, res: Response) => 
 router.post("/functions/managePlayer", async (req: Request, res: Response) => {
   if (!(await requireAdmin(req, res))) return;
   try {
-    const { characterId, action, guildId, stats, ...rest } = req.body;
+    const { action, stats, ...rest } = req.body;
+    const characterId = req.body.characterId || req.body.target_character_id;
+    const guildId = req.body.guildId || req.body.guild_id;
 
     if (action === "ban" && characterId) {
       const [updated] = await db.update(charactersTable).set({ isBanned: true }).where(eq(charactersTable.id, characterId)).returning();
@@ -595,10 +599,15 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
     const { characterId } = req.body;
     const now = new Date();
 
-    // Expire old daily quests that have passed their expiry
-    const existing = await db.select().from(questsTable).where(eq(questsTable.characterId, characterId));
+    // Expire old daily quests that have passed their expiry or are older than 24h without expiry
+    const existing = await db.select().from(questsTable).where(
+      and(eq(questsTable.characterId, characterId), eq(questsTable.type, "daily"))
+    );
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     for (const q of existing) {
-      if (q.status === "active" && q.expiresAt && new Date(q.expiresAt) < now) {
+      if (q.status !== "active") continue;
+      const expired = q.expiresAt ? new Date(q.expiresAt) < now : new Date(q.createdAt) < oneDayAgo;
+      if (expired) {
         await db.update(questsTable).set({ status: "expired" }).where(eq(questsTable.id, q.id));
         q.status = "expired";
       }
@@ -606,7 +615,7 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
 
     const activeQuests = existing.filter(q => q.status === "active");
     if (activeQuests.length >= 3) {
-      sendSuccess(res, { quests: existing }); return;
+      sendSuccess(res, { quests: activeQuests }); return;
     }
 
     // Calculate next midnight UTC for daily expiry
@@ -637,7 +646,7 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
       }).returning();
       newQuests.push(quest);
     }
-    sendSuccess(res, { quests: [...existing.filter(q => q.status !== "expired"), ...newQuests] });
+    sendSuccess(res, { quests: [...activeQuests, ...newQuests] });
   } catch (err: any) {
     req.log.error({ err }, "manageDailyQuests error");
     sendError(res, 500, err.message);

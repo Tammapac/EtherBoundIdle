@@ -7,6 +7,7 @@ const TICK_INTERVALS = {
   shopRotation: 60000,
   guildBoss: 30000,
   save: 15000,
+  presence: 30000,
 };
 
 const listeners = {};
@@ -26,7 +27,7 @@ let _running = false;
 let _lastFightEnemy = null;
 let _fightPaused = false;
 let _lifeSkillsPaused = false;
-let _inFlight = { fight: false, lifeSkills: false, gemLab: false, guildBoss: false, save: false };
+let _inFlight = { fight: false, lifeSkills: false, gemLab: false, guildBoss: false, save: false, presence: false };
 let _visibilityHandler = null;
 
 function getCharacter() {
@@ -124,6 +125,40 @@ async function gemLabTick() {
   } catch {} finally { _inFlight.gemLab = false; }
 }
 
+let _presenceId = null;
+async function presenceTick() {
+  if (!_characterId || _inFlight.presence) return;
+  _inFlight.presence = true;
+  try {
+    const char = getCharacter();
+    if (!char) return;
+    const status = char.idle_mode ? "idle" : "online";
+    const zone = char.current_region || "enchanted_forest";
+    if (_presenceId) {
+      await base44.entities.Presence.update(_presenceId, {
+        status, current_zone: zone, character_level: char.level,
+      });
+    } else {
+      const existing = await base44.entities.Presence.filter({ character_id: _characterId });
+      if (existing.length > 0) {
+        _presenceId = existing[0].id;
+        await base44.entities.Presence.update(_presenceId, {
+          status, current_zone: zone, character_level: char.level,
+        });
+      } else {
+        const created = await base44.entities.Presence.create({
+          character_id: _characterId,
+          character_name: char.name,
+          character_class: char.class,
+          character_level: char.level,
+          status, current_zone: zone,
+        });
+        _presenceId = created.id;
+      }
+    }
+  } catch {} finally { _inFlight.presence = false; }
+}
+
 async function shopRotationTick() {
   if (!_characterId) return;
   const ROTATION_MS = 4 * 60 * 60 * 1000;
@@ -211,6 +246,7 @@ const idleEngine = {
     gemLabTick();
     shopRotationTick();
     guildBossTick();
+    presenceTick();
 
     _intervals.fight = setInterval(fightTick, TICK_INTERVALS.fight);
     _intervals.lifeSkills = setInterval(lifeSkillsTick, TICK_INTERVALS.lifeSkills);
@@ -218,6 +254,7 @@ const idleEngine = {
     _intervals.shopRotation = setInterval(shopRotationTick, TICK_INTERVALS.shopRotation);
     _intervals.guildBoss = setInterval(guildBossTick, TICK_INTERVALS.guildBoss);
     _intervals.save = setInterval(saveTick, TICK_INTERVALS.save);
+    _intervals.presence = setInterval(presenceTick, TICK_INTERVALS.presence);
 
     // Re-trigger all ticks when tab becomes visible again (browsers throttle
     // setInterval in background tabs, so ticks get delayed/skipped)
@@ -249,7 +286,8 @@ const idleEngine = {
     }
     _characterId = null;
     _characterData = null;
-    _inFlight = { fight: false, lifeSkills: false, gemLab: false, guildBoss: false, save: false };
+    _inFlight = { fight: false, lifeSkills: false, gemLab: false, guildBoss: false, save: false, presence: false };
+    _presenceId = null;
     emit('stopped', {});
   },
 

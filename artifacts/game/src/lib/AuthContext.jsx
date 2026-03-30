@@ -112,9 +112,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await base44.auth.logout();
+    try { await base44.auth.logout(); } catch {}
+    localStorage.removeItem('eb_session_id');
     setUser(null);
     setIsAuthenticated(false);
+    window.location.reload();
   };
 
   return (
