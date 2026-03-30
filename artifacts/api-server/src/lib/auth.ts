@@ -40,6 +40,13 @@ export async function getSession(sid: string): Promise<SessionData | null> {
     return null;
   }
 
+  // Extend session expiry on each access (sliding window)
+  const newExpire = new Date(Date.now() + SESSION_TTL);
+  db.update(sessionsTable)
+    .set({ expire: newExpire })
+    .where(eq(sessionsTable.sid, sid))
+    .catch(() => {}); // fire-and-forget, don't block the request
+
   return row.sess as unknown as SessionData;
 }
 

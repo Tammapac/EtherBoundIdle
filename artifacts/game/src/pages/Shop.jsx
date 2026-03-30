@@ -60,14 +60,16 @@ export default function Shop({ character, onCharacterUpdate }) {
       const res = await base44.functions.invoke("getShopRotation", {
         characterId: character.id, forceRefresh
       });
-      const purchased = getPurchasedIds(character.id);
-      setShopItems((res?.items || []).filter(i => !purchased.has(i.id)));
-      setNextRefreshAt(res?.refreshes_at || res?.nextRefreshAt || null);
       if (res?.gemsSpent > 0) {
+        // Force refresh was used — clear purchase cache so new items show
+        localStorage.removeItem(`shop_purchased_${character.id}`);
         const newGems = (character.gems || 0) - res.gemsSpent;
         onCharacterUpdate({ ...character, gems: newGems });
         toast({ title: `Stock refreshed! (${res.gemsSpent} gems spent)`, duration: 2000 });
       }
+      const purchased = getPurchasedIds(character.id);
+      setShopItems((res?.items || []).filter(i => !purchased.has(i.id)));
+      setNextRefreshAt(res?.refreshes_at || res?.nextRefreshAt || null);
     } catch (e) {
       console.error(e);
       toast({ title: "Could not load shop", variant: "destructive" });

@@ -15,7 +15,7 @@ const app: Express = express();
 
   app.use(cors({
   credentials: true,
-  origin: process.env.CORS_ORIGIN || "http://46.224.121.242:3000",
+  origin: process.env.CORS_ORIGIN || true, // Allow all origins in dev; set CORS_ORIGIN in production
 }));
 
 app.use(

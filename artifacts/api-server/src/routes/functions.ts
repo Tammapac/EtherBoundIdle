@@ -180,8 +180,10 @@ function buildSkillResponse(lifeSkills: any, skillType: string, charId: string) 
     xp_per_cycle: 15 + s.level * 2,
     speed_level: s.speed_level || 1,
     luck_level: s.luck_level || 1,
+    xp_boost_level: s.luck_level || 1,
     speed_upgrade_cost: (s.speed_level || 1) * 50,
     luck_upgrade_cost: (s.luck_level || 1) * 80,
+    xp_boost_upgrade_cost: (s.luck_level || 1) * 80,
     is_active: s.is_active || false,
   };
 }
@@ -504,6 +506,7 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
     }
 
     let gemsSpent = 0;
+    let actualSeed = seed;
     if (forceRefresh && characterId) {
       const REFRESH_COST = 5;
       const [charData] = await db.select({ gems: charactersTable.gems }).from(charactersTable).where(eq(charactersTable.id, characterId));
@@ -512,9 +515,11 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
       }
       await db.update(charactersTable).set({ gems: (charData.gems || 0) - REFRESH_COST }).where(eq(charactersTable.id, characterId));
       gemsSpent = REFRESH_COST;
+      // Use a unique seed so forced refresh generates different items
+      actualSeed = seed * 1000 + Date.now() % 100000;
     }
 
-    const rng = mulberry32(seed + charLevel);
+    const rng = mulberry32(actualSeed + charLevel);
     const TYPES = ["weapon", "armor", "helmet", "boots", "ring", "amulet"];
     const RARITIES = ["common", "uncommon", "rare", "epic"];
     const RARITY_WEIGHTS = [40, 30, 20, 10];
@@ -552,7 +557,7 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
       const namePrefix = rarity === "epic" ? "Superior" : rarity === "rare" ? "Fine" : rarity === "uncommon" ? "Sturdy" : "";
       const typeNames: Record<string, string> = { weapon: "Blade", armor: "Chestplate", helmet: "Helm", boots: "Greaves", ring: "Ring", amulet: "Amulet" };
       items.push({
-        id: `shop_${seed}_${i}`,
+        id: `shop_${actualSeed}_${i}`,
         name: `${namePrefix} ${typeNames[type] || type}`.trim(),
         type,
         rarity,
@@ -568,7 +573,7 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
       const con = CONSUMABLES[Math.floor(rng() * CONSUMABLES.length)];
       const price = Math.floor((30 + charLevel * 5) * (con.rarity === "uncommon" ? 2 : 1));
       items.push({
-        id: `shop_${seed}_con_${c}`,
+        id: `shop_${actualSeed}_con_${c}`,
         name: con.name,
         type: con.type,
         rarity: con.rarity,
@@ -822,8 +827,8 @@ router.post("/functions/lifeSkills", async (req: Request, res: Response) => {
         return;
       }
 
-      if (uType === "luck") {
-        if ((skill.luck_level || 1) >= 10) { sendSuccess(res, { success: false, message: "Max luck level" }); return; }
+      if (uType === "luck" || uType === "xp_boost") {
+        if ((skill.luck_level || 1) >= 10) { sendSuccess(res, { success: false, message: "Max level" }); return; }
         const cost = (skill.luck_level || 1) * 80;
         if ((char.gold || 0) < cost) { sendSuccess(res, { success: false, message: "Not enough gold" }); return; }
         skill.luck_level = (skill.luck_level || 1) + 1;
@@ -832,7 +837,7 @@ router.post("/functions/lifeSkills", async (req: Request, res: Response) => {
           lifeSkills,
           gold: (char.gold || 0) - cost,
         }).where(eq(charactersTable.id, charId));
-        sendSuccess(res, { success: true, gold_spent: cost, new_luck_level: skill.luck_level });
+        sendSuccess(res, { success: true, gold_spent: cost, new_luck_level: skill.luck_level, new_xp_boost_level: skill.luck_level });
         return;
       }
 
@@ -1360,6 +1365,12 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
           level: char.level || 1,
           hp: memberHp,
           max_hp: memberHp,
+          strength: char.strength || 10,
+          dexterity: char.dexterity || 8,
+          intelligence: char.intelligence || 5,
+          vitality: char.vitality || 8,
+          luck: char.luck || 5,
+          defense: char.defense || 0,
         }],
         current_turn_index: 0,
         turn_deadline: null,
@@ -1395,6 +1406,12 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
         level: char.level || 1,
         hp: memberHp,
         max_hp: memberHp,
+        strength: char.strength || 10,
+        dexterity: char.dexterity || 8,
+        intelligence: char.intelligence || 5,
+        vitality: char.vitality || 8,
+        luck: char.luck || 5,
+        defense: char.defense || 0,
       });
       d.members = members;
       d.combat_log = d.combat_log || [];
@@ -1435,8 +1452,33 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       const me = members[myIdx];
       if (me.hp <= 0) { sendSuccess(res, { success: false, error: "You are KO'd" }); return; }
 
-      // Calculate player damage
-      const baseDmg = (char.strength || 10) + (char.dexterity || 8) * 0.5 + (char.intelligence || 5) * 0.3;
+      // Calculate player damage — include equipment bonuses
+      let equipBonusStr = 0, equipBonusDex = 0, equipBonusInt = 0, equipBonusDmg = 0;
+      try {
+        const equippedItems = await db.select().from(itemsTable).where(
+          and(eq(itemsTable.ownerId, characterId), eq((itemsTable as any).equipped, true))
+        );
+        for (const item of equippedItems) {
+          const stats = (item.stats as any) || {};
+          equipBonusStr += stats.strength || 0;
+          equipBonusDex += stats.dexterity || 0;
+          equipBonusInt += stats.intelligence || 0;
+          equipBonusDmg += stats.damage || 0;
+        }
+      } catch {}
+      const totalStr = (char.strength || 10) + equipBonusStr;
+      const totalDex = (char.dexterity || 8) + equipBonusDex;
+      const totalInt = (char.intelligence || 5) + equipBonusInt;
+      // Class-based damage scaling (mirrors frontend statSystem)
+      const classScaling: Record<string, { primary: string; mult: number }> = {
+        warrior: { primary: "strength", mult: 1.3 },
+        mage: { primary: "intelligence", mult: 1.4 },
+        ranger: { primary: "dexterity", mult: 1.2 },
+        rogue: { primary: "dexterity", mult: 1.2 },
+      };
+      const scaling = classScaling[char.class || "warrior"] || classScaling.warrior;
+      const primaryStat = scaling.primary === "strength" ? totalStr : scaling.primary === "intelligence" ? totalInt : totalDex;
+      const baseDmg = primaryStat * scaling.mult + equipBonusDmg;
       let dmgMult = 1.0;
       let skillName = "Basic Attack";
       if (action === "skill" && skillId && SKILL_DATA[skillId]) {

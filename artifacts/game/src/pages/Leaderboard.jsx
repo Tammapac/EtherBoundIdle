@@ -83,17 +83,16 @@ export default function Leaderboard() {
           <Medal key="s" className="w-5 h-5 text-gray-300" />,
           <Medal key="b" className="w-5 h-5 text-orange-400" />,
         ];
-        const isClickable = currentUser?.role === "superadmin";
         return (
           <motion.div
             key={char.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: idx * 0.03 }}
-            onClick={() => isClickable && setSelectedChar(char)}
-            className={`bg-card border rounded-xl p-3 flex items-center gap-3 transition-all ${
+            onClick={() => setSelectedChar(char)}
+            className={`bg-card border rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-muted/50 ${
               idx < 3 ? "border-primary/30" : "border-border"
-            } ${isClickable ? "cursor-pointer hover:bg-muted/50" : ""}`}
+            }`}
           >
             <div className="w-8 text-center">
               {idx < 3 ? medals[idx] : <span className="text-sm text-muted-foreground font-medium">#{idx + 1}</span>}
@@ -149,9 +148,9 @@ export default function Leaderboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Character Detail Modal */}
+      {/* Character Detail Modal — public profile for all, admin tools for superadmin */}
       <AnimatePresence>
-        {selectedChar && currentUser?.role === "superadmin" && (
+        {selectedChar && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -175,8 +174,8 @@ export default function Leaderboard() {
                 </div>
               </div>
 
-              {/* Character Info */}
-              <div className="mb-6 p-3 bg-muted/50 rounded-lg grid grid-cols-2 gap-3 text-sm">
+              {/* Character Info — visible to all */}
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg grid grid-cols-3 gap-3 text-sm">
                 <div>
                   <p className="text-xs text-muted-foreground">Level</p>
                   <p className="font-semibold">{selectedChar.level}</p>
@@ -186,25 +185,35 @@ export default function Leaderboard() {
                   <p className="font-semibold capitalize">{selectedChar.class}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Gold</p>
-                  <p className="font-semibold">{selectedChar.gold?.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Gems</p>
-                  <p className="font-semibold">{selectedChar.gems}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Kills</p>
-                  <p className="font-semibold">{selectedChar.total_kills}</p>
-                </div>
-                <div>
                   <p className="text-xs text-muted-foreground">HP</p>
                   <p className="font-semibold">{selectedChar.hp}/{selectedChar.max_hp}</p>
                 </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Gold</p>
+                  <p className="font-semibold">{(selectedChar.gold || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Kills</p>
+                  <p className="font-semibold">{(selectedChar.total_kills || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Damage</p>
+                  <p className="font-semibold">{(selectedChar.total_damage || 0).toLocaleString()}</p>
+                </div>
               </div>
 
-              {/* Edit Stats */}
-              {editStats ? (
+              {/* Stats — visible to all */}
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg grid grid-cols-3 gap-3 text-sm">
+                {["strength", "dexterity", "intelligence", "vitality", "luck"].map(stat => (
+                  <div key={stat}>
+                    <p className="text-xs text-muted-foreground capitalize">{stat}</p>
+                    <p className="font-semibold">{selectedChar[stat] || 0}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Admin Tools — superadmin only */}
+              {currentUser?.role !== "superadmin" ? null : editStats ? (
                 <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-lg space-y-3">
                   <p className="text-sm font-semibold">Edit Stats</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -247,7 +256,8 @@ export default function Leaderboard() {
                 </div>
               ) : null}
 
-              {/* Actions */}
+              {/* Admin Actions — superadmin only */}
+              {currentUser?.role === "superadmin" && (
               <div className="space-y-2 mb-6">
                 <Button
                   variant="outline"
@@ -303,6 +313,7 @@ export default function Leaderboard() {
                   <Trash2 className="w-3.5 h-3.5" /> Delete Character
                 </Button>
               </div>
+              )}
 
               <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedChar(null)}>
                 Close

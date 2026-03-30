@@ -591,10 +591,12 @@ export default function Battle({ character, onCharacterUpdate }) {
     return () => clearInterval(interval);
   }, [character?.id]);
 
-  // Offline progress catch-up on login
+  // Offline progress catch-up — only on first load per browser session (not on tab switch)
   useEffect(() => {
-    if (!character?.id || offlineProcessedRef.current) return;
+    const sessionKey = `offline_processed_${character?.id}`;
+    if (!character?.id || offlineProcessedRef.current || sessionStorage.getItem(sessionKey)) return;
     offlineProcessedRef.current = true;
+    sessionStorage.setItem(sessionKey, "1");
     const run = async () => {
       try {
         const response = await base44.functions.invoke('catchUpOfflineProgress', { characterId: character.id });

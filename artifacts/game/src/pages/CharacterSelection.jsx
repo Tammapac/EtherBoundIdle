@@ -8,6 +8,7 @@ import {
   Plus, Trash2, LogOut, Shield, Swords, Star, AlertTriangle
 } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
+import { useAuth } from "@/lib/AuthContext";
 
 const CLASS_ICONS = {
   warrior: Shield,
@@ -19,15 +20,16 @@ const CLASS_ICONS = {
 export default function CharacterSelection({ onCharacterSelected }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: characters = [], isLoading, isError, error } = useQuery({
-    queryKey: ["characters"],
+    queryKey: ["characters", user?.id],
     queryFn: async () => {
       try {
-        // Always fetch from the authenticated user's session
-
-        // Query characters created by the authenticated user (bound to server via created_by email)
-	const chars = await apiFetch("/entities/Character");
+        // Filter characters to only those created by the current user
+        const filter = user?.id ? JSON.stringify({ created_by: user.id }) : "";
+        const url = filter ? `/entities/Character?filter=${encodeURIComponent(filter)}` : "/entities/Character";
+	const chars = await apiFetch(url);
         return chars || [];
       } catch (err) {
         console.error("Failed to fetch characters:", err);
