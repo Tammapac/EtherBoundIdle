@@ -180,6 +180,11 @@ export function calculateFinalStats(character, equippedItems = [], extraSetStats
     total.damage
   );
 
+  // Magic Attack: separate stat for INT-scaling classes
+  const magicAttack = Math.round(
+    total.intelligence * 1.4 + total.damage * 0.3
+  );
+
   const rawDefense      = total.vitality * 0.3 + total.defense;
   const damageReduction = calcDefenseReduction(rawDefense); // 0..1
 
@@ -245,6 +250,7 @@ export function calculateFinalStats(character, equippedItems = [], extraSetStats
 
   const derived = {
     attackPower,
+    magicAttack,
     rawDefense:      Math.round(rawDefense),
     damageReduction: parseFloat((damageReduction * 100).toFixed(1)),
     maxHp,

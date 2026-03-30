@@ -115,11 +115,13 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
 
   const metrics = calculateMetrics();
 
-  // Bootstrap GemLab on first load + process offline gems
+  // Bootstrap GemLab on first load + process offline gems (silent, no toast)
   useEffect(() => {
     if (!character?.id) return;
-
-    processMutation.mutate();
+    // Process silently - just calculate pending gems, don't show toast
+    base44.functions.invoke("processGemLab", { characterId: character.id })
+      .then(() => setRefreshTrigger(t => t + 1))
+      .catch(() => {});
   }, [character?.id]);
 
   // Save gem state on unmount (for resume)

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ const DERIVED_SECTIONS = [
 ];
 
 export default function CharacterProfileModal({ character, onCharacterUpdate, onClose }) {
+  const { logout } = useAuth();
   const [pendingStats, setPendingStats] = useState({});
 
   const { data: equippedItems = [] } = useQuery({
@@ -261,7 +263,7 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
             })}
 
             {/* Logout */}
-            <Button variant="outline" className="w-full" onClick={() => base44.auth.logout()}>
+            <Button variant="outline" className="w-full" onClick={() => logout()}>
               Logout
             </Button>
           </div>

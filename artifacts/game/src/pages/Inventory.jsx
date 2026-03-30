@@ -147,6 +147,7 @@ function CharacterStatsPanel({ character, equippedItems }) {
 
   const stats = [
     { icon: Swords, label: "ATK", value: derived.attackPower, color: "text-red-400" },
+    { icon: Swords, label: "M.ATK", value: derived.magicAttack, color: "text-purple-400" },
     { icon: Heart, label: "HP", value: derived.maxHp, color: "text-green-400" },
     { icon: Zap, label: "MP", value: derived.maxMp, color: "text-blue-400" },
     { icon: Shield, label: "DEF", value: derived.rawDefense, color: "text-yellow-400" },

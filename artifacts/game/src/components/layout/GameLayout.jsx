@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import RoleBadge from "@/components/game/RoleBadge";
 import CharacterProfileModal from "@/components/game/CharacterProfileModal";
 import IdleStatusBar from "@/components/game/IdleStatusBar";
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
 ];
 
 export default function GameLayout({ character, onCharacterUpdate, onBackToSelection }) {
+  const { logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -121,7 +123,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
           <Button
             variant="ghost"
             className="w-full gap-2 text-xs justify-start text-destructive hover:text-destructive"
-            onClick={() => base44.auth.logout()}
+            onClick={() => logout()}
           >
             <LogOut className="w-3.5 h-3.5" /> Logout
           </Button>
@@ -185,7 +187,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
                  <Button
                    variant="ghost"
                    className="w-full gap-2 justify-start text-destructive hover:text-destructive"
-                   onClick={() => base44.auth.logout()}
+                   onClick={() => logout()}
                  >
                    <LogOut className="w-4 h-4" /> Logout
                  </Button>

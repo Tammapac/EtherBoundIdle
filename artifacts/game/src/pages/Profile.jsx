@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ const STAT_CONFIG = [
 ];
 
 export default function Profile({ character, onCharacterUpdate }) {
+  const { logout } = useAuth();
   const [pendingStats, setPendingStats] = useState({});
   const [pendingSkills, setPendingSkills] = useState({});
 
@@ -310,7 +312,7 @@ export default function Profile({ character, onCharacterUpdate }) {
       </div>
 
       {/* Logout */}
-      <Button variant="outline" className="w-full" onClick={() => base44.auth.logout()}>
+      <Button variant="outline" className="w-full" onClick={() => logout()}>
         Logout
       </Button>
     </div>
