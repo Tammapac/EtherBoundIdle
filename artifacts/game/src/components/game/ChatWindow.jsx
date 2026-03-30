@@ -152,6 +152,24 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
     setWhisperError("");
   }, [activeTab]);
 
+  const inputRef = useRef(null);
+
+  // Listen for whisper events from FriendPanel
+  useEffect(() => {
+    const handler = (e) => {
+      const name = e.detail?.name;
+      if (name) {
+        setIsOpen(true);
+        setActiveTab("whisper");
+        const hasSpace = name.includes(" ");
+        setMessage(hasSpace ? `/w "${name}" ` : `/w ${name} `);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
+    };
+    window.addEventListener("eb-whisper", handler);
+    return () => window.removeEventListener("eb-whisper", handler);
+  }, []);
+
   // --- Handle send ---
   const handleSend = () => {
     if (!message.trim() || !character) return;
@@ -290,6 +308,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
       {/* Input area */}
       <div className="p-2 border-t border-border flex gap-2">
             <Input
+              ref={inputRef}
               value={message}
               onChange={(e) => {
                 setMessage(e.target.value);

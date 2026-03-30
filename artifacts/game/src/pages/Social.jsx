@@ -143,7 +143,10 @@ export default function Social({ character, onCharacterUpdate }) {
         </TabsList>
 
         <TabsContent value="friends">
-          <FriendPanel character={character} />
+          <FriendPanel character={character} onWhisper={(name) => {
+            // Dispatch event for ChatWindow to open whisper tab with pre-filled /w command
+            window.dispatchEvent(new CustomEvent("eb-whisper", { detail: { name } }));
+          }} />
         </TabsContent>
         <TabsContent value="messages">
           <MessagesPanel character={character} />

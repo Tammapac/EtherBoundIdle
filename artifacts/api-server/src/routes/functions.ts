@@ -37,7 +37,7 @@ const CONFIG_DEFAULTS: Record<string, any> = {
   COMBAT: { BASE_ATTACK_INTERVAL_MS: 1000, BASE_CRIT_CHANCE: 0.05, CRIT_DAMAGE_MULTIPLIER: 1.5, BASE_EVASION: 0.05, BASE_BLOCK: 0.05, BLOCK_REDUCTION: 0.5, DEFENSE_TO_REDUCTION: 0.002, MAX_DAMAGE_REDUCTION: 0.6, MAX_LIFESTEAL: 50, ENEMY_DMG_VARIANCE: 0.4, IDLE_REWARD_MULTIPLIER: 0.5, AUTO_POTION_THRESHOLD: 0.4, EXP_GAIN_MULTIPLIER: 1.0, GOLD_GAIN_MULTIPLIER: 1.0, MONSTER_DMG_MULTIPLIER: 1.0 },
   ECONOMY: { STARTING_GOLD: 100, STARTING_GEMS: 10, MAX_OFFLINE_HOURS: 168, TRANSMUTE_COST_BASE: 1000, TRANSMUTE_COST_SCALING: 1.5, TRANSMUTE_GEMS_REWARD: 1, GEM_LAB_BASE_RATE: 0.01, GEM_LAB_PRODUCTION_BONUS: 0.05, GEM_LAB_SPEED_REDUCTION: 0.1, GEM_LAB_EFFICIENCY_BONUS: 0.1, SHOP_ROTATION_HOURS: 4 },
   LOOT: { BASE_DROP_CHANCE: 0.01, MAX_DROP_CHANCE: 0.04, LUCK_DROP_BONUS: 0.0003, BOSS_DROP_CHANCE: 0.25, SMART_LOOT_CHANCE: 0.65, SMART_LOOT_WEAPON_CHANCE: 0.40, SMART_LOOT_ARMOR_CHANCE: 0.35, LUCK_RARITY_BONUS_PER_POINT: 0.1 },
-  UPGRADES: { SAFE_GOLD_BASE: 500, SAFE_GOLD_SCALING: 1, SAFE_ORE_BASE: 5, SAFE_ORE_SCALING: 2, SAFE_STAT_BONUS_PER_LEVEL: 0.02, SAFE_MAX_LEVEL: 20, STAR_SUCCESS_CHANCES: [90, 75, 50, 35, 12, 8, 2], STAR_GEM_BASE: 5, STAR_GEM_GROWTH: 1.5, STAR_STAT_BONUS_PER_STAR: 0.05, STAR_MAX_LEVEL: 7, AWAKEN_GEM_COST: 50, AWAKEN_STAT_BONUS: 0.5 },
+  UPGRADES: { SAFE_GOLD_BASE: 1000, SAFE_GOLD_SCALING: 1.5, SAFE_ORE_BASE: 5, SAFE_ORE_SCALING: 2, SAFE_STAT_BONUS_PER_LEVEL: 0.05, SAFE_MAX_LEVEL: 20, STAR_SUCCESS_CHANCES: [90, 75, 50, 35, 12, 8, 2], STAR_GEM_BASE: 50, STAR_GEM_GROWTH: 2.0, STAR_STAT_BONUS_PER_STAR: 0.15, STAR_MAX_LEVEL: 7, AWAKEN_GEM_COST: 500, AWAKEN_STAT_BONUS: 1.0 },
   GUILDS: { MAX_MEMBERS: 20, MAX_LEVEL: 30, BASE_EXP_TO_NEXT: 1000, EXP_GROWTH: 1.3, PERK_BONUS_PER_LEVEL: 0.05, MAX_PERK_LEVEL: 10, BOSS_RESPAWN_HOURS: 24, BOSS_HP_BASE: 10000, BOSS_HP_PER_GUILD_LEVEL: 5000, TOKEN_REWARD_PER_BOSS_DAMAGE: 0.01 },
   PARTIES: { MAX_SIZE: 6, EXP_BONUS_PER_MEMBER: 0.05, GOLD_BONUS_PER_MEMBER: 0.05, INVITE_EXPIRY_MINUTES: 5 },
   DAILY_LOGIN: { BASE_GOLD: 100, BASE_GEMS: 2, STREAK_GOLD_MULTIPLIER: 1.1, MAX_STREAK_BONUS_DAYS: 30 },
@@ -509,18 +509,30 @@ router.post("/functions/upgradeItemSafe", async (req: Request, res: Response) =>
     const currentUpgrade = item.upgradeLevel || 0;
     if (currentUpgrade >= (upgCfg.SAFE_MAX_LEVEL || 20)) { sendSuccess(res, { success: false, message: `Already at max upgrade level (${upgCfg.SAFE_MAX_LEVEL || 20})` }); return; }
     const rarityMult = cfg.RARITY_MULTIPLIERS || {};
-    const cost = Math.floor((upgCfg.SAFE_GOLD_BASE || 500) * (currentUpgrade + 1) * (rarityMult[item.rarity] || 1));
+    const goldBase = upgCfg.SAFE_GOLD_BASE || 1000;
+    const goldScaling = upgCfg.SAFE_GOLD_SCALING || 1.5;
+    const cost = Math.floor(goldBase * Math.pow(goldScaling, currentUpgrade) * ((rarityMult as any)[item.rarity] || 1));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gold || 0) < cost) {
       sendSuccess(res, { success: false, message: "Not enough gold" }); return;
     }
+    const statBonusPerLevel = upgCfg.SAFE_STAT_BONUS_PER_LEVEL || 0.05;
     const newLevel = currentUpgrade + 1;
-    const itemStats = (item.stats as Record<string, number>) || {};
-    const boostedStats: Record<string, number> = {};
-    for (const [stat, val] of Object.entries(itemStats)) {
-      boostedStats[stat] = Math.round(val * (1 + (upgCfg.SAFE_STAT_BONUS_PER_LEVEL || 0.02)));
+    const extraData = (item.extraData as Record<string, any>) || {};
+    // Store base stats on first upgrade so we can use cumulative formula (no rounding drift)
+    const baseStats: Record<string, number> = extraData.base_stats || {};
+    if (!extraData.base_stats) {
+      const currentMult = 1 + currentUpgrade * statBonusPerLevel;
+      for (const [stat, val] of Object.entries((item.stats as Record<string, number>) || {})) {
+        baseStats[stat] = Math.round((val as number) / currentMult);
+      }
     }
-    const [updated] = await db.update(itemsTable).set({ upgradeLevel: newLevel, stats: boostedStats }).where(eq(itemsTable.id, itemId)).returning();
+    const boostedStats: Record<string, number> = {};
+    for (const [stat, val] of Object.entries(baseStats)) {
+      boostedStats[stat] = Math.round((val as number) * (1 + newLevel * statBonusPerLevel));
+    }
+    const newExtraData = { ...extraData, base_stats: baseStats };
+    const [updated] = await db.update(itemsTable).set({ upgradeLevel: newLevel, stats: boostedStats, extraData: newExtraData }).where(eq(itemsTable.id, itemId)).returning();
     await db.update(charactersTable).set({ gold: (char.gold || 0) - cost }).where(eq(charactersTable.id, char.id));
     sendSuccess(res, { success: true, item: updated, gold_spent: cost });
   } catch (err: any) {
@@ -542,7 +554,7 @@ router.post("/functions/starUpgradeItem", async (req: Request, res: Response) =>
     const maxStar = upgCfg.STAR_MAX_LEVEL || 7;
     if (currentStar >= maxStar) { sendSuccess(res, { success: false, message: `Already at max star level (${maxStar})` }); return; }
     const rarityMult = cfg.RARITY_MULTIPLIERS || {};
-    const cost = Math.ceil((upgCfg.STAR_GEM_BASE || 5) * Math.pow(upgCfg.STAR_GEM_GROWTH || 1.5, currentStar) * (rarityMult[item.rarity] || 1));
+    const cost = Math.ceil((upgCfg.STAR_GEM_BASE || 50) * Math.pow(upgCfg.STAR_GEM_GROWTH || 2.0, currentStar) * ((rarityMult as any)[item.rarity] || 1));
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gems || 0) < cost) {
       sendSuccess(res, { success: false, message: `Not enough gems (need ${cost})` }); return;
@@ -582,14 +594,14 @@ router.post("/functions/awakenItem", async (req: Request, res: Response) => {
     const upgCfg = cfg.UPGRADES;
     const maxStar = upgCfg.STAR_MAX_LEVEL || 7;
     if ((item.starLevel || 0) < maxStar) { sendSuccess(res, { success: false, message: `Item must be Star ${maxStar} to awaken` }); return; }
-    const cost = upgCfg.AWAKEN_GEM_COST || 50;
+    const cost = upgCfg.AWAKEN_GEM_COST || 500;
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (!char || (char.gems || 0) < cost) {
       sendSuccess(res, { success: false, message: `Not enough gems (need ${cost})` }); return;
     }
     const itemStats = (item.stats as Record<string, number>) || {};
     const awakenedStats: Record<string, number> = {};
-    const awakenBonus = upgCfg.AWAKEN_STAT_BONUS || 0.5;
+    const awakenBonus = upgCfg.AWAKEN_STAT_BONUS || 1.0;
     for (const [stat, val] of Object.entries(itemStats)) {
       awakenedStats[stat] = Math.round(val * (1 + awakenBonus));
     }
@@ -2090,7 +2102,7 @@ router.post("/functions/gameConfigManager", async (req: Request, res: Response) 
         COMBAT: { BASE_ATTACK_INTERVAL_MS: 1000, BASE_CRIT_CHANCE: 0.05, CRIT_DAMAGE_MULTIPLIER: 1.5, BASE_EVASION: 0.05, BASE_BLOCK: 0.05, BLOCK_REDUCTION: 0.5, DEFENSE_TO_REDUCTION: 0.002, MAX_DAMAGE_REDUCTION: 0.6, MAX_LIFESTEAL: 50, ENEMY_DMG_VARIANCE: 0.4, IDLE_REWARD_MULTIPLIER: 0.5, AUTO_POTION_THRESHOLD: 0.4, EXP_GAIN_MULTIPLIER: 1.0, GOLD_GAIN_MULTIPLIER: 1.0, MONSTER_DMG_MULTIPLIER: 1.0 },
         ECONOMY: { STARTING_GOLD: 100, STARTING_GEMS: 10, MAX_OFFLINE_HOURS: 168, TRANSMUTE_COST_BASE: 1000, TRANSMUTE_COST_SCALING: 1.5, TRANSMUTE_GEMS_REWARD: 1, GEM_LAB_BASE_RATE: 0.01, GEM_LAB_PRODUCTION_BONUS: 0.05, GEM_LAB_SPEED_REDUCTION: 0.1, GEM_LAB_EFFICIENCY_BONUS: 0.1, SHOP_ROTATION_HOURS: 4 },
         LOOT: { BASE_DROP_CHANCE: 0.01, MAX_DROP_CHANCE: 0.04, LUCK_DROP_BONUS: 0.0003, BOSS_DROP_CHANCE: 0.25, SMART_LOOT_CHANCE: 0.65, SMART_LOOT_WEAPON_CHANCE: 0.40, SMART_LOOT_ARMOR_CHANCE: 0.35, LUCK_RARITY_BONUS_PER_POINT: 0.1 },
-        UPGRADES: { SAFE_GOLD_BASE: 500, SAFE_GOLD_SCALING: 1, SAFE_ORE_BASE: 5, SAFE_ORE_SCALING: 2, SAFE_STAT_BONUS_PER_LEVEL: 0.02, SAFE_MAX_LEVEL: 20, STAR_SUCCESS_CHANCES: [90, 75, 50, 35, 12, 8, 2], STAR_GEM_BASE: 5, STAR_GEM_GROWTH: 1.5, STAR_STAT_BONUS_PER_STAR: 0.05, STAR_MAX_LEVEL: 7, AWAKEN_GEM_COST: 50, AWAKEN_STAT_BONUS: 0.5 },
+        UPGRADES: { SAFE_GOLD_BASE: 1000, SAFE_GOLD_SCALING: 1.5, SAFE_ORE_BASE: 5, SAFE_ORE_SCALING: 2, SAFE_STAT_BONUS_PER_LEVEL: 0.05, SAFE_MAX_LEVEL: 20, STAR_SUCCESS_CHANCES: [90, 75, 50, 35, 12, 8, 2], STAR_GEM_BASE: 50, STAR_GEM_GROWTH: 2.0, STAR_STAT_BONUS_PER_STAR: 0.15, STAR_MAX_LEVEL: 7, AWAKEN_GEM_COST: 500, AWAKEN_STAT_BONUS: 1.0 },
         GUILDS: { MAX_MEMBERS: 20, MAX_LEVEL: 30, BASE_EXP_TO_NEXT: 1000, EXP_GROWTH: 1.3, PERK_BONUS_PER_LEVEL: 0.05, MAX_PERK_LEVEL: 10, BOSS_RESPAWN_HOURS: 24, BOSS_HP_BASE: 10000, BOSS_HP_PER_GUILD_LEVEL: 5000, TOKEN_REWARD_PER_BOSS_DAMAGE: 0.01 },
         PARTIES: { MAX_SIZE: 6, EXP_BONUS_PER_MEMBER: 0.05, GOLD_BONUS_PER_MEMBER: 0.05, INVITE_EXPIRY_MINUTES: 5 },
         DAILY_LOGIN: { BASE_GOLD: 100, BASE_GEMS: 2, STREAK_GOLD_MULTIPLIER: 1.1, MAX_STREAK_BONUS_DAYS: 30 },

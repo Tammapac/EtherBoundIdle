@@ -39,11 +39,11 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
 
   const currentStar = item.star_level || 0;
   const successChance = STAR_SUCCESS_CHANCES[currentStar] || 0;
-  const gemCost = Math.ceil((upgCfg.STAR_GEM_BASE || 5) * Math.pow(upgCfg.STAR_GEM_GROWTH || 1.5, currentStar) * rarityMult);
+  const gemCost = Math.ceil((upgCfg.STAR_GEM_BASE || 50) * Math.pow(upgCfg.STAR_GEM_GROWTH || 2.0, currentStar) * rarityMult);
 
   // Safe upgrade costs — gold only
   const currentUpgrade = item.upgrade_level || 0;
-  const goldCost = Math.floor(300 * (currentUpgrade + 1) * rarityMult);
+  const goldCost = Math.floor(1000 * Math.pow(1.5, currentUpgrade) * rarityMult);
 
   // Mutations
   const clearResult = () => setResult(null);
@@ -426,12 +426,12 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Gem Cost:</span>
                     <span className="font-semibold flex items-center gap-1">
-                      <Gem className="w-4 h-4 text-cyan-400" /> 50
+                      <Gem className="w-4 h-4 text-cyan-400" /> 500
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Stat Bonus:</span>
-                    <span className="font-semibold text-cyan-400">+50%</span>
+                    <span className="font-semibold text-cyan-400">+100%</span>
                   </div>
                 </div>
 
@@ -443,7 +443,7 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                 {!confirmAwaken ? (
                   <Button
                     onClick={() => setConfirmAwaken(true)}
-                    disabled={awakenMutation.isPending || (character.gems || 0) < 50}
+                    disabled={awakenMutation.isPending || (character.gems || 0) < 500}
                     className="w-full bg-cyan-600 hover:bg-cyan-700 gap-2"
                   >
                     <Sparkles className="w-4 h-4" /> Awaken

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { UserPlus, UserMinus, Star, StarOff, Ban, Check, X, Search, Wifi, WifiOff, MessageCircle, Users } from "lucide-react";
+import { UserPlus, UserMinus, Star, StarOff, Ban, Check, X, Search, Wifi, WifiOff, MessageCircle, ArrowLeftRight, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { CLASSES } from "@/lib/gameData";
 
@@ -237,6 +237,11 @@ export default function FriendPanel({ character, onWhisper }) {
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onWhisper?.(f.friend_name)} title="Whisper">
                     <MessageCircle className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                    window.dispatchEvent(new CustomEvent("eb-trade", { detail: { friendId: f.friend_id, friendName: f.friend_name } }));
+                  }} title="Trade">
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={async () => {
                     try {

@@ -71,6 +71,8 @@ export default function Battle({ character, onCharacterUpdate }) {
   // Auto-attack timer (5s)
   const [autoAttackCountdown, setAutoAttackCountdown] = useState(null);
   const autoAttackTimerRef = useRef(null);
+  const attackSpeedAccRef = useRef(0);
+  const [attackSpeedBonusHits, setAttackSpeedBonusHits] = useState(0);
   const offlineProcessedRef = useRef(false);
 
   const queryClient = useQueryClient();
@@ -181,6 +183,8 @@ export default function Battle({ character, onCharacterUpdate }) {
     setLootDrop(null);
     setCombatPhase("player_turn");
     setIsPlayerTurn(true);
+    attackSpeedAccRef.current = 0;
+    setAttackSpeedBonusHits(0);
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
   }, [region, character?.level]);
@@ -342,20 +346,42 @@ export default function Battle({ character, onCharacterUpdate }) {
     }
 
     if (newEnemyHp <= 0) {
+      attackSpeedAccRef.current = 0;
+      setAttackSpeedBonusHits(0);
       handleEnemyDefeat();
       return;
     }
 
-    // Attack speed: chance for extra attack before enemy turn
-    // At 1.0x = 0% chance, 1.5x = 50%, 1.8x = 80%, 2.0x = 100%
-    const extraAttackChance = Math.min(1, (derived.attackSpeed || 1) - 1);
-    if (extraAttackChance > 0 && Math.random() < extraAttackChance) {
-      addLog("⚡ Quick strike! Extra attack!");
-      // Give player another turn after a short delay
+    // Attack speed: turns-based system
+    // 1.0x = 1 attack/turn, 1.8x = extra attack accumulates (every ~1.25 turns get bonus),
+    // 3.0x = 3 attacks per turn
+    const atkSpeed = derived.attackSpeed || 1;
+    // Check for bonus hits already queued from previous attack
+    if (attackSpeedBonusHits > 0) {
+      setAttackSpeedBonusHits(prev => prev - 1);
+      addLog("⚡ Quick strike!");
       setTimeout(() => {
         setCombatPhase("player_turn");
         setIsPlayerTurn(true);
-      }, 800);
+      }, 500);
+      return;
+    }
+    // Calculate new bonus hits for this turn
+    const extraHits = Math.floor(atkSpeed) - 1; // guaranteed extra (3x = 2 extra)
+    const fractional = atkSpeed - Math.floor(atkSpeed); // 1.8 → 0.8
+    attackSpeedAccRef.current += fractional;
+    let bonusHits = extraHits;
+    if (attackSpeedAccRef.current >= 1) {
+      bonusHits += Math.floor(attackSpeedAccRef.current);
+      attackSpeedAccRef.current -= Math.floor(attackSpeedAccRef.current);
+    }
+    if (bonusHits > 0) {
+      addLog(`⚡ ${bonusHits > 1 ? `${bonusHits}x ` : ""}Quick strike!`);
+      setAttackSpeedBonusHits(bonusHits - 1);
+      setTimeout(() => {
+        setCombatPhase("player_turn");
+        setIsPlayerTurn(true);
+      }, 500);
       return;
     }
 

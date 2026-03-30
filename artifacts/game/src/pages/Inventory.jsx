@@ -87,7 +87,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         onMouseLeave={() => setHovered(false)}
         className={`relative bg-card border rounded-lg p-3 text-left transition-all hover:bg-muted/50 ${
           item.equipped ? `${rarity.border} ${rarity.bg}` : !canEquip ? "border-destructive/30 opacity-60" : "border-border"
-        } ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""} ${isSetItem ? "ring-1 ring-cyan-400/50" : ""}`}
+        } ${item.is_awakened ? "ring-2 ring-purple-400/60 shadow-[0_0_12px_rgba(168,85,247,0.4)]" : ""} ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""} ${isSetItem ? "ring-1 ring-cyan-400/50" : ""}`}
       >
         {isStack && (
           <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">

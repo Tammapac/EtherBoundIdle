@@ -132,6 +132,27 @@ export default function ItemTooltip({ item, characterLevel, compareItem = null, 
         ) : null;
       })()}
 
+      {/* Upgrade / Star / Awakened Badges */}
+      {((item.upgrade_level || 0) > 0 || (item.star_level || 0) > 0 || item.is_awakened) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {(item.upgrade_level || 0) > 0 && (
+            <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+              +{item.upgrade_level} Enhanced
+            </Badge>
+          )}
+          {(item.star_level || 0) > 0 && (
+            <Badge className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+              {"★".repeat(item.star_level)} {item.star_level}/7
+            </Badge>
+          )}
+          {item.is_awakened && (
+            <Badge className="text-xs bg-purple-500/20 text-purple-400 border-purple-500/30 animate-pulse">
+              ✨ AWAKENED
+            </Badge>
+          )}
+        </div>
+      )}
+
       {/* Level Requirement */}
       <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
         levelOk ? "bg-muted/50 text-muted-foreground" : "bg-destructive/10 border border-destructive/30 text-destructive"
