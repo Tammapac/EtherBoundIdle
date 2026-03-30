@@ -128,8 +128,12 @@ export default function DungeonCombat({ session: initialSession, character, onLe
     if (isMyTurn && !loading) doAction('attack');
   };
 
+  // Use learned skills from character data; fall back to first 2 class defaults
   const classData = CLASSES[character.class];
-  const charSkillIds = classData?.skills?.slice(0, 2) || [];
+  const learnedSkills = character?.skills || [];
+  const charSkillIds = learnedSkills.length > 0
+    ? learnedSkills
+    : (classData?.skills?.slice(0, 2) || []);
   const charSkills = charSkillIds.map(id => ({ id, ...SKILLS[id] })).filter(s => s.name);
   const bossHpPct = session.boss_max_hp > 0 ? (session.boss_hp / session.boss_max_hp) * 100 : 0;
 

@@ -310,6 +310,21 @@ router.post("/functions/managePlayer", async (req: Request, res: Response) => {
         const dbField = allowedFields[key];
         if (dbField && typeof val === "number") updateData[dbField] = val;
       }
+      // When admin changes level, auto-recalculate expToNext and add stat/skill points
+      if (updateData.level) {
+        const [oldChar] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+        const oldLevel = oldChar?.level || 1;
+        const newLevel = updateData.level;
+        updateData.expToNext = calculateExpToLevel(newLevel);
+        updateData.exp = 0; // Reset current exp to avoid instant level-up
+        if (newLevel > oldLevel) {
+          const levelDiff = newLevel - oldLevel;
+          updateData.statPoints = (oldChar?.statPoints || 0) + levelDiff * 3;
+          updateData.skillPoints = (oldChar?.skillPoints || 0) + levelDiff * 1;
+          updateData.maxHp = (oldChar?.maxHp || 100) + levelDiff * 5;
+          updateData.maxMp = (oldChar?.maxMp || 50) + levelDiff * 3;
+        }
+      }
       if (Object.keys(updateData).length > 0) {
         const [updated] = await db.update(charactersTable).set(updateData).where(eq(charactersTable.id, characterId)).returning();
         sendSuccess(res, updated ? toClientCharacter(updated) : null); return;
@@ -500,9 +515,13 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
     const refreshesAt = new Date((seed + 1) * ROTATION_MS).toISOString();
 
     let charLevel = 1;
+    let charClass = "warrior";
     if (characterId) {
-      const [char] = await db.select({ level: charactersTable.level }).from(charactersTable).where(eq(charactersTable.id, characterId));
-      if (char) charLevel = char.level || 1;
+      const [char] = await db.select({ level: charactersTable.level, class: charactersTable.class }).from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (char) {
+        charLevel = char.level || 1;
+        charClass = char.class || "warrior";
+      }
     }
 
     let gemsSpent = 0;
@@ -520,18 +539,30 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
     }
 
     const rng = mulberry32(actualSeed + charLevel);
-    const TYPES = ["weapon", "armor", "helmet", "boots", "ring", "amulet"];
-    const RARITIES = ["common", "uncommon", "rare", "epic"];
-    const RARITY_WEIGHTS = [40, 30, 20, 10];
+    const TYPES = ["weapon", "armor", "helmet", "boots", "ring", "amulet", "gloves"];
+    // Include legendary/mythic at higher levels with low chances
+    const RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
+    // Weights shift with level: higher level = better chance at rare+ items
+    const levelBonus = Math.min(charLevel / 10, 5); // 0-5 bonus based on level
+    const RARITY_WEIGHTS = [
+      Math.max(10, 35 - levelBonus * 3),   // common
+      Math.max(10, 28 - levelBonus),        // uncommon
+      20 + levelBonus,                       // rare
+      12 + levelBonus,                       // epic
+      Math.min(4 + levelBonus * 0.5, 8),    // legendary
+      Math.min(1 + levelBonus * 0.2, 3),    // mythic
+    ];
     const STAT_KEYS = ["strength", "dexterity", "intelligence", "vitality", "luck"];
     const CONSUMABLES = [
       { name: "Health Potion", type: "consumable", stats: { hp_bonus: 50 }, rarity: "common" },
       { name: "Mana Potion", type: "consumable", stats: { mp_bonus: 30 }, rarity: "common" },
       { name: "Greater Health Potion", type: "consumable", stats: { hp_bonus: 150 }, rarity: "uncommon" },
+      { name: "Elixir of Power", type: "consumable", stats: { hp_bonus: 300, mp_bonus: 100 }, rarity: "rare" },
     ];
 
     function pickRarity(): string {
-      const roll = rng() * 100;
+      const totalWeight = RARITY_WEIGHTS.reduce((a, b) => a + b, 0);
+      const roll = rng() * totalWeight;
       let sum = 0;
       for (let i = 0; i < RARITIES.length; i++) {
         sum += RARITY_WEIGHTS[i];
@@ -540,26 +571,75 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
       return "common";
     }
 
+    const RARITY_MULTS: Record<string, number> = {
+      common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5, mythic: 8,
+    };
+    const RARITY_STAT_COUNT: Record<string, number> = {
+      common: 1, uncommon: 2, rare: 2, epic: 3, legendary: 4, mythic: 5,
+    };
+    const NAME_PREFIXES: Record<string, string> = {
+      common: "", uncommon: "Sturdy", rare: "Fine", epic: "Superior",
+      legendary: "Legendary", mythic: "Mythic",
+    };
+
+    // Class-appropriate subtypes for equipment restrictions
+    const CLASS_WEAPON_SUBS: Record<string, string[]> = {
+      warrior: ["sword", "axe", "mace"], mage: ["staff", "wand"],
+      ranger: ["bow", "crossbow"], rogue: ["dagger", "blade"],
+    };
+    const CLASS_ARMOR_WT: Record<string, string> = {
+      warrior: "heavy", mage: "light", ranger: "medium", rogue: "light",
+    };
+    const CLASS_HELM_WT: Record<string, string> = {
+      warrior: "plate_helm", ranger: "leather_helm", mage: "cloth_helm", rogue: "cloth_helm",
+    };
+    const WEAPON_NAMES: Record<string, string> = {
+      sword: "Sword", axe: "Axe", mace: "Mace", staff: "Staff", wand: "Wand",
+      bow: "Bow", crossbow: "Crossbow", dagger: "Dagger", blade: "Blade",
+    };
+    const ARMOR_NAMES: Record<string, string> = { heavy: "Plate Armor", medium: "Chainmail", light: "Robes" };
+    const HELM_NAMES: Record<string, string> = { plate_helm: "Plate Helm", leather_helm: "Leather Helm", cloth_helm: "Cloth Hood" };
+
     const items: any[] = [];
     for (let i = 0; i < 6; i++) {
       const type = TYPES[Math.floor(rng() * TYPES.length)];
       const rarity = pickRarity();
       const itemLevel = Math.max(1, charLevel + Math.floor((rng() - 0.5) * 6));
-      const rarityMult = rarity === "epic" ? 3 : rarity === "rare" ? 2 : rarity === "uncommon" ? 1.5 : 1;
+      const rarityMult = RARITY_MULTS[rarity] || 1;
       const stats: Record<string, number> = {};
-      const numStats = rarity === "epic" ? 3 : rarity === "rare" ? 2 : 1;
+      const numStats = RARITY_STAT_COUNT[rarity] || 1;
       const shuffled = [...STAT_KEYS].sort(() => rng() - 0.5);
       for (let s = 0; s < numStats; s++) {
-        stats[shuffled[s]] = Math.floor((3 + itemLevel * 0.5) * rarityMult * (0.8 + rng() * 0.4));
+        stats[shuffled[s]] = Math.floor((3 + itemLevel * 0.8) * rarityMult * (0.8 + rng() * 0.4));
       }
-      const buyPrice = Math.floor((50 + itemLevel * 20) * rarityMult);
+      // Price scales quadratically with level and rarity
+      const buyPrice = Math.floor((50 + itemLevel * 20 + Math.pow(itemLevel, 1.5) * 5) * rarityMult);
       const sellPrice = Math.floor(buyPrice * 0.3);
-      const namePrefix = rarity === "epic" ? "Superior" : rarity === "rare" ? "Fine" : rarity === "uncommon" ? "Sturdy" : "";
-      const typeNames: Record<string, string> = { weapon: "Blade", armor: "Chestplate", helmet: "Helm", boots: "Greaves", ring: "Ring", amulet: "Amulet" };
+      const namePrefix = NAME_PREFIXES[rarity] || "";
+
+      // Assign class-appropriate subtype for weapons, armor, helmets
+      let subtype: string | null = null;
+      let typeName = type;
+      if (type === "weapon") {
+        const subs = CLASS_WEAPON_SUBS[charClass] || ["sword"];
+        subtype = subs[Math.floor(rng() * subs.length)];
+        typeName = WEAPON_NAMES[subtype] || "Blade";
+      } else if (type === "armor") {
+        subtype = CLASS_ARMOR_WT[charClass] || "light";
+        typeName = ARMOR_NAMES[subtype] || "Armor";
+      } else if (type === "helmet") {
+        subtype = CLASS_HELM_WT[charClass] || "cloth_helm";
+        typeName = HELM_NAMES[subtype] || "Helm";
+      } else {
+        const fallbackNames: Record<string, string> = { boots: "Greaves", ring: "Ring", amulet: "Amulet", gloves: "Gauntlets" };
+        typeName = fallbackNames[type] || type;
+      }
+
       items.push({
         id: `shop_${actualSeed}_${i}`,
-        name: `${namePrefix} ${typeNames[type] || type}`.trim(),
+        name: `${namePrefix} ${typeName}`.trim(),
         type,
+        subtype,
         rarity,
         item_level: itemLevel,
         level_req: Math.max(1, itemLevel - 2),

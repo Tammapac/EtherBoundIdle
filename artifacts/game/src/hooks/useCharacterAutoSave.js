@@ -1,16 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 
+// MINIMAL save — only client-controlled fields. Server-managed values (gold, exp, gems,
+// level, stats, life_skills, equipment, etc.) are updated by their own API handlers.
+// Saving stale cached copies overwrites server-side changes.
 const SAVE_FIELDS = [
-  'level', 'exp', 'gold', 'gems',
-  'hp', 'mp', 'max_hp', 'max_mp',
-  'strength', 'dexterity', 'intelligence', 'vitality', 'luck',
-  'stat_points', 'skill_points',
-  'current_region', 'idle_mode', 'is_banned', 'is_muted',
+  'current_region', 'idle_mode',
   'total_kills', 'total_damage',
-  'last_idle_claim',
-  'equipment', 'life_skills', 'skill_tree_data',
-  'daily_login_streak', 'last_daily_login',
 ];
 
 function hasChanges(char, lastSaved) {

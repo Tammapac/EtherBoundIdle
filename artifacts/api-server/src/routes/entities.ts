@@ -21,7 +21,7 @@ import {
   gemLabsTable,
   privateMessagesTable,
 } from "@workspace/db";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, lt, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/authMiddleware";
 import { sendSuccess, sendError } from "../lib/response";
 
@@ -411,6 +411,30 @@ router.post("/entities/:entity", async (req: Request, res: Response) => {
     }
 
     const [row] = await db.insert(table).values(dbData).returning();
+
+    // Auto-prune old chat messages: keep only the most recent 100 per channel
+    if (entity === "ChatMessage") {
+      const channel = dbData.channel || "global";
+      try {
+        // Find the 100th newest message's createdAt for this channel
+        const cutoffRows = await db.select({ createdAt: chatMessagesTable.createdAt })
+          .from(chatMessagesTable)
+          .where(eq(chatMessagesTable.channel, channel))
+          .orderBy(desc(chatMessagesTable.createdAt))
+          .limit(1)
+          .offset(100);
+        if (cutoffRows.length > 0) {
+          await db.delete(chatMessagesTable)
+            .where(and(
+              eq(chatMessagesTable.channel, channel),
+              lt(chatMessagesTable.createdAt, cutoffRows[0].createdAt)
+            ));
+        }
+      } catch (pruneErr: any) {
+        req.log.warn({ err: pruneErr }, "Chat message pruning failed (non-critical)");
+      }
+    }
+
     sendSuccess(res, toClient(entity, row));
   } catch (err: any) {
     req.log.error({ err }, "Entity create error");
@@ -435,6 +459,28 @@ async function handleEntityUpdate(req: Request, res: Response) {
       return;
     }
     const dbData = toDb(entity, req.body);
+
+    // Server-side multi-equip prevention: when equipping an item, unequip
+    // all other items of the same type for this owner
+    if (entity === "Item" && dbData.equipped === true) {
+      const [item] = await db.select().from(table).where(eq((table as any).id, id));
+      if (item) {
+        const itemType = (item as any).type;
+        const ownerId = (item as any).ownerId;
+        if (itemType && ownerId) {
+          await db.update(table)
+            .set({ equipped: false })
+            .where(
+              and(
+                eq((table as any).ownerId, ownerId),
+                eq((table as any).type, itemType),
+                eq((table as any).equipped, true),
+              )
+            );
+        }
+      }
+    }
+
     const [row] = await db.update(table).set(dbData).where(eq((table as any).id, id)).returning();
     if (!row) {
       sendError(res, 404, "Not found");

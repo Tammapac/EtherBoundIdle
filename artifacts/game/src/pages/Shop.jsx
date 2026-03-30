@@ -107,6 +107,7 @@ export default function Shop({ character, onCharacterUpdate }) {
       await base44.entities.Item.create({
         name: shopItem.name,
         type: shopItem.type,
+        subtype: shopItem.subtype || null,
         rarity: shopItem.rarity,
         stats: shopItem.stats,
         item_level: shopItem.item_level,

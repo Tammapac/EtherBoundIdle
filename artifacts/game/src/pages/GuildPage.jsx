@@ -16,6 +16,7 @@ import GuildShop from "@/components/guild/GuildShop";
 import GuildBase from "@/components/guild/GuildBase";
 import InlineChat from "@/components/game/InlineChat";
 import { idleEngine } from "@/lib/idleEngine";
+import { calculateFinalStats, rollDamage } from "@/lib/statSystem";
 
 const GUILD_BOSSES = [
   { name: "Ancient Golem", baseHp: 50000 },
@@ -173,7 +174,15 @@ export default function GuildPage({ character, onCharacterUpdate }) {
         setBossCooldown(status);
         throw new Error(`No attacks remaining. ${status.windowFormatted}`);
       }
-      const dmg = Math.floor((character.strength || 10) * 50 + Math.random() * 500);
+      // Use actual character stats + equipment for damage calculation
+      let equippedItems = [];
+      try {
+        const allItems = await base44.entities.Item.filter({ owner_id: character.id });
+        equippedItems = (allItems || []).filter(i => i.equipped);
+      } catch {}
+      const { total } = calculateFinalStats(character, equippedItems);
+      const { damage: rollResult } = rollDamage(total, character.class, null, character);
+      const dmg = Math.floor(rollResult * (8 + Math.random() * 4)); // Scale up for boss fight
       const newHp = Math.max(0, (myGuild.boss_hp || 0) - dmg);
       const newMembers = (myGuild.members || []).map(m =>
         m.character_id === character.id ? { ...m, boss_damage_today: (m.boss_damage_today || 0) + dmg } : m
