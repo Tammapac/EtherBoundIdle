@@ -240,15 +240,19 @@ export default function Inventory({ character, onCharacterUpdate }) {
 
       const currentEquipId = character.equipment?.[slot];
       const dupes = items.filter(i => i.type === slot && i.equipped && i.id !== item.id);
-      const updates = [];
-      if (currentEquipId) updates.push(base44.entities.Item.update(currentEquipId, { equipped: false }));
+      // Unequip old items (catch errors for deleted/missing items)
+      const unequipPromises = [];
+      if (currentEquipId && items.some(i => i.id === currentEquipId)) {
+        unequipPromises.push(base44.entities.Item.update(currentEquipId, { equipped: false }).catch(() => {}));
+      }
       for (const dupe of dupes) {
         if (dupe.id !== currentEquipId) {
-          updates.push(base44.entities.Item.update(dupe.id, { equipped: false }));
+          unequipPromises.push(base44.entities.Item.update(dupe.id, { equipped: false }).catch(() => {}));
         }
       }
-      updates.push(base44.entities.Item.update(item.id, { equipped: true }));
-      await Promise.all(updates);
+      await Promise.all(unequipPromises);
+      // Equip the new item (this must succeed)
+      await base44.entities.Item.update(item.id, { equipped: true });
 
       const newEquip = { ...(character.equipment || {}), [slot]: item.id };
       const updatedItems = items

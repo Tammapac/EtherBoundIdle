@@ -152,9 +152,10 @@ export default function Battle({ character, onCharacterUpdate }) {
     }
     const enemyData = ENEMIES[key];
     if (!enemyData) return;
-    // Randomize enemy level around character level (+-3), clamped to at least region min
+    // Randomize enemy level around character level (+-3), clamped to region range
     const regionMin = region?.levelRange?.[0] || 1;
-    const baseEnemyLevel = Math.max(regionMin, character.level + Math.floor(Math.random() * 7) - 3);
+    const regionMax = region?.levelRange?.[1] || character.level;
+    const baseEnemyLevel = Math.max(regionMin, Math.min(regionMax, character.level + Math.floor(Math.random() * 7) - 3));
     const enemyLevel = Math.max(1, baseEnemyLevel);
     const lvlScale = 1 + (enemyLevel - 1) * 0.1;
     const hpMult = isEmpowered ? 3 : 1;

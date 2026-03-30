@@ -16,8 +16,10 @@ export const AuthProvider = ({ children }) => {
   const checkSession = async () => {
     try {
       setIsLoadingAuth(true);
-      const me = await base44.auth.me();
-      if (me) {
+      const meResponse = await base44.auth.me();
+      // Handle both formats: direct user object {id,...} or wrapped {user:{id,...}}
+      const me = meResponse?.id ? meResponse : meResponse?.user || meResponse;
+      if (me?.id) {
         // Fetch role from user_roles table
         try {
           const roleData = await base44.functions.invoke("getCurrentUser", {});

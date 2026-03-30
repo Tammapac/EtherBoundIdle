@@ -114,7 +114,7 @@ router.get("/auth/user", async (req: any, res: Response) => {
       return res.status(401).json({ success: false, error: "Not authenticated" });
     }
 
-    return res.json({ success: true, user: session.user });
+    return sendSuccess(res, session.user);
   } catch (err) {
     console.error("AUTH USER ERROR:", err);
     return res.status(500).json({ success: false, error: "Server error" });

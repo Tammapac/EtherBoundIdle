@@ -81,7 +81,7 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
     if (!gemLab) return { production: 0.001, cycleTime: 10, efficiency: 1, nextCost: 1000 };
 
     const labData = gemLab.data || {};
-    const BASE_PRODUCTION = 0.001;
+    const BASE_PRODUCTION = 0.1;
     const BASE_COST = 1000;
     const COST_MULTIPLIER = 1.15;
 
@@ -90,8 +90,8 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
     const effLevel = labData.efficiency_level || 0;
 
     const prodMult = 1 + (prodLevel * 0.05);
-    const speedMult = 1 + (speedLevel * 0.02);
-    const effMult = 1 + (effLevel * 0.03);
+    const speedMult = 1 + (speedLevel * 0.1);
+    const effMult = 1 + (effLevel * 0.1);
 
     const gemsPerCycle = BASE_PRODUCTION * prodMult * effMult;
     const cycleTime = 10 / speedMult;
@@ -242,7 +242,7 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            -2% cycle time per level
+            -10% cycle time per level
           </p>
           <Button
             size="sm"
@@ -266,7 +266,7 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            +3% gem multiplier per level
+            +10% gem multiplier per level
           </p>
           <Button
             size="sm"
