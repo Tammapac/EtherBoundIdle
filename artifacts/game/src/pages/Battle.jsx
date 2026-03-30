@@ -152,11 +152,10 @@ export default function Battle({ character, onCharacterUpdate }) {
     }
     const enemyData = ENEMIES[key];
     if (!enemyData) return;
-    // Randomize enemy level around character level (+-3), clamped to region range
+    // Random enemy level within region range
     const regionMin = region?.levelRange?.[0] || 1;
     const regionMax = region?.levelRange?.[1] || character.level;
-    const baseEnemyLevel = Math.max(regionMin, Math.min(regionMax, character.level + Math.floor(Math.random() * 7) - 3));
-    const enemyLevel = Math.max(1, baseEnemyLevel);
+    const enemyLevel = Math.max(1, regionMin + Math.floor(Math.random() * (regionMax - regionMin + 1)));
     const lvlScale = 1 + (enemyLevel - 1) * 0.1;
     const hpMult = isEmpowered ? 3 : 1;
     const dmgMult = isEmpowered ? 1.5 : 1;
@@ -344,6 +343,19 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     if (newEnemyHp <= 0) {
       handleEnemyDefeat();
+      return;
+    }
+
+    // Attack speed: chance for extra attack before enemy turn
+    // At 1.0x = 0% chance, 1.5x = 50%, 1.8x = 80%, 2.0x = 100%
+    const extraAttackChance = Math.min(1, (derived.attackSpeed || 1) - 1);
+    if (extraAttackChance > 0 && Math.random() < extraAttackChance) {
+      addLog("⚡ Quick strike! Extra attack!");
+      // Give player another turn after a short delay
+      setTimeout(() => {
+        setCombatPhase("player_turn");
+        setIsPlayerTurn(true);
+      }, 800);
       return;
     }
 

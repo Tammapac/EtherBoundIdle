@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BarChart3, TrendingUp, Target, Flame } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import CharacterStatsChart from "@/components/dashboard/CharacterStatsChart";
 import LevelProgressChart from "@/components/dashboard/LevelProgressChart";
 import CombatStatsChart from "@/components/dashboard/CombatStatsChart";
@@ -11,6 +13,20 @@ import GemLabPanel from "@/components/game/GemLabPanel";
 import { formatGold } from "@/lib/formatGold";
 
 export default function Dashboard({ character, onCharacterUpdate }) {
+  // Fetch fresh character data from server
+  const { data: freshChar } = useQuery({
+    queryKey: ["character-fresh", character?.id],
+    queryFn: () => base44.entities.Character.get(character.id),
+    enabled: !!character?.id,
+    refetchInterval: 10000,
+  });
+
+  // Merge fresh data into character for display, and update parent
+  useEffect(() => {
+    if (freshChar?.id && onCharacterUpdate) {
+      onCharacterUpdate(freshChar);
+    }
+  }, [freshChar?.total_kills, freshChar?.total_damage, freshChar?.gold, freshChar?.exp]);
   const [chartVisibility, setChartVisibility] = useState({
     stats: true,
     progress: true,

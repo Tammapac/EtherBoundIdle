@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,19 +22,24 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
 
   const item = liveItem || initialItem;
 
-  // Success chances for star upgrades
-  const STAR_SUCCESS_CHANCES = {
-    0: 90, 1: 75, 2: 50, 3: 35, 4: 12, 5: 8, 6: 2
-  };
+  // Fetch game config for star upgrade success chances
+  const { data: gameConfig } = useQuery({
+    queryKey: ["gameConfig"],
+    queryFn: () => base44.functions.invoke("gameConfigManager", {}),
+    staleTime: 60000,
+  });
+  const upgCfg = gameConfig?.config?.UPGRADES || {};
+  const starChancesArr = upgCfg.STAR_SUCCESS_CHANCES || [90, 75, 50, 35, 12, 8, 2];
+  const STAR_SUCCESS_CHANCES = Object.fromEntries(starChancesArr.map((v, i) => [i, v]));
 
-  const rarityMultipliers = {
-    common: 1.0, uncommon: 1.3, rare: 1.7, epic: 2.2, legendary: 3.0, mythic: 4.0, set: 3.5, shiny: 5.0
-  };
+  const configRarityMults = gameConfig?.config?.RARITY_MULTIPLIERS || {};
+  const defaultRarityMults = { common: 1.0, uncommon: 1.3, rare: 1.7, epic: 2.2, legendary: 3.0, mythic: 4.0, set: 3.5, shiny: 5.0 };
+  const rarityMultipliers = { ...defaultRarityMults, ...configRarityMults };
   const rarityMult = rarityMultipliers[item.rarity] || 1.0;
 
   const currentStar = item.star_level || 0;
   const successChance = STAR_SUCCESS_CHANCES[currentStar] || 0;
-  const gemCost = Math.ceil(5 * Math.pow(1.5, currentStar) * rarityMult);
+  const gemCost = Math.ceil((upgCfg.STAR_GEM_BASE || 5) * Math.pow(upgCfg.STAR_GEM_GROWTH || 1.5, currentStar) * rarityMult);
 
   // Safe upgrade costs — gold only
   const currentUpgrade = item.upgrade_level || 0;

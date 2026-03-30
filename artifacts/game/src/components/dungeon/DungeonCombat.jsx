@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Zap, LogOut, Crown, Skull, Clock, User } from "lucide-react";
 import { SKILLS, CLASSES } from "@/lib/gameData";
-import { CLASS_SKILLS } from "@/lib/skillData";
+import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import PlayerProfileModal from "@/components/game/PlayerProfileModal";
 
 const CLASS_COLORS = {
@@ -275,20 +275,24 @@ export default function DungeonCombat({ session: initialSession, character, onLe
               >
                 <Swords className="w-3.5 h-3.5" /> Basic Attack
               </Button>
-              {charSkills.map(skill => (
-                <Button
-                  key={skill.id}
-                  size="sm"
-                  variant="outline"
-                  className="w-full gap-1.5 border-secondary/40 text-secondary hover:bg-secondary/10"
-                  disabled={!isMyTurn || loading}
-                  onClick={() => doAction('skill', skill.id)}
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  {skill.name}
-                  <span className="text-xs opacity-60 ml-auto">({skill.mp}MP)</span>
-                </Button>
-              ))}
+              {charSkills.map(skill => {
+                const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
+                const skillColor = elem ? `border-current/30 ${elem.color}` : "border-secondary/40 text-secondary";
+                return (
+                  <Button
+                    key={skill.id}
+                    size="sm"
+                    variant="outline"
+                    className={`w-full gap-1.5 hover:bg-muted/30 ${skillColor}`}
+                    disabled={!isMyTurn || loading}
+                    onClick={() => doAction('skill', skill.id)}
+                  >
+                    <span className="text-sm">{elem?.icon || <Zap className="w-3.5 h-3.5" />}</span>
+                    {skill.name}
+                    <span className="text-xs opacity-60 ml-auto">({skill.mp}MP)</span>
+                  </Button>
+                );
+              })}
               {isMyTurn && (
                 <p className="text-xs text-center text-muted-foreground">Auto-attack in 5s if idle</p>
               )}

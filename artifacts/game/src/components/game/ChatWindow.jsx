@@ -162,7 +162,10 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
     const trimmed = message.trim();
 
     // Check for /w command from any tab
-    const whisperMatch = trimmed.match(/^\/w\s+(\S+)\s+(.+)$/i);
+    // Supports: /w "Player Name" message  OR  /w PlayerName message
+    const whisperQuoted = trimmed.match(/^\/w\s+"([^"]+)"\s+(.+)$/i);
+    const whisperSimple = trimmed.match(/^\/w\s+(\S+)\s+(.+)$/i);
+    const whisperMatch = whisperQuoted || whisperSimple;
     if (whisperMatch) {
       const recipientName = whisperMatch[1];
       const content = whisperMatch[2];
@@ -172,7 +175,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
 
     // If on whisper tab without /w syntax, show hint
     if (activeTab === "whisper") {
-      setWhisperError("Use /w PlayerName message to send a whisper.");
+      setWhisperError('Use /w PlayerName message  or  /w "Player Name" message');
       return;
     }
 

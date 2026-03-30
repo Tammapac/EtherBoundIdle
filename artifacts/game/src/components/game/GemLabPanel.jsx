@@ -81,7 +81,7 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
     if (!gemLab) return { production: 0.001, cycleTime: 10, efficiency: 1, nextCost: 1000 };
 
     const labData = gemLab.data || {};
-    const BASE_PRODUCTION = 0.1;
+    const BASE_PRODUCTION = 0.01;
     const BASE_COST = 1000;
     const COST_MULTIPLIER = 1.15;
 
