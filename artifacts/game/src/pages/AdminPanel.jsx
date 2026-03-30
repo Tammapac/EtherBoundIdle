@@ -21,6 +21,8 @@ export default function AdminPanel() {
   const [tempStats, setTempStats] = useState({});
   const [deleteConfirmChar, setDeleteConfirmChar] = useState(null);
   const [deleteConfirmGuild, setDeleteConfirmGuild] = useState(null);
+  const [banDuration, setBanDuration] = useState("permanent");
+  const [muteDuration, setMuteDuration] = useState("24");
   const queryClient = useQueryClient();
 
   // Use auth user directly — no extra function call needed
@@ -51,6 +53,16 @@ export default function AdminPanel() {
       return Array.isArray(res) ? res : res?.characters || [];
     },
     enabled: isAdmin,
+  });
+
+  // Fetch items for selected character
+  const { data: selectedCharItems = [] } = useQuery({
+    queryKey: ["charItems", selectedCharacter?.id],
+    queryFn: async () => {
+      if (!selectedCharacter?.id) return [];
+      return base44.entities.Item.filter({ owner_id: selectedCharacter.id });
+    },
+    enabled: !!selectedCharacter?.id,
   });
 
   const updateRoleMutation = useMutation({
@@ -585,44 +597,119 @@ export default function AdminPanel() {
                     </span>
                     <span className="group-open:rotate-180 transition-transform">▼</span>
                   </summary>
-                  <div className="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs text-muted-foreground">
-                    {allCharacters.length > 0 && selectedCharacter.equipment ? (
-                      <div className="p-2 bg-muted/50 rounded">
-                        <p className="font-semibold mb-1">Equipment:</p>
-                        <p>{JSON.stringify(selectedCharacter.equipment)}</p>
+                  <div className="mt-2 max-h-60 overflow-y-auto space-y-1 text-xs text-muted-foreground">
+                    {selectedCharItems.length > 0 ? (
+                      <div className="space-y-1">
+                        {selectedCharItems.filter(i => i.equipped).length > 0 && (
+                          <div className="p-2 bg-primary/10 rounded mb-2">
+                            <p className="font-semibold mb-1 text-primary">Equipped:</p>
+                            {selectedCharItems.filter(i => i.equipped).map(item => (
+                              <div key={item.id} className="flex justify-between items-center py-0.5">
+                                <span className={`font-medium ${item.rarity === "legendary" ? "text-yellow-400" : item.rarity === "epic" ? "text-purple-400" : item.rarity === "rare" ? "text-blue-400" : "text-foreground"}`}>
+                                  {item.name} <span className="text-muted-foreground">({item.type})</span>
+                                </span>
+                                <Badge variant="outline" className="text-[10px] h-4">{item.rarity} Lv.{item.level}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="font-semibold mb-1">Inventory ({selectedCharItems.filter(i => !i.equipped).length}):</p>
+                        {selectedCharItems.filter(i => !i.equipped).map(item => (
+                          <div key={item.id} className="flex justify-between items-center py-0.5">
+                            <span>{item.name} <span className="text-muted-foreground">({item.type})</span></span>
+                            <Badge variant="outline" className="text-[10px] h-4">{item.rarity} Lv.{item.level}</Badge>
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                      <p className="p-2 text-center">No inventory data</p>
+                      <p className="p-2 text-center">No items</p>
                     )}
                   </div>
                 </details>
 
-                <Button
-                  variant={selectedCharacter.is_banned ? "outline" : "destructive"}
-                  size="sm"
-                  className="w-full justify-start gap-2"
-                  onClick={() => managePlayerMutation.mutate({
-                    action: selectedCharacter.is_banned ? "unban" : "ban",
-                    target_character_id: selectedCharacter.id,
-                  })}
-                  disabled={managePlayerMutation.isPending}
-                >
-                  <Lock className="w-3.5 h-3.5" /> {selectedCharacter.is_banned ? "Unban" : "Ban Player"}
-                </Button>
+                {selectedCharacter.is_banned ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start gap-2"
+                    onClick={() => managePlayerMutation.mutate({
+                      action: "unban",
+                      target_character_id: selectedCharacter.id,
+                    })}
+                    disabled={managePlayerMutation.isPending}
+                  >
+                    <Lock className="w-3.5 h-3.5" /> Unban Player
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <select
+                      value={banDuration}
+                      onChange={(e) => setBanDuration(e.target.value)}
+                      className="flex-1 h-8 text-xs bg-muted border border-border rounded px-2"
+                    >
+                      <option value="1">1 hour</option>
+                      <option value="24">24 hours</option>
+                      <option value="168">7 days</option>
+                      <option value="720">30 days</option>
+                      <option value="permanent">Permanent</option>
+                    </select>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => managePlayerMutation.mutate({
+                        action: "ban",
+                        target_character_id: selectedCharacter.id,
+                        data: { hours: banDuration === "permanent" ? null : parseInt(banDuration) },
+                      })}
+                      disabled={managePlayerMutation.isPending}
+                    >
+                      <Lock className="w-3.5 h-3.5" /> Ban
+                    </Button>
+                  </div>
+                )}
 
-                <Button
-                  variant={selectedCharacter.is_muted ? "outline" : "secondary"}
-                  size="sm"
-                  className="w-full justify-start gap-2"
-                  onClick={() => managePlayerMutation.mutate({
-                    action: selectedCharacter.is_muted ? "unmute" : "mute",
-                    target_character_id: selectedCharacter.id,
-                    data: { hours: 24 },
-                  })}
-                  disabled={managePlayerMutation.isPending}
-                >
-                  <Volume2 className="w-3.5 h-3.5" /> {selectedCharacter.is_muted ? "Unmute" : "Mute (24h)"}
-                </Button>
+                {selectedCharacter.is_muted ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start gap-2"
+                    onClick={() => managePlayerMutation.mutate({
+                      action: "unmute",
+                      target_character_id: selectedCharacter.id,
+                    })}
+                    disabled={managePlayerMutation.isPending}
+                  >
+                    <Volume2 className="w-3.5 h-3.5" /> Unmute Player
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <select
+                      value={muteDuration}
+                      onChange={(e) => setMuteDuration(e.target.value)}
+                      className="flex-1 h-8 text-xs bg-muted border border-border rounded px-2"
+                    >
+                      <option value="1">1 hour</option>
+                      <option value="6">6 hours</option>
+                      <option value="24">24 hours</option>
+                      <option value="168">7 days</option>
+                      <option value="720">30 days</option>
+                    </select>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => managePlayerMutation.mutate({
+                        action: "mute",
+                        target_character_id: selectedCharacter.id,
+                        data: { hours: parseInt(muteDuration) },
+                      })}
+                      disabled={managePlayerMutation.isPending}
+                    >
+                      <Volume2 className="w-3.5 h-3.5" /> Mute
+                    </Button>
+                  </div>
+                )}
 
                 <Button
                   variant={selectedCharacter.deleted_from_leaderboard ? "outline" : "secondary"}

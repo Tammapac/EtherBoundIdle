@@ -7,16 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Trophy, Medal, Swords, Coins, Crown, Lock, Trash2, Edit, Backpack, Check, X
+  Trophy, Medal, Swords, Coins, Crown, Lock, Trash2, Edit, Backpack, Check, X, UserPlus
 } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
 import RoleBadge from "@/components/game/RoleBadge";
 
-export default function Leaderboard() {
+export default function Leaderboard({ character }) {
   const [selectedChar, setSelectedChar] = useState(null);
   const [editStats, setEditStats] = useState(null);
   const [tempStats, setTempStats] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [friendRequestSent, setFriendRequestSent] = useState({});
   const queryClient = useQueryClient();
 
   const { data: characters = [], isLoading } = useQuery({
@@ -69,6 +70,23 @@ export default function Leaderboard() {
     },
   });
 
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async (targetChar) => {
+      await base44.entities.FriendRequest.create({
+        from_character_id: character?.id,
+        from_name: character?.name,
+        from_class: character?.class,
+        from_level: character?.level,
+        to_character_id: targetChar.id,
+        to_name: targetChar.name,
+        status: "pending",
+      });
+    },
+    onSuccess: (_, targetChar) => {
+      setFriendRequestSent(prev => ({ ...prev, [targetChar.id]: true }));
+    },
+  });
+
   const byLevel = [...characters].sort((a, b) => (b.level || 1) - (a.level || 1));
   const byKills = [...characters].sort((a, b) => (b.total_kills || 0) - (a.total_kills || 0));
   const byGold = [...characters].sort((a, b) => (b.gold || 0) - (a.gold || 0));
@@ -83,17 +101,16 @@ export default function Leaderboard() {
           <Medal key="s" className="w-5 h-5 text-gray-300" />,
           <Medal key="b" className="w-5 h-5 text-orange-400" />,
         ];
-        const isClickable = currentUser?.role === "superadmin";
         return (
           <motion.div
             key={char.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: idx * 0.03 }}
-            onClick={() => isClickable && setSelectedChar(char)}
-            className={`bg-card border rounded-xl p-3 flex items-center gap-3 transition-all ${
+            onClick={() => setSelectedChar(char)}
+            className={`bg-card border rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-muted/50 ${
               idx < 3 ? "border-primary/30" : "border-border"
-            } ${isClickable ? "cursor-pointer hover:bg-muted/50" : ""}`}
+            }`}
           >
             <div className="w-8 text-center">
               {idx < 3 ? medals[idx] : <span className="text-sm text-muted-foreground font-medium">#{idx + 1}</span>}
@@ -150,7 +167,7 @@ export default function Leaderboard() {
 
       {/* Character Detail Modal */}
       <AnimatePresence>
-        {selectedChar && currentUser?.role === "superadmin" && (
+        {selectedChar && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -202,106 +219,107 @@ export default function Leaderboard() {
                 </div>
               </div>
 
-              {/* Edit Stats */}
-              {editStats ? (
-                <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-lg space-y-3">
-                  <p className="text-sm font-semibold">Edit Stats</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["level", "gold", "gems", "hp", "max_hp"].map(stat => (
-                      <div key={stat}>
-                        <label className="text-xs text-muted-foreground capitalize">{stat}</label>
-                        <Input
-                          type="number"
-                          value={tempStats[stat] ?? selectedChar[stat]}
-                          onChange={(e) => setTempStats({ ...tempStats, [stat]: parseInt(e.target.value) })}
-                          className="text-xs bg-muted/50 h-7"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="flex-1 gap-1"
-                      onClick={() => {
-                        updateStatsMutation.mutate({
-                          action: "update_stats",
-                          target_character_id: selectedChar.id,
-                          data: tempStats,
-                        });
-                      }}
-                      disabled={updateStatsMutation.isPending}
-                    >
-                      <Check className="w-3 h-3" /> Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 gap-1"
-                      onClick={() => { setEditStats(null); setTempStats({}); }}
-                    >
-                      <X className="w-3 h-3" /> Cancel
-                    </Button>
-                  </div>
+              {/* Friend Request (for all players) */}
+              {character && selectedChar.id !== character.id && (
+                <div className="mb-4">
+                  <Button
+                    size="sm"
+                    className="w-full gap-2"
+                    disabled={friendRequestSent[selectedChar.id] || sendFriendRequestMutation.isPending}
+                    onClick={() => sendFriendRequestMutation.mutate(selectedChar)}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    {friendRequestSent[selectedChar.id] ? "Request Sent!" : "Send Friend Request"}
+                  </Button>
                 </div>
-              ) : null}
+              )}
 
-              {/* Actions */}
-              <div className="space-y-2 mb-6">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start gap-2"
-                  onClick={() => setEditStats(!editStats)}
-                >
-                  <Edit className="w-3.5 h-3.5" /> Edit Stats
-                </Button>
-
-                <details className="group">
-                  <summary className="flex items-center justify-between p-2 rounded-lg border border-border hover:bg-muted cursor-pointer">
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      <Backpack className="w-3.5 h-3.5" /> Inventory
-                    </span>
-                    <span className="group-open:rotate-180 transition-transform">▼</span>
-                  </summary>
-                  <div className="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs text-muted-foreground">
-                    {selectedChar.equipment ? (
-                      <div className="p-2 bg-muted/50 rounded">
-                        <p className="font-semibold mb-1">Equipment:</p>
-                        <p>{JSON.stringify(selectedChar.equipment)}</p>
+              {/* Admin Actions (superadmin only) */}
+              {currentUser?.role === "superadmin" && (
+                <>
+                  {/* Edit Stats */}
+                  {editStats ? (
+                    <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-lg space-y-3">
+                      <p className="text-sm font-semibold">Edit Stats</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {["level", "gold", "gems", "hp", "max_hp"].map(stat => (
+                          <div key={stat}>
+                            <label className="text-xs text-muted-foreground capitalize">{stat}</label>
+                            <Input
+                              type="number"
+                              value={tempStats[stat] ?? selectedChar[stat]}
+                              onChange={(e) => setTempStats({ ...tempStats, [stat]: parseInt(e.target.value) })}
+                              className="text-xs bg-muted/50 h-7"
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <p className="p-2 text-center">No inventory data</p>
-                    )}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 gap-1"
+                          onClick={() => {
+                            updateStatsMutation.mutate({
+                              action: "update_stats",
+                              target_character_id: selectedChar.id,
+                              data: tempStats,
+                            });
+                          }}
+                          disabled={updateStatsMutation.isPending}
+                        >
+                          <Check className="w-3 h-3" /> Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 gap-1"
+                          onClick={() => { setEditStats(null); setTempStats({}); }}
+                        >
+                          <X className="w-3 h-3" /> Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Admin Actions */}
+                  <div className="space-y-2 mb-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start gap-2"
+                      onClick={() => setEditStats(!editStats)}
+                    >
+                      <Edit className="w-3.5 h-3.5" /> Edit Stats
+                    </Button>
+
+                    <Button
+                      variant={selectedChar.is_banned ? "outline" : "destructive"}
+                      size="sm"
+                      className="w-full justify-start gap-2"
+                      onClick={() => managePlayerMutation.mutate({
+                        action: selectedChar.is_banned ? "unban" : "ban",
+                        target_character_id: selectedChar.id,
+                      })}
+                      disabled={managePlayerMutation.isPending}
+                    >
+                      <Lock className="w-3.5 h-3.5" /> {selectedChar.is_banned ? "Unban" : "Ban Player"}
+                    </Button>
+
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full justify-start gap-2"
+                      onClick={() => managePlayerMutation.mutate({
+                        action: "delete",
+                        target_character_id: selectedChar.id,
+                      })}
+                      disabled={managePlayerMutation.isPending}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Character
+                    </Button>
                   </div>
-                </details>
-
-                <Button
-                  variant={selectedChar.is_banned ? "outline" : "destructive"}
-                  size="sm"
-                  className="w-full justify-start gap-2"
-                  onClick={() => managePlayerMutation.mutate({
-                    action: selectedChar.is_banned ? "unban" : "ban",
-                    target_character_id: selectedChar.id,
-                  })}
-                  disabled={managePlayerMutation.isPending}
-                >
-                  <Lock className="w-3.5 h-3.5" /> {selectedChar.is_banned ? "Unban" : "Ban Player"}
-                </Button>
-
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="w-full justify-start gap-2"
-                  onClick={() => managePlayerMutation.mutate({
-                    action: "delete",
-                    target_character_id: selectedChar.id,
-                  })}
-                  disabled={managePlayerMutation.isPending}
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete Character
-                </Button>
-              </div>
+                </>
+              )}
 
               <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedChar(null)}>
                 Close

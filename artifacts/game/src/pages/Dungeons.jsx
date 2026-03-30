@@ -143,7 +143,43 @@ export default function Dungeons({ character, onCharacterUpdate }) {
   const [activeSession, setActiveSession] = useState(null);
   const [joinId, setJoinId] = useState("");
   const [showJoin, setShowJoin] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const { toast } = useToast();
+
+  // Fetch dungeon entry info
+  const { data: entryInfo, refetch: refetchEntries } = useQuery({
+    queryKey: ["dungeonEntries", character?.id],
+    queryFn: async () => {
+      const res = await base44.functions.invoke("dungeonAction", {
+        action: "get_entries",
+        characterId: character.id,
+      });
+      return res;
+    },
+    enabled: !!character?.id,
+    refetchInterval: 60000,
+  });
+
+  const handleResetEntries = async () => {
+    setResetting(true);
+    try {
+      const res = await base44.functions.invoke("dungeonAction", {
+        action: "reset_entries",
+        characterId: character.id,
+      });
+      if (res?.success) {
+        onCharacterUpdate({ ...character, gems: (character.gems || 0) - (res.gems_spent || 500) });
+        refetchEntries();
+        toast({ title: `Dungeon entries reset! (${res.gems_spent} gems spent)`, duration: 2000 });
+      } else {
+        toast({ title: res?.error || "Failed to reset", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: e.message, variant: "destructive" });
+    } finally {
+      setResetting(false);
+    }
+  };
 
   // Get current party
   const { data: partyData } = useQuery({
@@ -184,6 +220,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
       });
       if (res?.success) {
         setActiveSession(res.session);
+        refetchEntries();
         await broadcastDungeonEntry(res.session.id, dungeon.id, dungeon.name);
       } else {
         toast({ title: res?.error || "Failed to create session", variant: "destructive" });
@@ -279,6 +316,33 @@ export default function Dungeons({ character, onCharacterUpdate }) {
           </Button>
         </div>
       </div>
+
+      {/* Entry Count & Reset */}
+      {entryInfo && (
+        <div className="bg-card/50 border border-border rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-sm">
+              <span className="font-semibold">{entryInfo.entries_remaining ?? "?"}</span>
+              <span className="text-muted-foreground">/{entryInfo.max_entries ?? 5} entries remaining</span>
+            </div>
+            {entryInfo.entries_remaining === 0 && (
+              <Badge variant="outline" className="text-destructive border-destructive/30 text-xs">Limit reached</Badge>
+            )}
+          </div>
+          {entryInfo.entries_remaining < (entryInfo.max_entries ?? 5) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs"
+              onClick={handleResetEntries}
+              disabled={resetting || (character.gems || 0) < (entryInfo.reset_cost ?? 500)}
+            >
+              <Gem className="w-3.5 h-3.5 text-primary" />
+              Reset ({entryInfo.reset_cost ?? 500} Gems)
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Join by session ID */}
       <AnimatePresence>

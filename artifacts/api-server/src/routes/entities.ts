@@ -21,7 +21,7 @@ import {
   gemLabsTable,
   privateMessagesTable,
 } from "@workspace/db";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/authMiddleware";
 import { sendSuccess, sendError } from "../lib/response";
 
@@ -373,6 +373,26 @@ router.post("/entities/:entity", async (req: Request, res: Response) => {
     }
 
     const [row] = await db.insert(table).values(dbData).returning();
+
+    // Auto-cleanup: keep only the latest 100 chat messages per channel
+    if (entity === "ChatMessage") {
+      try {
+        const channel = dbData.channel || "global";
+        const oldMessages = await db.select({ id: chatMessagesTable.id })
+          .from(chatMessagesTable)
+          .where(eq(chatMessagesTable.channel, channel))
+          .orderBy(desc(chatMessagesTable.createdAt))
+          .offset(100);
+        if (oldMessages.length > 0) {
+          await db.delete(chatMessagesTable).where(
+            inArray(chatMessagesTable.id, oldMessages.map(m => m.id))
+          );
+        }
+      } catch (cleanupErr) {
+        req.log.warn({ err: cleanupErr }, "Chat cleanup failed (non-critical)");
+      }
+    }
+
     sendSuccess(res, toClient(entity, row));
   } catch (err: any) {
     req.log.error({ err }, "Entity create error");

@@ -28,6 +28,7 @@ const DERIVED_SECTIONS = [
     color: "text-red-400",
     stats: [
       { key: "attackPower",   label: "Attack Power",   icon: Swords,       fmt: v => Math.round(v),         suffix: "",    color: "text-red-400" },
+      { key: "magicAttack",   label: "Magic Attack",   icon: Swords,       fmt: v => Math.round(v),         suffix: "",    color: "text-purple-400" },
       { key: "critChance",    label: "Crit Chance",    icon: Target,       fmt: v => v.toFixed(1),           suffix: "%",   color: "text-orange-400" },
       { key: "critDmgPct",    label: "Crit Damage",    icon: Flame,        fmt: v => v.toFixed(0),           suffix: "%",   color: "text-red-300" },
       { key: "attackSpeed",   label: "Attack Speed",   icon: Clock,        fmt: v => v.toFixed(2),           suffix: "x",   color: "text-yellow-400" },

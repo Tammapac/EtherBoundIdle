@@ -94,6 +94,7 @@ export default function PlayerProfileModal({ characterId, characterName, onClose
                 { label: "HP", value: char.max_hp },
                 { label: "MP", value: char.max_mp },
                 { label: "ATK", value: derived.attackPower || 0 },
+                { label: "M.ATK", value: derived.magicAttack || 0 },
                 { label: "DEF", value: derived.defense || 0 },
                 { label: "Crit", value: `${(derived.critChance || 0).toFixed(1)}%` },
                 { label: "Level", value: char.level },

@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 
 const STAT_ROWS = [
-  { key: "attackPower",    label: "Attack",      icon: Swords,     color: "text-red-400",     format: v => v,         tooltip: "Total damage dealt per hit before crits." },
+  { key: "attackPower",    label: "Attack",      icon: Swords,     color: "text-red-400",     format: v => v,         tooltip: "Physical damage per hit. Scales with class primary stat." },
+  { key: "magicAttack",    label: "Magic Atk",   icon: Swords,     color: "text-purple-400",  format: v => v,         tooltip: "Magic damage per hit. Scales with Intelligence." },
   { key: "critChance",     label: "Crit %",      icon: Star,       color: "text-yellow-400",  format: v => `${v}%`,   tooltip: "Chance to land a critical hit. Scales with DEX and Luck. Hard cap 50%." },
   { key: "critDmgPct",     label: "Crit DMG",    icon: Flame,      color: "text-orange-400",  format: v => `${v}%`,   tooltip: "Critical hit damage multiplier. Base 150%. Scales with Luck and gear." },
   { key: "attackSpeed",    label: "Atk Speed",   icon: Clock,      color: "text-amber-400",   format: v => `${v.toFixed(2)}x`, tooltip: "Attack speed multiplier. Scales with DEX and gear. Max 3.0x." },

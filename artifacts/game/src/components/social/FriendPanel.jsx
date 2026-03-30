@@ -71,9 +71,36 @@ export default function FriendPanel({ character }) {
     return unsub;
   }, [character.id, qc]);
 
+  // Fetch live character data for all friends to get up-to-date names/levels/classes
+  const friendIds = friends.map(f => f.friend_id).filter(Boolean);
+  const { data: friendChars = [] } = useQuery({
+    queryKey: ["friendChars", ...friendIds],
+    queryFn: async () => {
+      if (friendIds.length === 0) return [];
+      const results = await Promise.all(
+        friendIds.map(id => base44.entities.Character.get(id).catch(() => null))
+      );
+      return results.filter(Boolean);
+    },
+    enabled: friendIds.length > 0,
+    refetchInterval: 60000,
+  });
+  const friendCharMap = Object.fromEntries(friendChars.map(c => [c.id, c]));
+
   const presenceMap = Object.fromEntries(presences.map(p => [p.character_id, p]));
 
-  const activeFriends = friends.filter(f => !f.is_blocked);
+  // Enrich friends with live character data
+  const enrichedFriends = friends.map(f => {
+    const liveChar = friendCharMap[f.friend_id];
+    return {
+      ...f,
+      friend_name: liveChar?.name || f.friend_name || "Unknown",
+      friend_class: liveChar?.class || f.friend_class || "warrior",
+      friend_level: liveChar?.level || f.friend_level || "?",
+    };
+  });
+
+  const activeFriends = enrichedFriends.filter(f => !f.is_blocked);
   const sorted = [...activeFriends].sort((a, b) => {
     if (a.is_favorite && !b.is_favorite) return -1;
     if (!a.is_favorite && b.is_favorite) return 1;
@@ -284,10 +311,10 @@ export default function FriendPanel({ character }) {
 
         {/* Blocked */}
         <TabsContent value="blocked" className="space-y-2 mt-3">
-          {friends.filter(f => f.is_blocked).length === 0 && (
+          {enrichedFriends.filter(f => f.is_blocked).length === 0 && (
             <p className="text-center text-muted-foreground text-sm py-8">No blocked players.</p>
           )}
-          {friends.filter(f => f.is_blocked).map(f => (
+          {enrichedFriends.filter(f => f.is_blocked).map(f => (
             <div key={f.id} className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
               <p className="text-sm">{f.friend_name}</p>
               <Button variant="outline" size="sm" onClick={() => base44.entities.Friendship.update(f.id, { is_blocked: false }).then(() => qc.invalidateQueries({ queryKey: ["friends", character.id] }))}>
