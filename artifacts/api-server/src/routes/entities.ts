@@ -272,8 +272,10 @@ function toClient(entityName: string, row: Record<string, any>): Record<string, 
     result[clientKey] = value;
   }
   // Spread extraData fields onto the top-level object so the frontend can access them directly
-  if (result.extraData && typeof result.extraData === "object") {
-    for (const [key, value] of Object.entries(result.extraData)) {
+  // After reverse-mapping, the key may be "extraData" or "extra_data" depending on entity mappings
+  const extraDataObj = result.extraData ?? result.extra_data;
+  if (extraDataObj && typeof extraDataObj === "object") {
+    for (const [key, value] of Object.entries(extraDataObj)) {
       if (!(key in result)) {
         result[key] = value;
       }

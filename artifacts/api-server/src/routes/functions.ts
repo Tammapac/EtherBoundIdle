@@ -1072,12 +1072,12 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       if (targetName) {
         const matches = await db.select().from(charactersTable).where(eq(charactersTable.name, targetName));
         if (matches.length > 0) resolvedTargetId = matches[0].id;
-        else { sendSuccess(res, { success: false, message: `Player "${targetName}" not found` }); return; }
+        else { sendError(res, 404, `Player "${targetName}" not found`); return; }
       }
-      if (!resolvedTargetId) { sendSuccess(res, { success: false, message: "No target specified" }); return; }
-      if (resolvedTargetId === characterId) { sendSuccess(res, { success: false, message: "Cannot invite yourself" }); return; }
+      if (!resolvedTargetId) { sendError(res, 400, "No target specified"); return; }
+      if (resolvedTargetId === characterId) { sendError(res, 400, "Cannot invite yourself"); return; }
       const [targetChar] = await db.select().from(charactersTable).where(eq(charactersTable.id, resolvedTargetId));
-      if (!targetChar) { sendSuccess(res, { success: false, message: "Player not found" }); return; }
+      if (!targetChar) { sendError(res, 404, "Player not found"); return; }
       const [invite] = await db.insert(partyInvitesTable).values({
         partyId,
         fromCharacterId: characterId,

@@ -33,7 +33,7 @@ export default function Leaderboard() {
       const res = await base44.functions.invoke("getAllUsers", {});
       const users = Array.isArray(res) ? res : res?.users || [];
       const map = {};
-      users.forEach(u => { if (u.email) map[u.email] = u.role; });
+      users.forEach(u => { if (u.id) map[u.id] = u.role; });
       return map;
     },
   });
@@ -101,6 +101,7 @@ export default function Leaderboard() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold truncate">{char.name}</span>
+                {char.title && <Badge variant="outline" className="text-[10px] text-accent border-accent/30">{char.title}</Badge>}
                 <RoleBadge role={charRole} />
                 <Badge variant="outline" className={`text-xs ${cls?.color || ""}`}>
                   {cls?.name || char.class}
