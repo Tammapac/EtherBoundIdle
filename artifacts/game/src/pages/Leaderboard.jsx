@@ -7,17 +7,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Trophy, Medal, Swords, Coins, Crown, Lock, Trash2, Edit, Backpack, Check, X
+  Trophy, Medal, Swords, Coins, Crown, Lock, Trash2, Edit, Backpack, Check, X, UserPlus
 } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
 import RoleBadge from "@/components/game/RoleBadge";
 
-export default function Leaderboard() {
+export default function Leaderboard({ character }) {
   const [selectedChar, setSelectedChar] = useState(null);
   const [editStats, setEditStats] = useState(null);
   const [tempStats, setTempStats] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [friendRequestSent, setFriendRequestSent] = useState({});
   const queryClient = useQueryClient();
+
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async (targetChar) => {
+      await base44.entities.FriendRequest.create({
+        from_character_id: character.id,
+        from_name: character.name,
+        from_class: character.class,
+        from_level: character.level,
+        to_character_id: targetChar.id,
+        to_name: targetChar.name,
+        status: "pending",
+      });
+    },
+    onSuccess: (_, targetChar) => {
+      setFriendRequestSent(prev => ({ ...prev, [targetChar.id]: true }));
+    },
+  });
 
   const { data: characters = [], isLoading } = useQuery({
     queryKey: ["leaderboard"],
@@ -209,6 +227,22 @@ export default function Leaderboard() {
                   </div>
                 ))}
               </div>
+
+              {/* Friend Request Button — for non-self characters */}
+              {character && selectedChar.id !== character.id && (
+                <div className="mb-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-2"
+                    disabled={friendRequestSent[selectedChar.id] || sendFriendRequestMutation.isPending}
+                    onClick={() => sendFriendRequestMutation.mutate(selectedChar)}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    {friendRequestSent[selectedChar.id] ? "Request Sent" : "Send Friend Request"}
+                  </Button>
+                </div>
+              )}
 
               {/* Admin Tools — superadmin only */}
               {currentUser?.role !== "superadmin" ? null : editStats ? (

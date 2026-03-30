@@ -122,7 +122,7 @@ const GameApp = () => {
             <Route path="/guild" element={<GuildPage character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/shop" element={<Shop character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/quests" element={<Quests character={character} onCharacterUpdate={handleCharacterUpdate} />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/leaderboard" element={<Leaderboard character={character} />} />
             <Route path="/dashboard" element={<Dashboard character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/profile" element={<Profile character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/social" element={<Social character={character} onCharacterUpdate={handleCharacterUpdate} />} />

@@ -295,19 +295,37 @@ router.post("/functions/managePlayer", async (req: Request, res: Response) => {
     const guildId = req.body.guildId || req.body.guild_id;
 
     if (action === "ban" && characterId) {
-      const [updated] = await db.update(charactersTable).set({ isBanned: true }).where(eq(charactersTable.id, characterId)).returning();
+      const hours = rest.data?.hours;
+      const banUntil = hours ? new Date(Date.now() + hours * 60 * 60 * 1000).toISOString() : null;
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char) { sendError(res, 404, "Character not found"); return; }
+      const extraData = (char.extraData as any) || {};
+      extraData.ban_until = banUntil;
+      const [updated] = await db.update(charactersTable).set({ isBanned: true, extraData }).where(eq(charactersTable.id, characterId)).returning();
       sendSuccess(res, updated ? toClientCharacter(updated) : null); return;
     }
     if (action === "unban" && characterId) {
-      const [updated] = await db.update(charactersTable).set({ isBanned: false }).where(eq(charactersTable.id, characterId)).returning();
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const extraData = (char?.extraData as any) || {};
+      delete extraData.ban_until;
+      const [updated] = await db.update(charactersTable).set({ isBanned: false, extraData }).where(eq(charactersTable.id, characterId)).returning();
       sendSuccess(res, updated ? toClientCharacter(updated) : null); return;
     }
     if (action === "mute" && characterId) {
-      const [updated] = await db.update(charactersTable).set({ isMuted: true }).where(eq(charactersTable.id, characterId)).returning();
+      const hours = rest.data?.hours || 24;
+      const muteUntil = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char) { sendError(res, 404, "Character not found"); return; }
+      const extraData = (char.extraData as any) || {};
+      extraData.mute_until = muteUntil;
+      const [updated] = await db.update(charactersTable).set({ isMuted: true, extraData }).where(eq(charactersTable.id, characterId)).returning();
       sendSuccess(res, updated ? toClientCharacter(updated) : null); return;
     }
     if (action === "unmute" && characterId) {
-      const [updated] = await db.update(charactersTable).set({ isMuted: false }).where(eq(charactersTable.id, characterId)).returning();
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const extraData = (char?.extraData as any) || {};
+      delete extraData.mute_until;
+      const [updated] = await db.update(charactersTable).set({ isMuted: false, extraData }).where(eq(charactersTable.id, characterId)).returning();
       sendSuccess(res, updated ? toClientCharacter(updated) : null); return;
     }
     if (action === "kick" && characterId) {
@@ -571,12 +589,12 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
     // Weights shift with level: higher level = better chance at rare+ items
     const levelBonus = Math.min(charLevel / 10, 5); // 0-5 bonus based on level
     const RARITY_WEIGHTS = [
-      Math.max(10, 35 - levelBonus * 3),   // common
-      Math.max(10, 28 - levelBonus),        // uncommon
-      20 + levelBonus,                       // rare
-      12 + levelBonus,                       // epic
-      Math.min(4 + levelBonus * 0.5, 8),    // legendary
-      Math.min(1 + levelBonus * 0.2, 3),    // mythic
+      Math.max(15, 50 - levelBonus * 3),   // common
+      Math.max(10, 30 - levelBonus),        // uncommon
+      15 + levelBonus,                       // rare
+      5 + levelBonus,                        // epic
+      Math.min(3 + levelBonus * 0.5, 7),    // legendary
+      Math.min(0.5 + levelBonus * 0.2, 2.5),// mythic
     ];
     const STAT_KEYS = ["strength", "dexterity", "intelligence", "vitality", "luck"];
     const CONSUMABLES = [
@@ -1411,6 +1429,7 @@ const DUNGEON_BOSSES: Record<string, { name: string; hpBase: number; hpPerLevel:
 
 // Dungeon entry limits: 5 entries per 8 hours
 const DUNGEON_MAX_ENTRIES = 5;
+const DUNGEON_RESET_COST = 500;
 const DUNGEON_WINDOW_MS = 8 * 60 * 60 * 1000;
 
 // Skill data for damage multipliers (mirrored from frontend gameData)
@@ -1449,6 +1468,44 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
     if (!(await requireCharacterOwner(req, res, characterId))) return;
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
     if (!char) { sendError(res, 404, "Character not found"); return; }
+
+    // === RESET ENTRIES: spend gems to reset dungeon entry count ===
+    if (action === "reset_entries") {
+      const dungeonConfigKey = `dungeon_entries_${characterId}`;
+      if ((char.gems || 0) < DUNGEON_RESET_COST) {
+        sendError(res, 400, `Not enough gems. Need ${DUNGEON_RESET_COST} gems to reset dungeon entries.`);
+        return;
+      }
+      const now = Date.now();
+      const entryData = { entries: [], windowStart: now };
+      await db.insert(gameConfigTable).values({ id: dungeonConfigKey, config: entryData })
+        .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: entryData } });
+      await db.update(charactersTable).set({
+        gems: (char.gems || 0) - DUNGEON_RESET_COST,
+      }).where(eq(charactersTable.id, characterId));
+      sendSuccess(res, { success: true, entries_remaining: DUNGEON_MAX_ENTRIES, gems_spent: DUNGEON_RESET_COST });
+      return;
+    }
+
+    // === GET ENTRIES: check how many dungeon entries remain ===
+    if (action === "get_entries") {
+      const dungeonConfigKey = `dungeon_entries_${characterId}`;
+      const [dungeonEntry] = await db.select().from(gameConfigTable).where(eq(gameConfigTable.id, dungeonConfigKey));
+      let data: any = dungeonEntry?.config || { entries: [], windowStart: 0 };
+      const now = Date.now();
+      if (now - (data.windowStart || 0) >= DUNGEON_WINDOW_MS) {
+        data = { entries: [], windowStart: now };
+      }
+      const remaining = DUNGEON_MAX_ENTRIES - data.entries.length;
+      const windowEnd = (data.windowStart || now) + DUNGEON_WINDOW_MS;
+      sendSuccess(res, {
+        entries_remaining: remaining,
+        max_entries: DUNGEON_MAX_ENTRIES,
+        reset_cost: DUNGEON_RESET_COST,
+        window_resets_at: new Date(windowEnd).toISOString(),
+      });
+      return;
+    }
 
     // === CREATE: make a new dungeon session in "waiting" state ===
     if (action === "enter" || action === "create") {
@@ -1804,6 +1861,31 @@ router.post("/functions/catchUpOfflineProgress", async (req: Request, res: Respo
     const goldReward = Math.floor(offlineHours * (char.level || 1) * 50);
     const expReward = Math.floor(offlineHours * (char.level || 1) * 20);
 
+    // Calculate life skill XP for active skills during offline time
+    const lifeSkills = ensureLifeSkills((char.lifeSkills as any) || {});
+    const lifeSkillRewards: Record<string, number> = {};
+    for (const st of SKILL_TYPES) {
+      const skill = lifeSkills[st];
+      if (skill.is_active) {
+        const xpPerCycle = 15 + skill.level * 2;
+        const baseCycle = 20;
+        const speedReduction = 1 - ((skill.speed_level || 1) - 1) * 0.08;
+        const cycleDuration = Math.max(5, baseCycle * speedReduction);
+        const offlineSeconds = offlineHours * 3600;
+        const completedCycles = Math.floor(offlineSeconds / cycleDuration);
+        const xpGained = completedCycles * xpPerCycle;
+        if (xpGained > 0) {
+          skill.exp = (skill.exp || 0) + xpGained;
+          const expToNext = skill.level * 100;
+          while (skill.exp >= expToNext && skill.level < 99) {
+            skill.exp -= expToNext;
+            skill.level += 1;
+          }
+          lifeSkillRewards[st] = xpGained;
+        }
+      }
+    }
+
     // Process gem lab offline gains
     let gemLabGains = 0;
     try {
@@ -1829,6 +1911,7 @@ router.post("/functions/catchUpOfflineProgress", async (req: Request, res: Respo
     await db.update(charactersTable).set({
       gold: (char.gold || 0) + goldReward,
       exp: (char.exp || 0) + expReward,
+      lifeSkills,
       lastIdleClaim: new Date(),
     }).where(eq(charactersTable.id, characterId));
     sendSuccess(res, {
@@ -1837,6 +1920,7 @@ router.post("/functions/catchUpOfflineProgress", async (req: Request, res: Respo
         results: {
           gold: goldReward,
           exp: expReward,
+          life_skills: lifeSkillRewards,
           gemLab: { gems_gained: gemLabGains },
         },
       });
