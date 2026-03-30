@@ -327,6 +327,14 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
 
     let query = db.select().from(table);
 
+    // Server-side security: Character listings MUST be filtered by the authenticated user
+    if (entity === "Character") {
+      const userId = req.user?.id;
+      if (userId) {
+        query = query.where(eq(charactersTable.createdBy, userId));
+      }
+    }
+
     if (filterParam) {
       const filters = JSON.parse(filterParam);
       const conditions = Object.entries(filters).map(([key, value]) => {
