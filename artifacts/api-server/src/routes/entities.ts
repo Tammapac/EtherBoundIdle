@@ -327,11 +327,14 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
 
     let query = db.select().from(table);
 
+    // Collect all WHERE conditions, then combine with and() in a single .where() call
+    const allConditions: any[] = [];
+
     // Server-side security: Character listings MUST be filtered by the authenticated user
     if (entity === "Character") {
       const userId = req.user?.id;
       if (userId) {
-        query = query.where(eq(charactersTable.createdBy, userId));
+        allConditions.push(eq(charactersTable.createdBy, userId));
       }
     }
 
@@ -339,6 +342,8 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
       const filters = JSON.parse(filterParam);
       const conditions = Object.entries(filters).map(([key, value]) => {
         const dbKey = (fieldMappings[entity] || {})[key] || key;
+        // Skip created_by filter for Character since server already enforces it
+        if (entity === "Character" && dbKey === "createdBy") return null;
         const col = (table as any)[dbKey];
         if (!col) return null;
         // Case-insensitive name search for Character entity
@@ -347,10 +352,11 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
         }
         return eq(col, value as any);
       }).filter(Boolean);
+      allConditions.push(...conditions);
+    }
 
-      if (conditions.length > 0) {
-        query = query.where(conditions.length === 1 ? conditions[0]! : and(...conditions as any));
-      }
+    if (allConditions.length > 0) {
+      query = query.where(allConditions.length === 1 ? allConditions[0] : and(...allConditions));
     }
 
     if (sortParam) {

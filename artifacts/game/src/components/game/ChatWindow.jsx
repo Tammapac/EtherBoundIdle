@@ -76,6 +76,10 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
       queryClient.invalidateQueries({ queryKey: ["chat", activeTab, guildId] });
       setMessage("");
     },
+    onError: (err) => {
+      // Server returns 403 with mute/ban message
+      setWhisperError(err?.message || "Failed to send message");
+    },
   });
 
   // --- Send whisper mutation ---
@@ -152,11 +156,8 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
   const handleSend = () => {
     if (!message.trim() || !character) return;
 
-    // Mute check
-    if (character.is_muted) {
-      setWhisperError("You are muted and cannot send messages.");
-      return;
-    }
+    // Mute/ban is enforced server-side on ChatMessage creation (entities.ts)
+    // No client-side block here — server returns 403 if muted/banned
 
     const trimmed = message.trim();
 
@@ -240,8 +241,6 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
     );
   }
 
-  const isMuted = character?.is_muted;
-
   return (
     <div className="fixed bottom-4 right-4 z-40 w-80 h-96 bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden">
       {/* Header */}
@@ -287,12 +286,6 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
 
       {/* Input area */}
       <div className="p-2 border-t border-border flex gap-2">
-        {isMuted ? (
-          <div className="flex-1 flex items-center justify-center text-xs text-red-400 italic">
-            You are muted.
-          </div>
-        ) : (
-          <>
             <Input
               value={message}
               onChange={(e) => {
@@ -315,8 +308,6 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
             >
               <Send className="w-3.5 h-3.5" />
             </Button>
-          </>
-        )}
       </div>
     </div>
   );

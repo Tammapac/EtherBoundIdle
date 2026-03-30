@@ -539,7 +539,7 @@ export default function AdminPanel() {
                         <Input
                           type="number"
                           value={tempStats[stat] ?? selectedCharacter[stat]}
-                          onChange={(e) => setTempStats({ ...tempStats, [stat]: parseInt(e.target.value) })}
+                          onChange={(e) => setTempStats({ ...tempStats, [stat]: Number(e.target.value) })}
                           className="text-xs bg-muted/50 h-7"
                         />
                       </div>
