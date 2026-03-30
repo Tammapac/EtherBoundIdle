@@ -55,12 +55,15 @@ export default function PartyActivityDisplay({ partyMembers, currentZone }) {
       unsubscribers.push(unsub);
     });
 
-    // Initial fetch
-    base44.entities.Presence.filter({ character_id: { $in: memberIds } })
+    // Initial fetch — entity API doesn't support $in, so fetch all and filter
+    base44.entities.Presence.list("-last_seen", 100)
       .then(presences => {
         const map = {};
+        const memberSet = new Set(memberIds);
         presences.forEach(p => {
-          map[p.character_id] = p;
+          if (memberSet.has(p.character_id)) {
+            map[p.character_id] = p;
+          }
         });
         setPresenceData(map);
       })

@@ -294,15 +294,17 @@ router.post("/functions/managePlayer", async (req: Request, res: Response) => {
       await db.delete(charactersTable).where(eq(charactersTable.id, characterId));
       sendSuccess(res, { success: true, deleted: characterId }); return;
     }
-    if (action === "update_stats" && characterId && stats) {
+    const statsData = stats || rest.data;
+    if (action === "update_stats" && characterId && statsData) {
       const allowedFields: Record<string, string> = {
         level: "level", gold: "gold", gems: "gems", stat_points: "statPoints",
         skill_points: "skillPoints", prestige_level: "prestigeLevel",
         strength: "strength", dexterity: "dexterity", intelligence: "intelligence",
         vitality: "vitality", luck: "luck", total_kills: "totalKills",
+        total_damage: "totalDamage", hp: "hp", mp: "mp", max_hp: "maxHp", max_mp: "maxMp",
       };
       const updateData: Record<string, any> = {};
-      for (const [key, val] of Object.entries(stats)) {
+      for (const [key, val] of Object.entries(statsData)) {
         const dbField = allowedFields[key];
         if (dbField && typeof val === "number") updateData[dbField] = val;
       }
@@ -1710,6 +1712,8 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     const newMaxMp = (char.maxMp || 50) + levelDiff * 3;
     const newGold = (char.gold || 0) + goldGain;
     const newTotalKills = (char.totalKills || 0) + 1;
+    const damageDealt = enemyData.hp || Math.floor((char.strength || 10) * 2);
+    const newTotalDamage = (char.totalDamage || 0) + damageDealt;
 
     const [updated] = await db.update(charactersTable).set({
       exp: newExp,
@@ -1719,6 +1723,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       statPoints: newStatPoints,
       skillPoints: newSkillPoints,
       totalKills: newTotalKills,
+      totalDamage: newTotalDamage,
       maxHp: newMaxHp,
       maxMp: newMaxMp,
     }).where(eq(charactersTable.id, characterId)).returning();

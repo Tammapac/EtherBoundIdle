@@ -207,11 +207,13 @@ async function saveTick() {
     if (char?.id) {
       try {
         const data = {};
+        // Do NOT include life_skills or equipment here — they are managed
+        // by their own API handlers and saving stale cached values overwrites upgrades
         const fields = [
           'level', 'exp', 'gold', 'gems', 'hp', 'mp', 'max_hp', 'max_mp',
           'strength', 'dexterity', 'intelligence', 'vitality', 'luck',
           'stat_points', 'skill_points', 'current_region', 'idle_mode',
-          'total_kills', 'total_damage', 'equipment', 'life_skills',
+          'total_kills', 'total_damage',
         ];
         fields.forEach(f => { if (char[f] !== undefined) data[f] = char[f]; });
         await base44.entities.Character.update(char.id, data);
