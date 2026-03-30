@@ -8,6 +8,7 @@ import {
   Plus, Trash2, LogOut, Shield, Swords, Star, AlertTriangle
 } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
+import { useAuth } from "@/lib/AuthContext";
 
 const CLASS_ICONS = {
   warrior: Shield,
@@ -19,21 +20,23 @@ const CLASS_ICONS = {
 export default function CharacterSelection({ onCharacterSelected }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: characters = [], isLoading, isError, error } = useQuery({
-    queryKey: ["characters"],
+    queryKey: ["characters", user?.id],
     queryFn: async () => {
       try {
-        // Always fetch from the authenticated user's session
-
-        // Query characters created by the authenticated user (bound to server via created_by email)
-	const chars = await apiFetch("/entities/Character");
+        if (!user?.id) return [];
+        // Only fetch characters created by the authenticated user
+        const filter = JSON.stringify({ created_by: user.id });
+        const chars = await apiFetch(`/entities/Character?filter=${encodeURIComponent(filter)}`);
         return chars || [];
       } catch (err) {
         console.error("Failed to fetch characters:", err);
         return [];
       }
     },
+    enabled: !!user?.id,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     staleTime: 0,
@@ -160,7 +163,11 @@ export default function CharacterSelection({ onCharacterSelected }) {
             size="lg"
             variant="outline"
             className="flex-1 gap-2"
-            onClick={() => base44.auth.logout()}
+            onClick={async () => {
+              try { await apiFetch("/auth/logout", { method: "POST" }); } catch {}
+              localStorage.removeItem('eb_session_id');
+              window.location.reload();
+            }}
           >
             <LogOut className="w-5 h-5" /> Logout
           </Button>
