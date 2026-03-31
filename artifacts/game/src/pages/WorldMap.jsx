@@ -29,7 +29,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
 
   const travelMutation = useMutation({

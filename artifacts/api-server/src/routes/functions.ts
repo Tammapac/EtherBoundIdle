@@ -1525,10 +1525,21 @@ router.post("/functions/getLeaderboard", async (req: Request, res: Response) => 
       gold: c.gold,
       gems: c.gems,
       title: c.title,
+      hp: c.hp,
+      max_hp: c.maxHp,
+      strength: c.strength,
+      dexterity: c.dexterity,
+      intelligence: c.intelligence,
+      vitality: c.vitality,
+      luck: c.luck,
       total_kills: c.totalKills,
+      total_damage: c.totalDamage,
       prestige_level: c.prestigeLevel,
       guild_id: c.guildId,
       created_by: c.createdBy,
+      equipment: c.equipment,
+      is_banned: c.isBanned,
+      is_muted: c.isMuted,
     }));
     sendSuccess(res, { leaderboard });
   } catch (err: any) {

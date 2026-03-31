@@ -61,7 +61,7 @@ export default function PartyPanel({ character }) {
       } catch {}
     };
     fetchDetails();
-    const interval = setInterval(fetchDetails, 15000);
+    const interval = setInterval(fetchDetails, 5000);
     return () => clearInterval(interval);
   }, [partyData?.id, partyData?.members?.map(m => m.character_id).sort().join(',')]);
 

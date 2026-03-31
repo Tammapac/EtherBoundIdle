@@ -751,7 +751,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     load();
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, [character?.id]);
 
