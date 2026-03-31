@@ -82,9 +82,12 @@ export default function Profile({ character, onCharacterUpdate }) {
     });
   };
 
-  const removeStat = (key) => {
-    if (!pendingStats[key] || pendingStats[key] <= 0) return;
-    setPendingStats(prev => ({ ...prev, [key]: prev[key] - 1 }));
+  const removeStat = (key, amount = 1) => {
+    setPendingStats(prev => {
+      const current = prev[key] || 0;
+      if (current <= 0) return prev;
+      return { ...prev, [key]: Math.max(0, current - amount) };
+    });
   };
 
   const addSkill = (skillId) => {
@@ -262,7 +265,7 @@ export default function Profile({ character, onCharacterUpdate }) {
                 </div>
                 {(character.stat_points || 0) > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeStat(key)} disabled={!pendingStats[key]}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => removeStat(key, e.shiftKey ? 10 : 1)} disabled={!pendingStats[key]} title="Click -1, Shift+Click -10">
                       <Minus className="w-3.5 h-3.5" />
                     </Button>
                     <input
@@ -276,16 +279,10 @@ export default function Profile({ character, onCharacterUpdate }) {
                       }}
                       className="w-12 h-7 text-center text-xs bg-background border border-border rounded px-1 font-mono text-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => addStat(key, 1)} disabled={availablePoints <= 0}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => addStat(key, e.shiftKey ? 10 : 1)} disabled={availablePoints <= 0} title="Click +1, Shift+Click +10">
                       <Plus className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] min-w-0 text-primary" onClick={() => addStat(key, 5)} disabled={availablePoints <= 0}>
-                      x5
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] min-w-0 text-primary" onClick={() => addStat(key, 10)} disabled={availablePoints <= 0}>
-                      x10
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] min-w-0 text-primary" onClick={() => addStat(key, availablePoints)} disabled={availablePoints <= 0}>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary" onClick={() => addStat(key, availablePoints)} disabled={availablePoints <= 0}>
                       Max
                     </Button>
                   </div>
