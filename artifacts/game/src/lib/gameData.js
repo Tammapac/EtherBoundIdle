@@ -862,3 +862,132 @@ export function generateDailyQuests(characterLevel) {
   ];
   return quests.map(q => ({ ...q, type: "daily", status: "active", current_count: 0 }));
 }
+
+// ===== TOWER OF TRIALS =====
+export const TOWER_CONFIG = {
+  MAX_FLOOR: 1000,
+  MAX_ENTRIES: 3,
+  ENTRY_WINDOW_MS: 60 * 60 * 1000, // 1 hour
+  MULTI_ENEMY_FLOOR: 200, // floor 200+ spawns multiple enemies
+};
+
+// Tower enemy name pools by floor tier
+const TOWER_ENEMY_TIERS = [
+  { maxFloor: 50, names: ["Tower Rat", "Stone Imp", "Dust Golem", "Trial Shade", "Rusted Guardian"], element: null },
+  { maxFloor: 100, names: ["Flame Sprite", "Inferno Hound", "Lava Crawler", "Ember Knight", "Fire Wraith"], element: "fire" },
+  { maxFloor: 200, names: ["Frost Sentinel", "Ice Phantom", "Glacial Horror", "Crystal Fiend", "Frozen Abomination"], element: "ice" },
+  { maxFloor: 350, names: ["Void Stalker", "Shadow Beast", "Dark Reaper", "Abyssal Crawler", "Nightmare Golem"], element: "blood" },
+  { maxFloor: 500, names: ["Storm Herald", "Thunder Titan", "Lightning Wraith", "Voltaic Golem", "Storm Djinn"], element: "lightning" },
+  { maxFloor: 700, names: ["Plague Horror", "Toxic Behemoth", "Venom Drake", "Corrosion Elemental", "Blight Warden"], element: "poison" },
+  { maxFloor: 900, names: ["Sandstorm Colossus", "Desert Phantom", "Dune Overlord", "Mirage Assassin", "Tomb Emperor"], element: "sand" },
+  { maxFloor: 1000, names: ["Celestial Aberration", "Divine Construct", "Genesis Sentinel", "Astral Devourer", "Omega Wraith"], element: null },
+];
+
+// Boss names every 10th floor
+const TOWER_BOSS_NAMES = [
+  "Guardian of the First Gate", "Warden of Flames", "Keeper of Frost", "Shadow Arbiter",
+  "Stormcaller Vex", "Plaguebringer Mord", "Sand Pharaoh Khet", "Void Archon",
+  "Celestial Judge", "Titan of the Spire", "Dread Champion", "Infernal Overseer",
+  "Glacial Monarch", "Eclipse Wraith", "Tempest King", "Rot Sovereign",
+  "Dune Tyrant", "Star Devourer", "Omega Sentinel", "The Watcher",
+];
+
+// Every 100th floor - special boss
+const TOWER_CENTENNIAL_BOSSES = {
+  100: "The Iron Colossus",
+  200: "Abyssal Warlord",
+  300: "Frost Emperor Glacius",
+  400: "Void Empress Nyx",
+  500: "Storm God Tempestus",
+  600: "Plague Lord Morthos",
+  700: "Sand King Anubarak",
+  800: "Celestial Dragon Aethon",
+  900: "The Omega Sentinel",
+  1000: "Tammapac, The Final Trial",
+};
+
+export function getTowerEnemyTier(floor) {
+  return TOWER_ENEMY_TIERS.find(t => floor <= t.maxFloor) || TOWER_ENEMY_TIERS[TOWER_ENEMY_TIERS.length - 1];
+}
+
+export function generateTowerFloorData(floor) {
+  const isBoss = floor % 10 === 0;
+  const isCentennial = floor % 100 === 0;
+  const tier = getTowerEnemyTier(floor);
+  const multiEnemy = floor >= TOWER_CONFIG.MULTI_ENEMY_FLOOR && !isBoss;
+
+  // Scaling formulas
+  const baseHp = 200 + floor * 50 + Math.pow(floor, 1.4) * 2;
+  const baseDmg = 10 + floor * 3 + Math.pow(floor, 1.2) * 0.5;
+  const baseArmor = Math.floor(floor * 0.5 + Math.pow(floor, 0.8));
+
+  if (isCentennial) {
+    const bossName = TOWER_CENTENNIAL_BOSSES[floor] || `Tower Boss Floor ${floor}`;
+    return {
+      type: "centennial_boss",
+      enemies: [{
+        name: bossName,
+        hp: Math.floor(baseHp * 8),
+        maxHp: Math.floor(baseHp * 8),
+        dmg: Math.floor(baseDmg * 3),
+        armor: Math.floor(baseArmor * 2.5),
+        element: tier.element,
+        isBoss: true,
+      }],
+      floor,
+    };
+  }
+
+  if (isBoss) {
+    const bossIdx = Math.floor((floor / 10 - 1) % TOWER_BOSS_NAMES.length);
+    return {
+      type: "boss",
+      enemies: [{
+        name: TOWER_BOSS_NAMES[bossIdx],
+        hp: Math.floor(baseHp * 4),
+        maxHp: Math.floor(baseHp * 4),
+        dmg: Math.floor(baseDmg * 2),
+        armor: Math.floor(baseArmor * 1.5),
+        element: tier.element,
+        isBoss: true,
+      }],
+      floor,
+    };
+  }
+
+  // Regular enemies
+  const enemyCount = multiEnemy ? Math.min(4, 2 + Math.floor((floor - 200) / 150)) : 1;
+  const enemies = [];
+  for (let i = 0; i < enemyCount; i++) {
+    const nameIdx = (floor + i) % tier.names.length;
+    const hpMult = multiEnemy ? 0.6 : 1.0;
+    enemies.push({
+      name: tier.names[nameIdx],
+      hp: Math.floor(baseHp * hpMult),
+      maxHp: Math.floor(baseHp * hpMult),
+      dmg: Math.floor(baseDmg * (multiEnemy ? 0.7 : 1.0)),
+      armor: Math.floor(baseArmor * (multiEnemy ? 0.5 : 1.0)),
+      element: tier.element,
+      isBoss: false,
+    });
+  }
+
+  return { type: "normal", enemies, floor };
+}
+
+export function getTowerRewards(floor, isBoss) {
+  const baseGold = 50 + floor * 10 + Math.pow(floor, 1.2) * 2;
+  const baseExp = 30 + floor * 8 + Math.pow(floor, 1.15) * 1.5;
+  const isCentennial = floor % 100 === 0;
+
+  return {
+    gold: Math.floor(baseGold * (isCentennial ? 5 : isBoss ? 2.5 : 1)),
+    exp: Math.floor(baseExp * (isCentennial ? 5 : isBoss ? 2.5 : 1)),
+    gems: isCentennial ? Math.floor(5 + floor / 100) : (isBoss ? Math.floor(1 + floor / 200) : 0),
+    tammablocks: isCentennial ? Math.floor(2 + floor / 200) : (isBoss && floor >= 50 ? 1 : 0),
+    towershards: isCentennial ? Math.floor(1 + floor / 300) : (isBoss && floor >= 100 ? 1 : 0),
+    hasLoot: isBoss || Math.random() < 0.15,
+    hasSpecialGear: isCentennial,
+    hasProfileFrame: isCentennial,
+  };
+}

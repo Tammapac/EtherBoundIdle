@@ -26,6 +26,7 @@ import LifeSkills from "./pages/LifeSkills";
 import GearUpgrading from "./pages/GearUpgrading";
 import Dungeons from "./pages/Dungeons";
 import SkillTree from "./pages/SkillTree";
+import TowerOfTrials from "./pages/TowerOfTrials";
 import ChatWindow from "./components/game/ChatWindow";
 import DailyLoginModal from "./components/game/DailyLoginModal";
 import PartyPanel from "./components/game/PartyPanel";
@@ -130,6 +131,7 @@ const GameApp = () => {
             <Route path="/gearupgrading" element={<GearUpgrading character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/dungeons" element={<Dungeons character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/skilltree" element={<SkillTree character={character} onCharacterUpdate={handleCharacterUpdate} />} />
+            <Route path="/tower" element={<TowerOfTrials character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/gameconfig" element={<GameConfig />} />
             <Route path="*" element={<PageNotFound />} />

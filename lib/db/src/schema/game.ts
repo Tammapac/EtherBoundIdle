@@ -303,6 +303,18 @@ export const privateMessagesTable = pgTable("private_messages", {
   index("idx_private_messages_to").on(table.toCharacterId),
 ]);
 
+export const towerSessionsTable = pgTable("tower_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id"),
+  floor: integer("floor").notNull().default(1),
+  status: varchar("status").default("active"),
+  data: jsonb("data").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_tower_sessions_character").on(table.characterId),
+]);
+
 export const userRolesTable = pgTable("user_roles", {
   userId: varchar("user_id").primaryKey().references(() => usersTable.id),
   role: varchar("role").notNull().default("player"),

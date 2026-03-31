@@ -20,6 +20,7 @@ import {
   friendshipsTable,
   tradeSessionsTable,
   dungeonSessionsTable,
+  towerSessionsTable,
   chatMessagesTable,
   presencesTable,
   gemLabsTable,
@@ -2249,6 +2250,469 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
     sendError(res, 500, err.message);
   }
 });
+
+// ========== TOWER OF TRIALS ==========
+const TOWER_MAX_FLOOR = 1000;
+const TOWER_MAX_ENTRIES = 3;
+const TOWER_ENTRY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const TOWER_MULTI_ENEMY_FLOOR = 200;
+
+const TOWER_ENEMY_TIERS = [
+  { maxFloor: 50, names: ["Tower Rat", "Stone Imp", "Dust Golem", "Trial Shade", "Rusted Guardian"], element: null },
+  { maxFloor: 100, names: ["Flame Sprite", "Inferno Hound", "Lava Crawler", "Ember Knight", "Fire Wraith"], element: "fire" },
+  { maxFloor: 200, names: ["Frost Sentinel", "Ice Phantom", "Glacial Horror", "Crystal Fiend", "Frozen Abomination"], element: "ice" },
+  { maxFloor: 350, names: ["Void Stalker", "Shadow Beast", "Dark Reaper", "Abyssal Crawler", "Nightmare Golem"], element: "blood" },
+  { maxFloor: 500, names: ["Storm Herald", "Thunder Titan", "Lightning Wraith", "Voltaic Golem", "Storm Djinn"], element: "lightning" },
+  { maxFloor: 700, names: ["Plague Horror", "Toxic Behemoth", "Venom Drake", "Corrosion Elemental", "Blight Warden"], element: "poison" },
+  { maxFloor: 900, names: ["Sandstorm Colossus", "Desert Phantom", "Dune Overlord", "Mirage Assassin", "Tomb Emperor"], element: "sand" },
+  { maxFloor: 1000, names: ["Celestial Aberration", "Divine Construct", "Genesis Sentinel", "Astral Devourer", "Omega Wraith"], element: null },
+];
+
+const TOWER_BOSS_NAMES = [
+  "Guardian of the First Gate", "Warden of Flames", "Keeper of Frost", "Shadow Arbiter",
+  "Stormcaller Vex", "Plaguebringer Mord", "Sand Pharaoh Khet", "Void Archon",
+  "Celestial Judge", "Titan of the Spire", "Dread Champion", "Infernal Overseer",
+  "Glacial Monarch", "Eclipse Wraith", "Tempest King", "Rot Sovereign",
+  "Dune Tyrant", "Star Devourer", "Omega Sentinel", "The Watcher",
+];
+
+const TOWER_CENTENNIAL_BOSSES: Record<number, string> = {
+  100: "The Iron Colossus", 200: "Abyssal Warlord", 300: "Frost Emperor Glacius",
+  400: "Void Empress Nyx", 500: "Storm God Tempestus", 600: "Plague Lord Morthos",
+  700: "Sand King Anubarak", 800: "Celestial Dragon Aethon", 900: "The Omega Sentinel",
+  1000: "Tammapac, The Final Trial",
+};
+
+function getTowerEnemyTier(floor: number) {
+  return TOWER_ENEMY_TIERS.find(t => floor <= t.maxFloor) || TOWER_ENEMY_TIERS[TOWER_ENEMY_TIERS.length - 1];
+}
+
+function generateTowerFloor(floor: number) {
+  const isBoss = floor % 10 === 0;
+  const isCentennial = floor % 100 === 0;
+  const tier = getTowerEnemyTier(floor);
+  const multiEnemy = floor >= TOWER_MULTI_ENEMY_FLOOR && !isBoss;
+  const baseHp = 200 + floor * 50 + Math.pow(floor, 1.4) * 2;
+  const baseDmg = 10 + floor * 3 + Math.pow(floor, 1.2) * 0.5;
+  const baseArmor = Math.floor(floor * 0.5 + Math.pow(floor, 0.8));
+
+  if (isCentennial) {
+    return {
+      type: "centennial_boss",
+      enemies: [{ name: TOWER_CENTENNIAL_BOSSES[floor] || `Tower Boss Floor ${floor}`, hp: Math.floor(baseHp * 8), max_hp: Math.floor(baseHp * 8), dmg: Math.floor(baseDmg * 3), armor: Math.floor(baseArmor * 2.5), element: tier.element, isBoss: true }],
+    };
+  }
+  if (isBoss) {
+    const bossIdx = Math.floor((floor / 10 - 1) % TOWER_BOSS_NAMES.length);
+    return {
+      type: "boss",
+      enemies: [{ name: TOWER_BOSS_NAMES[bossIdx], hp: Math.floor(baseHp * 4), max_hp: Math.floor(baseHp * 4), dmg: Math.floor(baseDmg * 2), armor: Math.floor(baseArmor * 1.5), element: tier.element, isBoss: true }],
+    };
+  }
+  const enemyCount = multiEnemy ? Math.min(4, 2 + Math.floor((floor - 200) / 150)) : 1;
+  const enemies: any[] = [];
+  for (let i = 0; i < enemyCount; i++) {
+    const nameIdx = (floor + i) % tier.names.length;
+    const hpMult = multiEnemy ? 0.6 : 1.0;
+    enemies.push({ name: tier.names[nameIdx], hp: Math.floor(baseHp * hpMult), max_hp: Math.floor(baseHp * hpMult), dmg: Math.floor(baseDmg * (multiEnemy ? 0.7 : 1.0)), armor: Math.floor(baseArmor * (multiEnemy ? 0.5 : 1.0)), element: tier.element, isBoss: false });
+  }
+  return { type: "normal", enemies };
+}
+
+function getTowerRewards(floor: number) {
+  const isBoss = floor % 10 === 0;
+  const isCentennial = floor % 100 === 0;
+  const baseGold = 50 + floor * 10 + Math.pow(floor, 1.2) * 2;
+  const baseExp = 30 + floor * 8 + Math.pow(floor, 1.15) * 1.5;
+  return {
+    gold: Math.floor(baseGold * (isCentennial ? 5 : isBoss ? 2.5 : 1)),
+    exp: Math.floor(baseExp * (isCentennial ? 5 : isBoss ? 2.5 : 1)),
+    gems: isCentennial ? Math.floor(5 + floor / 100) : (isBoss ? Math.floor(1 + floor / 200) : 0),
+    tammablocks: isCentennial ? Math.floor(2 + floor / 200) : (isBoss && floor >= 50 ? 1 : 0),
+    towershards: isCentennial ? Math.floor(1 + floor / 300) : (isBoss && floor >= 100 ? 1 : 0),
+    hasLoot: isBoss || Math.random() < 0.15,
+    hasSpecialGear: isCentennial,
+  };
+}
+
+router.post("/functions/towerAction", async (req: Request, res: Response) => {
+  try {
+    const { characterId, action, sessionId, skillId, targetIndex } = req.body;
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
+    const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+    if (!char) { sendError(res, 404, "Character not found"); return; }
+
+    // === GET STATUS: tower progress + entry info ===
+    if (action === "get_status") {
+      const extraData = (char.extraData as any) || {};
+      const towerData = extraData.tower || { highestFloor: 0, tammablocks: 0, towershards: 0 };
+      const entryKey = `tower_entries_${characterId}`;
+      const [entryRow] = await db.select().from(gameConfigTable).where(eq(gameConfigTable.id, entryKey));
+      let entryData: any = entryRow?.config || { entries: [], windowStart: 0 };
+      const now = Date.now();
+      if (now - (entryData.windowStart || 0) >= TOWER_ENTRY_WINDOW_MS) {
+        entryData = { entries: [], windowStart: now };
+      }
+      // Check for active session
+      const activeSessions = await db.select().from(towerSessionsTable).where(
+        and(eq(towerSessionsTable.characterId, characterId), sql`${towerSessionsTable.status} IN ('active', 'combat')`)
+      );
+      sendSuccess(res, {
+        highestFloor: towerData.highestFloor || 0,
+        tammablocks: towerData.tammablocks || 0,
+        towershards: towerData.towershards || 0,
+        entriesRemaining: TOWER_MAX_ENTRIES - entryData.entries.length,
+        maxEntries: TOWER_MAX_ENTRIES,
+        windowResetsAt: new Date((entryData.windowStart || now) + TOWER_ENTRY_WINDOW_MS).toISOString(),
+        activeSession: activeSessions.length > 0 ? activeSessions[0] : null,
+      });
+      return;
+    }
+
+    // === ENTER: start a new tower run from the next floor ===
+    if (action === "enter") {
+      // Clean old stuck sessions
+      await db.update(towerSessionsTable).set({ status: "abandoned" }).where(
+        and(eq(towerSessionsTable.characterId, characterId),
+          sql`${towerSessionsTable.status} IN ('active', 'combat')`,
+          sql`${towerSessionsTable.createdAt} < NOW() - INTERVAL '1 hour'`)
+      );
+      // Check existing
+      const existing = await db.select().from(towerSessionsTable).where(
+        and(eq(towerSessionsTable.characterId, characterId), sql`${towerSessionsTable.status} IN ('active', 'combat')`)
+      );
+      if (existing.length > 0) {
+        const s = existing[0];
+        sendSuccess(res, { success: true, session: { id: s.id, floor: s.floor, status: s.status, ...(s.data as any) } });
+        return;
+      }
+      // Check entry limits
+      const entryKey = `tower_entries_${characterId}`;
+      const [entryRow] = await db.select().from(gameConfigTable).where(eq(gameConfigTable.id, entryKey));
+      let entryData: any = entryRow?.config || { entries: [], windowStart: 0 };
+      const now = Date.now();
+      if (now - (entryData.windowStart || 0) >= TOWER_ENTRY_WINDOW_MS) {
+        entryData = { entries: [], windowStart: now };
+      }
+      if (entryData.entries.length >= TOWER_MAX_ENTRIES) {
+        const remaining = Math.max(0, TOWER_ENTRY_WINDOW_MS - (now - (entryData.windowStart || 0)));
+        sendError(res, 400, `Tower limit reached (${TOWER_MAX_ENTRIES} per hour). Resets in ${Math.ceil(remaining / 60000)} minutes.`);
+        return;
+      }
+      entryData.entries.push(now);
+      await db.insert(gameConfigTable).values({ id: entryKey, config: entryData })
+        .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: entryData } });
+
+      // Determine floor
+      const extraData = (char.extraData as any) || {};
+      const towerProgress = extraData.tower || { highestFloor: 0 };
+      const nextFloor = Math.min((towerProgress.highestFloor || 0) + 1, TOWER_MAX_FLOOR);
+      const floorData = generateTowerFloor(nextFloor);
+      const memberStats = await calculateDungeonMemberStats(characterId, char);
+
+      const sessionData = {
+        floor: nextFloor,
+        floorType: floorData.type,
+        enemies: floorData.enemies,
+        member: memberStats,
+        status: "combat",
+        combat_log: [{ type: "system", text: `Entering Floor ${nextFloor} of the Tower of Trials...` }],
+        currentEnemyIndex: 0,
+      };
+
+      const [session] = await db.insert(towerSessionsTable).values({
+        characterId,
+        floor: nextFloor,
+        status: "combat",
+        data: sessionData,
+      }).returning();
+
+      sendSuccess(res, { success: true, session: { id: session.id, floor: session.floor, status: session.status, ...sessionData } });
+      return;
+    }
+
+    // === GET_SESSION ===
+    if (action === "get_session") {
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [s] = await db.select().from(towerSessionsTable).where(eq(towerSessionsTable.id, sessionId));
+      if (!s) { sendSuccess(res, { success: false, error: "Session not found" }); return; }
+      sendSuccess(res, { success: true, session: { id: s.id, floor: s.floor, status: s.status, ...(s.data as any) } });
+      return;
+    }
+
+    // === ATTACK / SKILL ===
+    if (action === "attack" || action === "skill") {
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [session] = await db.select().from(towerSessionsTable).where(eq(towerSessionsTable.id, sessionId));
+      if (!session) { sendSuccess(res, { success: false, error: "Session not found" }); return; }
+      const d = (session.data as any) || {};
+      if (d.status !== "combat") { sendSuccess(res, { success: false, error: "Not in combat" }); return; }
+      const me = d.member;
+      if (!me || me.hp <= 0) { sendSuccess(res, { success: false, error: "You are KO'd" }); return; }
+
+      // Select target enemy
+      const enemies = d.enemies || [];
+      let tIdx = typeof targetIndex === "number" ? targetIndex : (d.currentEnemyIndex || 0);
+      // Find first alive enemy if target is dead
+      if (!enemies[tIdx] || enemies[tIdx].hp <= 0) {
+        tIdx = enemies.findIndex((e: any) => e.hp > 0);
+        if (tIdx < 0) tIdx = 0;
+      }
+      const enemy = enemies[tIdx];
+      if (!enemy || enemy.hp <= 0) {
+        // All enemies dead already, shouldn't happen
+        d.status = "floor_clear";
+        await db.update(towerSessionsTable).set({ data: d }).where(eq(towerSessionsTable.id, session.id));
+        sendSuccess(res, { success: true, session: { id: session.id, floor: session.floor, status: session.status, ...d } });
+        return;
+      }
+
+      // Calculate player damage (mirrors dungeonAction)
+      const totalStr = me.strength || 10;
+      const totalDex = me.dexterity || 8;
+      const totalInt = me.intelligence || 5;
+      const totalLuck = me.luck || 5;
+      const memberDmgBonus = me.damage || 0;
+      const memberCritChance = me.crit_chance || 0;
+      const memberCritDmgPct = me.crit_dmg_pct || 0;
+      const memberLifesteal = me.lifesteal || 0;
+      const classScaling: Record<string, { primary: string; mult: number }> = {
+        warrior: { primary: "strength", mult: 1.3 },
+        mage: { primary: "intelligence", mult: 1.4 },
+        ranger: { primary: "dexterity", mult: 1.2 },
+        rogue: { primary: "dexterity", mult: 1.2 },
+      };
+      const scaling = classScaling[char.class || "warrior"] || classScaling.warrior;
+      const primaryStat = scaling.primary === "strength" ? totalStr : scaling.primary === "intelligence" ? totalInt : totalDex;
+      let baseDmg = primaryStat * scaling.mult + memberDmgBonus;
+
+      // Guild bonus
+      if (char.guildId) {
+        try {
+          const [g] = await db.select({ buffs: guildsTable.buffs }).from(guildsTable).where(eq(guildsTable.id, char.guildId));
+          if (g?.buffs && typeof g.buffs === "object") {
+            baseDmg *= (1 + ((g.buffs as any).damage_bonus || 0) / 100);
+          }
+        } catch {}
+      }
+
+      let dmgMult = 1.0;
+      let skillName = "Basic Attack";
+      if (action === "skill" && skillId && SKILL_DATA[skillId]) {
+        dmgMult = SKILL_DATA[skillId].damage || 1.0;
+        skillName = skillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      }
+      const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
+      let playerDmg = Math.max(1, rawDmg - Math.floor((enemy.armor || 0) * 0.4));
+
+      // Elemental bonus
+      const memberElemDmg = me.elemental_damage || {};
+      const ELEM_TO_STAT: Record<string, string> = {
+        fire: "fire_dmg", ice: "ice_dmg", lightning: "lightning_dmg",
+        poison: "poison_dmg", blood: "blood_dmg", sand: "sand_dmg",
+      };
+      let elemBonusDmg = 0;
+      for (const [elem, statKey] of Object.entries(ELEM_TO_STAT)) {
+        const val = memberElemDmg[statKey] || 0;
+        if (val <= 0) continue;
+        // Weak/resist based on enemy element
+        let elemMult = 1.0;
+        const weakness = getElementWeakness(enemy.element);
+        const resistance = enemy.element;
+        if (elem === weakness) elemMult = 1.5;
+        else if (elem === resistance) elemMult = 0.5;
+        elemBonusDmg += Math.floor(val * elemMult);
+      }
+      if (elemBonusDmg > 0) playerDmg += elemBonusDmg;
+
+      // Crit
+      const effectiveCritChance = Math.min(0.5, (memberCritChance + totalLuck * 0.3 + totalDex * 0.1) / 100);
+      const isCrit = Math.random() < effectiveCritChance;
+      const critMultiplier = 1.5 + (memberCritDmgPct / 100);
+      const finalDmg = isCrit ? Math.floor(playerDmg * critMultiplier) : playerDmg;
+
+      enemy.hp = Math.max(0, enemy.hp - finalDmg);
+      d.combat_log.push({
+        type: "player_attack",
+        text: `You use ${skillName} on ${enemy.name} for ${finalDmg}${isCrit ? " (CRIT!)" : ""}${elemBonusDmg > 0 ? ` (+${elemBonusDmg} elem)` : ""}!`,
+      });
+
+      // Lifesteal
+      if (memberLifesteal > 0 && finalDmg > 0) {
+        const healAmt = Math.floor(finalDmg * memberLifesteal / 100);
+        if (healAmt > 0) {
+          me.hp = Math.min(me.max_hp, me.hp + healAmt);
+          d.combat_log.push({ type: "heal", text: `You leech ${healAmt} HP!` });
+        }
+      }
+
+      // Check if this enemy died
+      if (enemy.hp <= 0) {
+        d.combat_log.push({ type: "system", text: `${enemy.name} defeated!` });
+      }
+
+      // Check if all enemies are dead
+      const allDead = enemies.every((e: any) => e.hp <= 0);
+      if (allDead) {
+        // Floor cleared!
+        d.status = "floor_clear";
+        const floor = session.floor || d.floor;
+        const rewards = getTowerRewards(floor);
+        d.rewards = rewards;
+        d.combat_log.push({ type: "victory", text: `Floor ${floor} cleared!` });
+
+        // Apply rewards
+        const updateSet: any = {
+          gold: sql`COALESCE(gold, 0) + ${rewards.gold}`,
+          exp: sql`COALESCE(exp, 0) + ${rewards.exp}`,
+        };
+        if (rewards.gems > 0) updateSet.gems = sql`COALESCE(gems, 0) + ${rewards.gems}`;
+        await db.update(charactersTable).set(updateSet).where(eq(charactersTable.id, characterId));
+
+        // Update tower progress in extraData
+        const extraData = (char.extraData as any) || {};
+        const towerProgress = extraData.tower || { highestFloor: 0, tammablocks: 0, towershards: 0 };
+        if (floor > (towerProgress.highestFloor || 0)) towerProgress.highestFloor = floor;
+        towerProgress.tammablocks = (towerProgress.tammablocks || 0) + (rewards.tammablocks || 0);
+        towerProgress.towershards = (towerProgress.towershards || 0) + (rewards.towershards || 0);
+        extraData.tower = towerProgress;
+        await db.update(charactersTable).set({ extraData }).where(eq(charactersTable.id, characterId));
+
+        // Generate loot if applicable
+        if (rewards.hasLoot) {
+          try {
+            const loot = generateLoot(floor, char.luck || 5, enemies[0]?.isBoss || false, null, char.class);
+            if (loot) {
+              await db.insert(itemsTable).values({
+                ownerId: characterId,
+                name: loot.name,
+                type: loot.type,
+                rarity: loot.rarity,
+                level: Math.max(1, Math.floor(floor / 10)),
+                stats: loot.stats || {},
+                extraData: { source: "tower", floor },
+              });
+              d.combat_log.push({ type: "system", text: `Loot: ${loot.name} (${loot.rarity})` });
+            }
+          } catch {}
+        }
+
+        d.combat_log.push({ type: "system", text: `+${rewards.gold} gold, +${rewards.exp} exp${rewards.gems ? `, +${rewards.gems} gems` : ""}${rewards.tammablocks ? `, +${rewards.tammablocks} tammablocks` : ""}${rewards.towershards ? `, +${rewards.towershards} towershards` : ""}` });
+
+        await db.update(towerSessionsTable).set({ status: "floor_clear", data: d }).where(eq(towerSessionsTable.id, session.id));
+        sendSuccess(res, { success: true, session: { id: session.id, floor: session.floor, status: "floor_clear", ...d } });
+        return;
+      }
+
+      // Enemies still alive — all alive enemies counter-attack
+      for (let ei = 0; ei < enemies.length; ei++) {
+        const e = enemies[ei];
+        if (e.hp <= 0) continue;
+
+        const eDmg = Math.max(1, Math.floor((e.dmg || 10) * (0.8 + Math.random() * 0.4)));
+        const memberDef = me.defense || 0;
+        const memberVit = me.vitality || 8;
+        const totalDefense = memberDef + memberVit * 0.5;
+        const memberEvasion = Math.min(0.4, (me.evasion || 0) / 100);
+        const evaded = Math.random() < memberEvasion;
+        const memberBlock = Math.min(0.35, (me.block_chance || 0) / 100);
+        const blocked = !evaded && Math.random() < memberBlock;
+
+        let actualDmg = 0;
+        if (evaded) {
+          d.combat_log.push({ type: "boss_attack", text: `You evaded ${e.name}'s attack!` });
+        } else {
+          const mitigated = Math.max(1, eDmg - Math.floor(totalDefense * 0.3));
+          actualDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+          me.hp = Math.max(0, me.hp - actualDmg);
+          d.combat_log.push({ type: "boss_attack", text: `${e.name} hits you for ${actualDmg}${blocked ? " (BLOCKED!)" : ""}` });
+        }
+
+        if (me.hp <= 0) {
+          d.combat_log.push({ type: "defeat", text: `You have fallen on Floor ${session.floor}!` });
+          d.status = "defeat";
+          d.member = me;
+          d.enemies = enemies;
+          await db.update(towerSessionsTable).set({ status: "defeat", data: d }).where(eq(towerSessionsTable.id, session.id));
+          sendSuccess(res, { success: true, session: { id: session.id, floor: session.floor, status: "defeat", ...d } });
+          return;
+        }
+      }
+
+      // Advance to next alive enemy for targeting
+      d.currentEnemyIndex = enemies.findIndex((e: any) => e.hp > 0);
+      if (d.currentEnemyIndex < 0) d.currentEnemyIndex = 0;
+      d.member = me;
+      d.enemies = enemies;
+
+      await db.update(towerSessionsTable).set({ data: d }).where(eq(towerSessionsTable.id, session.id));
+      sendSuccess(res, { success: true, session: { id: session.id, floor: session.floor, status: session.status, ...d } });
+      return;
+    }
+
+    // === NEXT_FLOOR: after clearing, advance to next floor ===
+    if (action === "next_floor") {
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [session] = await db.select().from(towerSessionsTable).where(eq(towerSessionsTable.id, sessionId));
+      if (!session) { sendSuccess(res, { success: false, error: "Session not found" }); return; }
+      const d = (session.data as any) || {};
+      if (d.status !== "floor_clear") { sendSuccess(res, { success: false, error: "Floor not yet cleared" }); return; }
+
+      const nextFloor = Math.min((session.floor || 1) + 1, TOWER_MAX_FLOOR);
+      if (nextFloor > TOWER_MAX_FLOOR) {
+        sendSuccess(res, { success: false, error: "You have reached the top of the Tower!" });
+        return;
+      }
+
+      const floorData = generateTowerFloor(nextFloor);
+      // Keep member HP/MP from previous floor (persistent through the run)
+      const me = d.member;
+
+      const newData = {
+        floor: nextFloor,
+        floorType: floorData.type,
+        enemies: floorData.enemies,
+        member: me,
+        status: "combat",
+        combat_log: [{ type: "system", text: `Ascending to Floor ${nextFloor}...` }],
+        currentEnemyIndex: 0,
+      };
+
+      await db.update(towerSessionsTable).set({
+        floor: nextFloor,
+        status: "combat",
+        data: newData,
+      }).where(eq(towerSessionsTable.id, session.id));
+
+      sendSuccess(res, { success: true, session: { id: session.id, floor: nextFloor, status: "combat", ...newData } });
+      return;
+    }
+
+    // === FLEE: leave the tower ===
+    if (action === "flee" || action === "leave") {
+      if (sessionId) {
+        await db.update(towerSessionsTable).set({ status: "abandoned" }).where(eq(towerSessionsTable.id, sessionId));
+      } else {
+        await db.update(towerSessionsTable).set({ status: "abandoned" }).where(
+          and(eq(towerSessionsTable.characterId, characterId), sql`${towerSessionsTable.status} IN ('active', 'combat', 'floor_clear')`)
+        );
+      }
+      sendSuccess(res, { success: true });
+      return;
+    }
+
+    sendSuccess(res, { success: true, action });
+  } catch (err: any) {
+    req.log.error({ err }, "towerAction error");
+    sendError(res, 500, err.message);
+  }
+});
+
+// Helper: element weakness mapping for tower
+function getElementWeakness(element: string | null): string | null {
+  const weaknesses: Record<string, string> = { fire: "ice", ice: "fire", lightning: "poison", poison: "fire", blood: "lightning", sand: "ice" };
+  return element ? weaknesses[element] || null : null;
+}
 
 router.post("/functions/processServerProgression", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
