@@ -79,6 +79,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   const procEngineRef = useRef(null);
   const offlineProcessedRef = useRef(false);
   const sharedEnemyClaimedRef = useRef(false);
+  const enemyDeadRef = useRef(false);
 
   const queryClient = useQueryClient();
   const region = REGIONS[character?.current_region || "verdant_forest"];
@@ -248,6 +249,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     attackSpeedAccRef.current = 0;
     setAttackSpeedBonusHits(0);
     sharedEnemyClaimedRef.current = false;
+    enemyDeadRef.current = false;
     if (procEngineRef.current) procEngineRef.current.reset();
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
@@ -266,6 +268,8 @@ export default function Battle({ character, onCharacterUpdate }) {
   // ── ENEMY TURN ────────────────────────────────────────────────────────────
   const doEnemyTurn = useCallback((currentPlayerHp, currentEnemyData) => {
     if (!currentEnemyData) return;
+    // Guard: abort if enemy already dead (e.g. killed by party member via polling)
+    if (enemyDeadRef.current) return;
     const equipped = allItems.filter(i => i.equipped);
     const { derived: d } = calculateFinalStats(character, equipped);
     const rawEnemyDmg = Math.floor(currentEnemyData.dmg * (0.8 + Math.random() * 0.4));
@@ -300,6 +304,7 @@ export default function Battle({ character, onCharacterUpdate }) {
         const newHp = Math.max(0, prev - reflectDmg);
         if (newHp <= 0) {
           // Enemy killed by reflect — schedule respawn
+          enemyDeadRef.current = true;
           addLog(`💥 ${currentEnemyData.name} was killed by reflected damage!`);
           setCombatPhase("enemy_dead");
           setTimeout(() => spawnEnemy(), 2000);
@@ -581,6 +586,7 @@ export default function Battle({ character, onCharacterUpdate }) {
 
   const handleEnemyDefeat = useCallback(async () => {
     if (!enemy || !character) return;
+    enemyDeadRef.current = true;
     setCombatPhase("enemy_dead");
 
     // Trigger on_kill procs (gold_rush, exp_surge, soul_reap)
@@ -936,11 +942,15 @@ export default function Battle({ character, onCharacterUpdate }) {
           setEnemy(spawnData);
           setEnemyHp(se.currentHp);
           setLootDrop(null);
+          // Reset HP/MP to full for new shared battle enemy
+          setPlayerHp(actualMaxHp);
+          setPlayerMp(actualMaxMp);
           if (combatPhase === "idle" || combatPhase === "enemy_dead") {
             setCombatPhase("player_turn");
             setIsPlayerTurn(true);
           }
           sharedEnemyClaimedRef.current = false;
+          enemyDeadRef.current = false;
           attackSpeedAccRef.current = 0;
           setAttackSpeedBonusHits(0);
           if (procEngineRef.current) procEngineRef.current.reset();
