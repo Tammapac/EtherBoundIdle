@@ -143,6 +143,10 @@ export default function Battle({ character, onCharacterUpdate }) {
   );
   const actualMaxHp = battleDerived.maxHp || character.max_hp || 100;
   const actualMaxMp = battleDerived.maxMp || character.max_mp || 50;
+  const actualMaxHpRef = useRef(actualMaxHp);
+  const actualMaxMpRef = useRef(actualMaxMp);
+  actualMaxHpRef.current = actualMaxHp;
+  actualMaxMpRef.current = actualMaxMp;
   useEffect(() => {
     if (equippedItems.length === 0) return;
     const itemProcs = collectEquippedProcs(equippedItems);
@@ -777,8 +781,9 @@ export default function Battle({ character, onCharacterUpdate }) {
       // Also invalidate items query so equipment changes are picked up
       queryClient.invalidateQueries({ queryKey: ["items", character.id] });
       // Reset HP/MP to full on tab return — combat state is stale while tabbed out
-      setPlayerHp(actualMaxHp);
-      setPlayerMp(actualMaxMp);
+      // Use refs to get current max values (avoids stale closure from mount-only effect)
+      setPlayerHp(actualMaxHpRef.current);
+      setPlayerMp(actualMaxMpRef.current);
     };
     document.addEventListener("visibilitychange", onFocus);
 
