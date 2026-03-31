@@ -18,6 +18,7 @@ import { canEquipItem, validateEquip, getAllowedClassesLabel, EQUIPMENT_SLOTS, S
 import { calculateFinalStats } from "@/lib/statSystem";
 import { aggregateSetStats } from "@/lib/setSystem";
 import ItemTooltip from "@/components/game/ItemTooltip";
+import { getUniqueItemDef } from "@/lib/uniqueItems";
 import SetCollectionPanel from "@/components/game/SetCollectionPanel";
 
 const TYPE_ICONS = {
@@ -78,6 +79,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
   const isStack = item.stackCount > 1;
   const itemLevel = item.item_level;
   const isSetItem = item.rarity === "set";
+  const isUnique = !!item.is_unique || !!getUniqueItemDef(item.name);
 
   return (
     <>
@@ -89,7 +91,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         onMouseLeave={() => setHovered(false)}
         className={`relative bg-card border rounded-lg p-3 text-left transition-all hover:bg-muted/50 ${
           item.equipped ? `${rarity.border} ${rarity.bg}` : !canEquip ? "border-destructive/30 opacity-60" : "border-border"
-        } ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""} ${isSetItem ? "ring-1 ring-cyan-400/50" : ""} ${item.is_awakened ? "outline outline-2 outline-purple-400 shadow-[0_0_16px_rgba(168,85,247,0.5),0_0_4px_rgba(168,85,247,0.3)] animate-pulse" : ""}`}
+        } ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""} ${isSetItem ? "ring-1 ring-cyan-400/50" : ""} ${isUnique ? "ring-1 ring-orange-400/50" : ""} ${item.is_awakened ? "outline outline-2 outline-purple-400 shadow-[0_0_16px_rgba(168,85,247,0.5),0_0_4px_rgba(168,85,247,0.3)] animate-pulse" : ""}`}
       >
         {isStack && (
           <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
@@ -135,9 +137,15 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
           </Badge>
           {item.equipped && <Badge className="text-xs bg-primary/20 text-primary">Equipped</Badge>}
           {isSetItem && <Badge className="text-xs bg-cyan-500/20 text-cyan-300 border-cyan-500/30">Set</Badge>}
+          {isUnique && <Badge className="text-xs bg-orange-500/20 text-orange-300 border-orange-500/30">U</Badge>}
           {!levelOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Req. {item.level_req}</Badge>}
           {levelOk && !classOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Wrong Class</Badge>}
         </div>
+        {isUnique && (
+          <span className="absolute bottom-1 right-1 bg-orange-500 text-white text-[9px] font-bold rounded w-[16px] h-[16px] flex items-center justify-center leading-none">
+            U
+          </span>
+        )}
       </motion.button>
       {hovered && (
         <HoverTooltip item={item} character={character} equipped={equipped} triggerRef={ref} />
