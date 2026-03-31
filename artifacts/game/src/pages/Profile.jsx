@@ -235,8 +235,8 @@ export default function Profile({ character, onCharacterUpdate }) {
           {STAT_CONFIG.map(({ key, label, icon: Icon, color }) => {
             const baseVal = base[key] || 0;
             const gearBonus = equipBonus[key] || 0;
-            const finalVal = total[key] || 0;
             const pending = pendingStats[key] || 0;
+            const finalVal = (total[key] || 0) + pending;
             return (
               <div key={key} className="flex items-center gap-3 py-1">
                 <div className="flex-1">

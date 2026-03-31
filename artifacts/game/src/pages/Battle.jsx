@@ -131,6 +131,14 @@ export default function Battle({ character, onCharacterUpdate }) {
 
   // Initialize ProcEngine when equipped items change
   const equippedItems = allItems.filter(i => i.equipped);
+
+  // Compute actual max HP/MP including equipment bonuses
+  const { derived: battleDerived } = React.useMemo(
+    () => calculateFinalStats(character, equippedItems),
+    [character, equippedItems.length]
+  );
+  const actualMaxHp = battleDerived.maxHp || character.max_hp || 100;
+  const actualMaxMp = battleDerived.maxMp || character.max_mp || 50;
   useEffect(() => {
     if (equippedItems.length === 0) return;
     const itemProcs = collectEquippedProcs(equippedItems);
@@ -166,7 +174,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     mutationFn: async (stack) => {
       const idToUse = stack.ids[0];
       const healAmount = stack.stats?.hp_bonus || 50;
-      const newHp = Math.min(character.max_hp, playerHp + healAmount);
+      const newHp = Math.min(actualMaxHp, playerHp + healAmount);
       await base44.entities.Item.delete(idToUse);
       setPlayerHp(newHp);
       addLog(`🧪 Used ${stack.name}! Restored ${healAmount} HP.`);
@@ -261,7 +269,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     const { finalDamage: actualDmg, evaded, blocked } = calculateDamageTaken(rawEnemyDmg, d, currentEnemyData.level || 1, character.level);
 
     let safeDmg = Number.isFinite(actualDmg) ? actualDmg : 0;
-    const safeHp = Number.isFinite(currentPlayerHp) ? currentPlayerHp : character.max_hp || 100;
+    const safeHp = Number.isFinite(currentPlayerHp) ? currentPlayerHp : actualMaxHp || 100;
 
     // Defensive procs (reflect, absorb, counter)
     let reflectDmg = 0;
@@ -315,9 +323,9 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (!evaded) spawnPlayerNum(actualDmg, "damage");
 
     // Regen at end of enemy turn — use actual stat values, with percentage fallback for low-level chars
-    const mpRegen = Math.max(Math.ceil(d.mpRegen || 0), Math.floor(character.max_mp * MP_REGEN_PER_TURN));
+    const mpRegen = Math.max(Math.ceil(d.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
     setPlayerMp(prev => {
-      const next = Math.min(character.max_mp, prev + mpRegen);
+      const next = Math.min(actualMaxMp, prev + mpRegen);
       if (mpRegen > 0) spawnPlayerNum(mpRegen, "mp_regen");
       return next;
     });
@@ -338,8 +346,8 @@ export default function Battle({ character, onCharacterUpdate }) {
       saveMutation.mutate({ exp: newExp, gold: newGold });
       onCharacterUpdate({ ...character, exp: newExp, gold: newGold });
       setTimeout(() => {
-        setPlayerHp(character.max_hp);
-        setPlayerMp(character.max_mp);
+        setPlayerHp(actualMaxHp);
+        setPlayerMp(actualMaxMp);
         spawnEnemy();
       }, 2000);
     } else {
@@ -422,8 +430,8 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     // Lifesteal
     const lifestealAmount = Math.max(0, Math.round(finalDmg * (derived.lifesteal / 100))) + procHeal;
-    const regenHp = Math.max(Math.ceil(derived.hpRegen || 0), Math.floor(character.max_hp * HP_REGEN_PER_TURN));
-    const newPlayerHp = Math.min(character.max_hp, playerHp + lifestealAmount + regenHp);
+    const regenHp = Math.max(Math.ceil(derived.hpRegen || 0), Math.floor(actualMaxHp * HP_REGEN_PER_TURN));
+    const newPlayerHp = Math.min(actualMaxHp, playerHp + lifestealAmount + regenHp);
     setPlayerHp(newPlayerHp);
 
     // In shared battle, report damage to server and use server HP
@@ -828,21 +836,19 @@ export default function Battle({ character, onCharacterUpdate }) {
 
   // Sync HP/MP from props — only use max values (DB hp/mp field is stale)
   // During combat, playerHp is managed entirely by React state
+  // Use actualMaxHp/actualMaxMp which include equipment bonuses
   useEffect(() => {
     if (combatPhase === "idle" || combatPhase === "player_turn") {
       setPlayerHp(prev => {
-        // Only reset to max if current value is invalid or exceeds max
-        const maxHp = character?.max_hp || 100;
-        if (!Number.isFinite(prev) || prev <= 0 || prev > maxHp) return maxHp;
+        if (!Number.isFinite(prev) || prev <= 0 || prev > actualMaxHp) return actualMaxHp;
         return prev;
       });
     }
     setPlayerMp(prev => {
-      const maxMp = character?.max_mp || 50;
-      if (!Number.isFinite(prev) || prev > maxMp) return maxMp;
+      if (!Number.isFinite(prev) || prev > actualMaxMp) return actualMaxMp;
       return prev;
     });
-  }, [character?.max_hp, character?.max_mp]);
+  }, [actualMaxHp, actualMaxMp]);
 
   // Load party data
   useEffect(() => {
@@ -1092,15 +1098,15 @@ export default function Battle({ character, onCharacterUpdate }) {
             </div>
           </div>
           <div className="space-y-2">
-            <HealthBar current={playerHp} max={character.max_hp} color="bg-red-500" label="HP" />
-            <HealthBar current={playerMp} max={character.max_mp} color="bg-blue-500" label="MP" />
+            <HealthBar current={playerHp} max={actualMaxHp} color="bg-red-500" label="HP" />
+            <HealthBar current={playerMp} max={actualMaxMp} color="bg-blue-500" label="MP" />
             <HealthBar current={character.exp} max={character.exp_to_next} color="bg-primary" label="EXP" />
           </div>
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
             {(() => {
               const { derived: rd } = calculateFinalStats(character, equippedItems);
-              const hpR = Math.max(Math.ceil(rd.hpRegen || 0), Math.floor(character.max_hp * HP_REGEN_PER_TURN));
-              const mpR = Math.max(Math.ceil(rd.mpRegen || 0), Math.floor(character.max_mp * MP_REGEN_PER_TURN));
+              const hpR = Math.max(Math.ceil(rd.hpRegen || 0), Math.floor(actualMaxHp * HP_REGEN_PER_TURN));
+              const mpR = Math.max(Math.ceil(rd.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
               return (
                 <>
                   <span>+{hpR} HP/turn</span>
@@ -1234,7 +1240,7 @@ export default function Battle({ character, onCharacterUpdate }) {
             <button
               key={stack.name}
               onClick={() => usePotionMutation.mutate(stack)}
-              disabled={usePotionMutation.isPending || playerHp >= character.max_hp}
+              disabled={usePotionMutation.isPending || playerHp >= actualMaxHp}
               className="relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-green-500/40 bg-green-500/5 hover:bg-green-500/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] text-green-400"
             >
               <Heart className="w-3 h-3" />
