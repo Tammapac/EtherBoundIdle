@@ -43,8 +43,6 @@ export default function CombatStatsPanel({ derived, character }) {
     return true;
   });
 
-  const activeElemStats = ELEMENTAL_STATS.filter(e => (derived?.[e.key] ?? 0) > 0);
-
   return (
     <TooltipProvider delayDuration={200}>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -71,20 +69,21 @@ export default function CombatStatsPanel({ derived, character }) {
         })}
       </div>
 
-      {activeElemStats.length > 0 && (
-        <div className="mt-3">
-          <p className="text-xs text-muted-foreground font-semibold mb-2">⚡ Elemental Bonuses</p>
-          <div className="flex flex-wrap gap-2">
-            {activeElemStats.map(e => (
-              <div key={e.key} className="bg-muted/50 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
-                <span className="text-sm">{e.label.split(" ")[0]}</span>
-                <span className="text-xs text-muted-foreground">{e.label.split(" ").slice(1).join(" ")}</span>
-                <span className={`font-bold text-sm ${e.color}`}>+{derived[e.key]}%</span>
+      <div className="mt-3">
+        <p className="text-xs text-muted-foreground font-semibold mb-2">Elemental Damage</p>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {ELEMENTAL_STATS.map(e => {
+            const val = derived?.[e.key] ?? 0;
+            return (
+              <div key={e.key} className="bg-muted/50 rounded-lg px-2 py-1.5 text-center">
+                <span className="text-sm block">{e.label.split(" ")[0]}</span>
+                <span className="text-[10px] text-muted-foreground block">{e.label.split(" ").slice(1).join(" ")}</span>
+                <span className={`font-bold text-sm ${val > 0 ? e.color : "text-muted-foreground"}`}>{val > 0 ? `+${val}%` : "0%"}</span>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
     </TooltipProvider>
   );
 }

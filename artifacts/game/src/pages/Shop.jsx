@@ -11,11 +11,7 @@ import {
 } from "lucide-react";
 import { RARITY_CONFIG } from "@/lib/gameData";
 import { idleEngine } from "@/lib/idleEngine";
-
-const TYPE_ICONS = {
-  weapon: Sword, armor: Shield, helmet: Crown, boots: Footprints,
-  ring: CircleDot, amulet: Gem, consumable: FlaskConical, material: Package
-};
+import { getItemIcon } from "@/lib/itemIcons";
 
 function formatTimeLeft(nextRefreshAt) {
   if (!nextRefreshAt) return "";
@@ -173,7 +169,7 @@ export default function Shop({ character, onCharacterUpdate }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {shopItems.map((item, idx) => {
             const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
-            const Icon = TYPE_ICONS[item.type] || ShoppingBag;
+            const Icon = getItemIcon(item);
             const price = item.buy_price || item.price || 0;
             const canAfford = (character?.gold || 0) >= price;
 
