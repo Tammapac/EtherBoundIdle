@@ -796,13 +796,14 @@ export default function Battle({ character, onCharacterUpdate }) {
         if (localCombat?.combatState) {
           const cs = localCombat.combatState;
           const enemyData = ENEMIES[cs.enemy_key];
-          if (enemyData) {
+          if (enemyData && cs.enemy_hp > 0 && (cs.phase === 'player_turn' || cs.phase === 'enemy_turn')) {
             setEnemy({ ...enemyData, key: cs.enemy_key, maxHp: cs.enemy_max_hp });
             setEnemyHp(cs.enemy_hp);
-            setPlayerHp(cs.player_hp);
-            setPlayerMp(cs.player_mp);
-            setCombatPhase(cs.phase || 'player_turn');
-            setIsPlayerTurn(cs.phase === 'player_turn');
+            setPlayerHp(cs.player_hp > 0 ? cs.player_hp : actualMaxHp);
+            setPlayerMp(cs.player_mp >= 0 ? cs.player_mp : actualMaxMp);
+            setCombatPhase('player_turn');
+            setIsPlayerTurn(true);
+            enemyDeadRef.current = false;
             addLog('⚔️ Combat resumed (local cache)!');
             return;
           }
@@ -815,13 +816,14 @@ export default function Battle({ character, onCharacterUpdate }) {
         if (session?.combat_active && session.combat_state) {
           const cs = session.combat_state;
           const enemyData = ENEMIES[cs.enemy_key];
-          if (enemyData) {
+          if (enemyData && cs.enemy_hp > 0 && (cs.phase === 'player_turn' || cs.phase === 'enemy_turn')) {
             setEnemy({ ...enemyData, key: cs.enemy_key, maxHp: cs.enemy_max_hp });
             setEnemyHp(cs.enemy_hp);
-            setPlayerHp(cs.player_hp);
-            setPlayerMp(cs.player_mp);
-            setCombatPhase(cs.phase || 'player_turn');
-            setIsPlayerTurn(cs.phase === 'player_turn');
+            setPlayerHp(cs.player_hp > 0 ? cs.player_hp : actualMaxHp);
+            setPlayerMp(cs.player_mp >= 0 ? cs.player_mp : actualMaxMp);
+            setCombatPhase('player_turn');
+            setIsPlayerTurn(true);
+            enemyDeadRef.current = false;
             addLog('⚔️ Combat resumed from server!');
             return;
           }
@@ -983,7 +985,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 
   // ── COMBAT RECOVERY: ensure player always has an enemy to fight ──
-  // Handles: shared→solo transition, zone changes, stuck states
+  // Handles: shared→solo transition, zone changes, stuck states, stale cache
   useEffect(() => {
     if (!character?.id || !region) return;
     // If no enemy and not in shared battle mode, spawn one after a short delay
@@ -994,12 +996,20 @@ export default function Battle({ character, onCharacterUpdate }) {
       }, 200);
       return () => clearTimeout(timer);
     }
+    // Recovery: enemy_dead phase with enemy present (stale cache restore or missed spawn)
+    if (combatPhase === "enemy_dead" && !isSharedBattle) {
+      const timer = setTimeout(() => {
+        enemyDeadRef.current = false;
+        spawnEnemy();
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
     // Safety: if stuck in enemy_turn for too long (e.g. doEnemyTurn aborted), recover
-    if (combatPhase === "enemy_turn" && enemy) {
+    if (combatPhase === "enemy_turn") {
       const stuckTimer = setTimeout(() => {
-        // If still in enemy_turn after 5s, something went wrong — force player turn
         setCombatPhase(prev => {
           if (prev === "enemy_turn") {
+            enemyDeadRef.current = false;
             setIsPlayerTurn(true);
             return "player_turn";
           }
