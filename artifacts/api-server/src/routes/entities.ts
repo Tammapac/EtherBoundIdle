@@ -86,6 +86,7 @@ const fieldMappings: Record<string, Record<string, string>> = {
     set_id: "setId",
     upgrade_level: "upgradeLevel",
     star_level: "starLevel",
+    is_awakened: "awakened",
     extra_data: "extraData",
     created_at: "createdAt",
     updated_at: "updatedAt",

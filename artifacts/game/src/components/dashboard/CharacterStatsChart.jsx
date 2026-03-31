@@ -3,11 +3,21 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Cell
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { calculateFinalStats } from "@/lib/statSystem";
 
 export default function CharacterStatsChart({ character }) {
   if (!character) return null;
-  const { base, total } = calculateFinalStats(character, []);
+
+  const { data: items = [] } = useQuery({
+    queryKey: ["items", character.id],
+    queryFn: () => base44.entities.Item.filter({ owner_id: character.id }),
+    enabled: !!character.id,
+  });
+
+  const equippedItems = items.filter(i => i.equipped);
+  const { base, total } = calculateFinalStats(character, equippedItems);
 
   const data = [
     { name: "STR", base: base.strength, total: total.strength },

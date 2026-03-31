@@ -39,6 +39,13 @@ export default function Social({ character, onCharacterUpdate }) {
   const [activeTab, setActiveTab] = useState("friends");
   const qc = useQueryClient();
 
+  // Listen for trade button clicks from FriendPanel
+  useEffect(() => {
+    const handler = () => setActiveTab("trade");
+    window.addEventListener("eb-trade", handler);
+    return () => window.removeEventListener("eb-trade", handler);
+  }, []);
+
   // Real-time subscription for friend requests badge counter
   useEffect(() => {
     if (!character?.id) return;

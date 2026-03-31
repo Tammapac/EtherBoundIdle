@@ -426,7 +426,7 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Gem Cost:</span>
                     <span className="font-semibold flex items-center gap-1">
-                      <Gem className="w-4 h-4 text-cyan-400" /> 500
+                      <Gem className="w-4 h-4 text-cyan-400" /> 5,000
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -443,7 +443,7 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                 {!confirmAwaken ? (
                   <Button
                     onClick={() => setConfirmAwaken(true)}
-                    disabled={awakenMutation.isPending || (character.gems || 0) < 500}
+                    disabled={awakenMutation.isPending || (character.gems || 0) < 5000}
                     className="w-full bg-cyan-600 hover:bg-cyan-700 gap-2"
                   >
                     <Sparkles className="w-4 h-4" /> Awaken
