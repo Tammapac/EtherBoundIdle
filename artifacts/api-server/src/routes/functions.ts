@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { requireAuth } from "../middlewares/authMiddleware";
 import { sendSuccess, sendError } from "../lib/response";
-import { ENEMIES, calculateExpToLevel, generateLoot, RARITY_SELL_PRICES, RARITY_MULTIPLIER, rollUniqueDrop as rollUnique, rollStoneDrop as rollStone } from "../lib/gameData";
+import { ENEMIES, calculateExpToLevel, generateLoot, RARITY_SELL_PRICES, RARITY_MULTIPLIER, rollUniqueDrop as rollUnique, rollStoneDrop as rollStone, generateShopItem } from "../lib/gameData";
 import { db } from "@workspace/db";
 import {
   charactersTable,
@@ -648,7 +648,6 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
     }
 
     const rng = mulberry32(actualSeed + charLevel);
-    const TYPES = ["weapon", "armor", "helmet", "boots", "ring", "amulet", "gloves"];
     // Include legendary/mythic at higher levels with low chances
     const RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
     // Weights shift with level: higher level = better chance at rare+ items
@@ -661,7 +660,6 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
       Math.min(3 + levelBonus * 0.5, 7),    // legendary
       Math.min(0.5 + levelBonus * 0.2, 2.5),// mythic
     ];
-    const STAT_KEYS = ["strength", "dexterity", "intelligence", "vitality", "luck"];
     const CONSUMABLES = [
       { name: "Health Potion", type: "consumable", stats: { hp_bonus: 50 }, rarity: "common" },
       { name: "Mana Potion", type: "consumable", stats: { mp_bonus: 30 }, rarity: "common" },
@@ -680,85 +678,14 @@ router.post("/functions/getShopRotation", async (req: Request, res: Response) =>
       return "common";
     }
 
-    const RARITY_MULTS: Record<string, number> = {
-      common: 1, uncommon: 1.15, rare: 1.4, epic: 1.8, legendary: 2.3, mythic: 3,
-    };
-    const RARITY_STAT_COUNT: Record<string, number> = {
-      common: 1, uncommon: 2, rare: 2, epic: 3, legendary: 4, mythic: 5,
-    };
-    const NAME_PREFIXES: Record<string, string> = {
-      common: "", uncommon: "Sturdy", rare: "Fine", epic: "Superior",
-      legendary: "Legendary", mythic: "Mythic",
-    };
-
-    // Class-appropriate subtypes for equipment restrictions
-    const CLASS_WEAPON_SUBS: Record<string, string[]> = {
-      warrior: ["sword", "axe", "mace"], mage: ["staff", "wand"],
-      ranger: ["bow", "crossbow"], rogue: ["dagger", "blade"],
-    };
-    const CLASS_ARMOR_WT: Record<string, string> = {
-      warrior: "heavy", mage: "light", ranger: "medium", rogue: "light",
-    };
-    const CLASS_HELM_WT: Record<string, string> = {
-      warrior: "plate_helm", ranger: "leather_helm", mage: "cloth_helm", rogue: "cloth_helm",
-    };
-    const WEAPON_NAMES: Record<string, string> = {
-      sword: "Sword", axe: "Axe", mace: "Mace", staff: "Staff", wand: "Wand",
-      bow: "Bow", crossbow: "Crossbow", dagger: "Dagger", blade: "Blade",
-    };
-    const ARMOR_NAMES: Record<string, string> = { heavy: "Plate Armor", medium: "Chainmail", light: "Robes" };
-    const HELM_NAMES: Record<string, string> = { plate_helm: "Plate Helm", leather_helm: "Leather Helm", cloth_helm: "Cloth Hood" };
-
     const items: any[] = [];
     for (let i = 0; i < 6; i++) {
-      const type = TYPES[Math.floor(rng() * TYPES.length)];
       const rarity = pickRarity();
-      const itemLevel = Math.max(1, charLevel + Math.floor((rng() - 0.5) * 6));
-      const rarityMult = RARITY_MULTS[rarity] || 1;
-      const stats: Record<string, number> = {};
-      const numStats = RARITY_STAT_COUNT[rarity] || 1;
-      const shuffled = [...STAT_KEYS].sort(() => rng() - 0.5);
-      for (let s = 0; s < numStats; s++) {
-        // Stats scale conservatively: base 1 + 0.08 per level, capped by rarity
-        // Lv10 common: ~2, Lv45 epic: ~8, Lv45 mythic: ~14 per stat
-        const statVal = Math.floor((1 + itemLevel * 0.08) * rarityMult * (0.85 + rng() * 0.3));
-        stats[shuffled[s]] = Math.max(1, statVal);
-      }
-      // Price scales quadratically with level and rarity
-      const buyPrice = Math.floor((50 + itemLevel * 20 + Math.pow(itemLevel, 1.5) * 5) * rarityMult);
-      const sellPrice = Math.floor(buyPrice * 0.3);
-      const namePrefix = NAME_PREFIXES[rarity] || "";
-
-      // Assign class-appropriate subtype for weapons, armor, helmets
-      let subtype: string | null = null;
-      let typeName = type;
-      if (type === "weapon") {
-        const subs = CLASS_WEAPON_SUBS[charClass] || ["sword"];
-        subtype = subs[Math.floor(rng() * subs.length)];
-        typeName = WEAPON_NAMES[subtype] || "Blade";
-      } else if (type === "armor") {
-        subtype = CLASS_ARMOR_WT[charClass] || "light";
-        typeName = ARMOR_NAMES[subtype] || "Armor";
-      } else if (type === "helmet") {
-        subtype = CLASS_HELM_WT[charClass] || "cloth_helm";
-        typeName = HELM_NAMES[subtype] || "Helm";
-      } else {
-        const fallbackNames: Record<string, string> = { boots: "Greaves", ring: "Ring", amulet: "Amulet", gloves: "Gauntlets" };
-        typeName = fallbackNames[type] || type;
-      }
-
+      const item = generateShopItem(charLevel, charClass, rarity, rng);
       items.push({
         id: `shop_${actualSeed}_${i}`,
-        name: `${namePrefix} ${typeName}`.trim(),
-        type,
-        subtype,
-        rarity,
-        item_level: itemLevel,
-        level_req: Math.max(1, itemLevel - 2),
-        stats,
-        buy_price: buyPrice,
-        sell_price: sellPrice,
-        description: `Level ${itemLevel} ${rarity} ${type}`,
+        ...item,
+        description: `Level ${item.item_level} ${rarity} ${item.type}`,
       });
     }
     for (let c = 0; c < 2; c++) {
@@ -1528,15 +1455,19 @@ router.post("/functions/getLeaderboard", async (req: Request, res: Response) => 
   }
 });
 
-// Dungeon boss data keyed by dungeon ID — bosses have meaningful HP pools
-// and armor/resistance to make fights last longer at higher levels
-const DUNGEON_BOSSES: Record<string, { name: string; hpBase: number; hpPerLevel: number; dmgBase: number; dmgPerLevel: number; armor: number; armorPerLevel: number; dungeonName: string }> = {
-  inferno_keep: { name: "Flame Tyrant", hpBase: 5000, hpPerLevel: 300, dmgBase: 25, dmgPerLevel: 5, armor: 5, armorPerLevel: 2, dungeonName: "Inferno Keep" },
-  frost_citadel: { name: "Frost Warden", hpBase: 10000, hpPerLevel: 500, dmgBase: 40, dmgPerLevel: 8, armor: 10, armorPerLevel: 3, dungeonName: "Frost Citadel" },
-  void_sanctum: { name: "Void Reaper", hpBase: 20000, hpPerLevel: 800, dmgBase: 60, dmgPerLevel: 12, armor: 15, armorPerLevel: 4, dungeonName: "Void Sanctum" },
-  storm_peak: { name: "Storm Colossus", hpBase: 35000, hpPerLevel: 1200, dmgBase: 80, dmgPerLevel: 16, armor: 20, armorPerLevel: 5, dungeonName: "Storm Peak" },
-  poison_swamp: { name: "Plague Matriarch", hpBase: 15000, hpPerLevel: 600, dmgBase: 50, dmgPerLevel: 10, armor: 12, armorPerLevel: 3, dungeonName: "Plague Swamp" },
-  sand_tomb: { name: "Sand King", hpBase: 28000, hpPerLevel: 1000, dmgBase: 70, dmgPerLevel: 14, armor: 18, armorPerLevel: 4, dungeonName: "Sand Tomb of Kings" },
+// Dungeon boss data keyed by dungeon ID — bosses have meaningful HP pools,
+// armor/resistance to make fights last longer, and elemental affinities
+const DUNGEON_BOSSES: Record<string, {
+  name: string; hpBase: number; hpPerLevel: number; dmgBase: number; dmgPerLevel: number;
+  armor: number; armorPerLevel: number; dungeonName: string;
+  element: string; weakness: string; resistance: string;
+}> = {
+  inferno_keep: { name: "Flame Tyrant", hpBase: 5000, hpPerLevel: 300, dmgBase: 25, dmgPerLevel: 5, armor: 5, armorPerLevel: 2, dungeonName: "Inferno Keep", element: "fire", weakness: "ice", resistance: "fire" },
+  frost_citadel: { name: "Frost Warden", hpBase: 10000, hpPerLevel: 500, dmgBase: 40, dmgPerLevel: 8, armor: 10, armorPerLevel: 3, dungeonName: "Frost Citadel", element: "ice", weakness: "fire", resistance: "ice" },
+  void_sanctum: { name: "Void Reaper", hpBase: 20000, hpPerLevel: 800, dmgBase: 60, dmgPerLevel: 12, armor: 15, armorPerLevel: 4, dungeonName: "Void Sanctum", element: "blood", weakness: "lightning", resistance: "blood" },
+  storm_peak: { name: "Storm Colossus", hpBase: 35000, hpPerLevel: 1200, dmgBase: 80, dmgPerLevel: 16, armor: 20, armorPerLevel: 5, dungeonName: "Storm Peak", element: "lightning", weakness: "poison", resistance: "lightning" },
+  poison_swamp: { name: "Plague Matriarch", hpBase: 15000, hpPerLevel: 600, dmgBase: 50, dmgPerLevel: 10, armor: 12, armorPerLevel: 3, dungeonName: "Plague Swamp", element: "poison", weakness: "fire", resistance: "poison" },
+  sand_tomb: { name: "Sand King", hpBase: 28000, hpPerLevel: 1000, dmgBase: 70, dmgPerLevel: 14, armor: 18, armorPerLevel: 4, dungeonName: "Sand Tomb of Kings", element: "sand", weakness: "ice", resistance: "sand" },
 };
 
 // Dungeon entry limits: 5 entries per 8 hours
@@ -1603,6 +1534,9 @@ async function calculateDungeonMemberStats(charId: number, char: any) {
   let totalDef = char.defense || 0;
   let hpBonus = 0, mpBonus = 0, critChance = 0, critDmgPct = 0;
   let dmgBonus = 0, atkSpeed = 0, lifesteal = 0, evasion = 0, blockChance = 0;
+  // Track elemental damage from gear
+  const elemDmg: Record<string, number> = {};
+  const ELEM_KEYS = ["fire_dmg", "ice_dmg", "lightning_dmg", "poison_dmg", "blood_dmg", "sand_dmg"];
 
   try {
     const equippedItems = await db.select().from(itemsTable).where(
@@ -1625,6 +1559,9 @@ async function calculateDungeonMemberStats(charId: number, char: any) {
       lifesteal += s.lifesteal || 0;
       evasion += s.evasion || 0;
       blockChance += s.block_chance || 0;
+      for (const ek of ELEM_KEYS) {
+        if (s[ek]) elemDmg[ek] = (elemDmg[ek] || 0) + s[ek];
+      }
     }
   } catch {}
 
@@ -1655,6 +1592,7 @@ async function calculateDungeonMemberStats(charId: number, char: any) {
     lifesteal,
     evasion,
     block_chance: blockChance,
+    elemental_damage: elemDmg,
   };
 }
 
@@ -1667,6 +1605,9 @@ function buildSessionResponse(session: any): any {
     boss_hp: d.boss_hp ?? 0,
     boss_max_hp: d.boss_max_hp ?? 0,
     boss_armor: d.boss_armor ?? 0,
+    boss_element: d.boss_element || null,
+    boss_weakness: d.boss_weakness || null,
+    boss_resistance: d.boss_resistance || null,
     status: d.status || session.status || "waiting",
     members: d.members || [],
     current_turn_index: d.current_turn_index ?? 0,
@@ -1761,6 +1702,9 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
         boss_dmg_base: boss.dmgBase,
         boss_dmg_per_level: boss.dmgPerLevel,
         boss_armor: boss.armor + (char.level || 1) * boss.armorPerLevel,
+        boss_element: boss.element,
+        boss_weakness: boss.weakness,
+        boss_resistance: boss.resistance,
         status: "waiting",
         leader_id: characterId,
         members: [memberStats],
@@ -1869,7 +1813,33 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
       // Boss armor reduces incoming damage
       const bossArmor = d.boss_armor || 0;
-      const playerDmg = Math.max(1, rawDmg - Math.floor(bossArmor * 0.4));
+      let playerDmg = Math.max(1, rawDmg - Math.floor(bossArmor * 0.4));
+
+      // Elemental damage bonus from gear vs boss weakness/resistance
+      const memberElemDmg = me.elemental_damage || {};
+      const bossWeakness = d.boss_weakness || null;
+      const bossResistance = d.boss_resistance || null;
+      // Map element names to their _dmg stat keys
+      const ELEM_TO_STAT: Record<string, string> = {
+        fire: "fire_dmg", ice: "ice_dmg", lightning: "lightning_dmg",
+        poison: "poison_dmg", blood: "blood_dmg", sand: "sand_dmg",
+      };
+      let elemBonusDmg = 0;
+      let elemText = "";
+      for (const [elem, statKey] of Object.entries(ELEM_TO_STAT)) {
+        const val = memberElemDmg[statKey] || 0;
+        if (val <= 0) continue;
+        // Each point of elemental damage adds flat bonus, scaled by weakness/resistance
+        let elemMult = 1.0;
+        if (elem === bossWeakness) elemMult = 1.5;
+        else if (elem === bossResistance) elemMult = 0.5;
+        elemBonusDmg += Math.floor(val * elemMult);
+      }
+      if (elemBonusDmg > 0) {
+        playerDmg += elemBonusDmg;
+        elemText = ` (+${elemBonusDmg} elemental)`;
+      }
+
       // Crit uses gear crit_chance + luck scaling (mirrors frontend)
       const effectiveCritChance = Math.min(0.5, (memberCritChance + totalLuck * 0.3 + totalDex * 0.1) / 100);
       const isCrit = Math.random() < effectiveCritChance;
@@ -1878,7 +1848,7 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       d.boss_hp = Math.max(0, d.boss_hp - finalDmg);
       d.combat_log.push({
         type: "player_attack",
-        text: `${me.name} uses ${skillName} for ${finalDmg} damage${isCrit ? " (CRIT!)" : ""}!`,
+        text: `${me.name} uses ${skillName} for ${finalDmg} damage${isCrit ? " (CRIT!)" : ""}${elemText}!`,
       });
 
       // Check victory

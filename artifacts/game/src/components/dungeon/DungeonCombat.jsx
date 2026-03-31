@@ -181,6 +181,13 @@ export default function DungeonCombat({ session: initialSession, character, onLe
               <div className="flex-1">
                 <p className="font-orbitron font-bold text-destructive text-lg">{session.boss_name}</p>
                 <p className="text-xs text-muted-foreground">{Math.max(0, session.boss_hp).toLocaleString()} / {session.boss_max_hp.toLocaleString()} HP</p>
+                {(session.boss_element || session.boss_weakness || session.boss_resistance) && (
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    {session.boss_element && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-500/50 text-orange-400">⚡ {session.boss_element}</Badge>}
+                    {session.boss_weakness && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/50 text-green-400">▼ Weak: {session.boss_weakness}</Badge>}
+                    {session.boss_resistance && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-500/50 text-red-400">▲ Resist: {session.boss_resistance}</Badge>}
+                  </div>
+                )}
               </div>
               {session.status === 'active' && session.turn_deadline && (
                 <TurnTimer deadline={session.turn_deadline} onExpire={handleTurnExpire} />
