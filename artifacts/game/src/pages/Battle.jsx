@@ -964,19 +964,19 @@ export default function Battle({ character, onCharacterUpdate }) {
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 
-  // ── SHARED→SOLO TRANSITION: resume solo combat when party members leave zone ──
-  const prevSharedBattleRef = useRef(isSharedBattle);
+  // ── COMBAT RECOVERY: ensure player always has an enemy to fight ──
+  // Handles: shared→solo transition, zone changes, stuck states
   useEffect(() => {
-    const wasShared = prevSharedBattleRef.current;
-    prevSharedBattleRef.current = isSharedBattle;
-    // Transition from shared to solo: resume combat if stuck
-    if (wasShared && !isSharedBattle) {
-      if (!enemy || combatPhase === "idle") {
-        addLog("⚔️ Party members left zone — resuming solo combat!");
+    if (!character?.id || !region) return;
+    // If no enemy and not in shared battle mode, spawn one after a short delay
+    if (!enemy && !isSharedBattle && (combatPhase === "idle" || combatPhase === "enemy_dead")) {
+      const timer = setTimeout(() => {
+        addLog("⚔️ Resuming combat...");
         spawnEnemy();
-      }
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [isSharedBattle, enemy, combatPhase, spawnEnemy]);
+  }, [character?.id, enemy, isSharedBattle, combatPhase, region, spawnEnemy]);
 
   // Offline progress catch-up — only on first load per browser session (not on tab switch)
   useEffect(() => {
