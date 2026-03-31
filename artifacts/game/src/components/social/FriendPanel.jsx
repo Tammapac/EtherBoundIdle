@@ -102,7 +102,14 @@ export default function FriendPanel({ character, onWhisper }) {
     };
   });
 
-  const activeFriends = enrichedFriends.filter(f => !f.is_blocked);
+  // Deduplicate by friend_id (in case of duplicate friendship records)
+  const seenFriendIds = new Set();
+  const activeFriends = enrichedFriends.filter(f => {
+    if (f.is_blocked) return false;
+    if (seenFriendIds.has(f.friend_id)) return false;
+    seenFriendIds.add(f.friend_id);
+    return true;
+  });
   const sorted = [...activeFriends].sort((a, b) => {
     if (a.is_favorite && !b.is_favorite) return -1;
     if (!a.is_favorite && b.is_favorite) return 1;
@@ -135,23 +142,29 @@ export default function FriendPanel({ character, onWhisper }) {
   const acceptMutation = useMutation({
     mutationFn: async (req) => {
       await base44.entities.FriendRequest.update(req.id, { status: "accepted" });
-      // Create both sides of friendship
-      await Promise.all([
-        base44.entities.Friendship.create({
+      // Check if friendship already exists before creating
+      const existingMy = await base44.entities.Friendship.filter({ character_id: character.id, friend_id: req.from_character_id });
+      const existingTheir = await base44.entities.Friendship.filter({ character_id: req.from_character_id, friend_id: character.id });
+      const creates = [];
+      if (existingMy.length === 0) {
+        creates.push(base44.entities.Friendship.create({
           character_id: character.id,
           friend_id: req.from_character_id,
           friend_name: req.from_name,
           friend_class: req.from_class,
           friend_level: req.from_level,
-        }),
-        base44.entities.Friendship.create({
+        }));
+      }
+      if (existingTheir.length === 0) {
+        creates.push(base44.entities.Friendship.create({
           character_id: req.from_character_id,
           friend_id: character.id,
           friend_name: character.name,
           friend_class: character.class,
           friend_level: character.level,
-        }),
-      ]);
+        }));
+      }
+      if (creates.length > 0) await Promise.all(creates);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["friend_requests_in", character.id] });

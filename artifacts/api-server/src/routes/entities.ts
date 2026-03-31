@@ -347,9 +347,10 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
         if (entity === "Character" && dbKey === "createdBy") return null;
         const col = (table as any)[dbKey];
         if (!col) return null;
-        // Case-insensitive name search for Character entity
+        // Case-insensitive partial name search for Character entity
         if (entity === "Character" && dbKey === "name" && typeof value === "string") {
-          return sql`LOWER(${col}) = LOWER(${value})`;
+          const pattern = `%${value}%`;
+          return sql`LOWER(${col}) LIKE LOWER(${pattern})`;
         }
         return eq(col, value as any);
       }).filter(Boolean);

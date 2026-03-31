@@ -1252,7 +1252,12 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       const [fromChar] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       let resolvedTargetId = targetCharacterId;
       if (targetName) {
-        const matches = await db.select().from(charactersTable).where(sql`LOWER(${charactersTable.name}) = LOWER(${targetName})`);
+        // Try exact match first, then partial match
+        let matches = await db.select().from(charactersTable).where(sql`LOWER(${charactersTable.name}) = LOWER(${targetName})`);
+        if (matches.length === 0) {
+          const pattern = `%${targetName}%`;
+          matches = await db.select().from(charactersTable).where(sql`LOWER(${charactersTable.name}) LIKE LOWER(${pattern})`);
+        }
         if (matches.length > 0) resolvedTargetId = matches[0].id;
         else { sendError(res, 404, `Player "${targetName}" not found`); return; }
       }
