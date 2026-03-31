@@ -261,21 +261,26 @@ export default function Profile({ character, onCharacterUpdate }) {
                   </div>
                 </div>
                 {(character.stat_points || 0) > 0 && (
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeStat(key)} disabled={!pendingStats[key]}>
-                      <Minus className="w-3 h-3" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeStat(key)} disabled={!pendingStats[key]}>
+                      <Minus className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => addStat(key, 1)} disabled={availablePoints <= 0}>
-                      <Plus className="w-3 h-3" />
+                    <input
+                      type="number"
+                      min="0"
+                      max={availablePoints + pending}
+                      value={pending}
+                      onChange={(e) => {
+                        const val = Math.max(0, Math.min(parseInt(e.target.value) || 0, availablePoints + pending));
+                        setPendingStats(prev => ({ ...prev, [key]: val }));
+                      }}
+                      className="w-12 h-7 text-center text-xs bg-background border border-border rounded px-1 font-mono text-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => addStat(key, 1)} disabled={availablePoints <= 0}>
+                      <Plus className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] min-w-0" onClick={() => addStat(key, 5)} disabled={availablePoints <= 0}>
-                      +5
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] min-w-0" onClick={() => addStat(key, 10)} disabled={availablePoints <= 0}>
-                      +10
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] min-w-0 text-primary" onClick={() => addStat(key, availablePoints)} disabled={availablePoints <= 0}>
-                      All
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary" onClick={() => addStat(key, availablePoints)} disabled={availablePoints <= 0}>
+                      Max
                     </Button>
                   </div>
                 )}
