@@ -437,6 +437,10 @@ export default function Battle({ character, onCharacterUpdate }) {
     const newPlayerHp = Math.min(actualMaxHp, playerHp + lifestealAmount + regenHp);
     setPlayerHp(newPlayerHp);
 
+    // MP regen per player turn (so it works even when one-shotting enemies)
+    const mpRegenPerTurn = Math.max(Math.ceil(derived.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
+    setPlayerMp(prev => Math.min(actualMaxMp, prev + mpRegenPerTurn));
+
     // In shared battle, report damage to server and use server HP
     let newEnemyHp;
     let serverKilled = false;
@@ -971,9 +975,8 @@ export default function Battle({ character, onCharacterUpdate }) {
     // If no enemy and not in shared battle mode, spawn one after a short delay
     if (!enemy && !isSharedBattle && (combatPhase === "idle" || combatPhase === "enemy_dead")) {
       const timer = setTimeout(() => {
-        addLog("⚔️ Resuming combat...");
         spawnEnemy();
-      }, 1000);
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [character?.id, enemy, isSharedBattle, combatPhase, region, spawnEnemy]);
