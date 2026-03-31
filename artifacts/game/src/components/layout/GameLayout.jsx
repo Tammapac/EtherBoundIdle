@@ -49,6 +49,43 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
     loadUserRole();
   }, []);
 
+  // Clean up presence and party on tab close / logout
+  const cleanupOnLeave = React.useCallback(async () => {
+    if (!character?.id) return;
+    try {
+      // Set presence to offline
+      const presences = await base44.entities.Presence.filter({ character_id: character.id });
+      if (presences[0]) {
+        base44.entities.Presence.update(presences[0].id, { status: "offline" }).catch(() => {});
+      }
+      // Leave party
+      base44.functions.invoke("manageParty", {
+        characterId: character.id,
+        action: "leave",
+      }).catch(() => {});
+    } catch {}
+  }, [character?.id]);
+
+  React.useEffect(() => {
+    if (!character?.id) return;
+    const handleUnload = () => {
+      // Use sendBeacon for reliable delivery on page close
+      const token = localStorage.getItem("auth_token") || "";
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      navigator.sendBeacon(
+        `${baseUrl}/api/functions/cleanupOnDisconnect`,
+        new Blob([JSON.stringify({ characterId: character.id, token })], { type: "application/json" })
+      );
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [character?.id]);
+
+  const handleLogout = async () => {
+    await cleanupOnLeave();
+    logout();
+  };
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar - Desktop */}
@@ -123,7 +160,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
           <Button
             variant="ghost"
             className="w-full gap-2 text-xs justify-start text-destructive hover:text-destructive"
-            onClick={() => logout()}
+            onClick={() => handleLogout()}
           >
             <LogOut className="w-3.5 h-3.5" /> Logout
           </Button>
@@ -187,7 +224,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
                  <Button
                    variant="ghost"
                    className="w-full gap-2 justify-start text-destructive hover:text-destructive"
-                   onClick={() => logout()}
+                   onClick={() => handleLogout()}
                  >
                    <LogOut className="w-4 h-4" /> Logout
                  </Button>
