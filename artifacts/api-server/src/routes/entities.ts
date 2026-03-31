@@ -143,6 +143,7 @@ const fieldMappings: Record<string, Record<string, string>> = {
     party_id: "partyId",
     from_character_id: "fromCharacterId",
     from_character_name: "fromCharacterName",
+    from_name: "fromCharacterName",
     to_character_id: "toCharacterId",
     created_at: "createdAt",
     updated_at: "updatedAt",

@@ -146,6 +146,34 @@ export default function PartyPanel({ character }) {
         />
       )}
 
+      {/* Show invite popups even when panel is minimized */}
+      {minimized && pendingInvites.length > 0 && (
+        <div className="fixed right-3 top-20 z-40 w-56 space-y-2">
+          <AnimatePresence>
+            {pendingInvites.map(inv => (
+              <motion.div
+                key={inv.id}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 40 }}
+                className="bg-card border-2 border-primary/50 rounded-xl p-3 shadow-lg shadow-primary/10"
+              >
+                <p className="text-xs font-semibold text-primary mb-1">Party Invite!</p>
+                <p className="text-xs text-muted-foreground mb-2">{inv.from_name || inv.from_character_name} invites you</p>
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleAccept(inv)}>
+                    <Check className="w-3 h-3 mr-1" /> Accept
+                  </Button>
+                  <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleDecline(inv)}>
+                    <X className="w-3 h-3 mr-1" /> Decline
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
       <div className="fixed right-0 top-1/2 -translate-y-1/2 z-30 flex items-center">
         <AnimatePresence mode="wait">
           {minimized ? (
@@ -186,7 +214,7 @@ export default function PartyPanel({ character }) {
                     className="mb-2 bg-card border border-primary/50 rounded-xl p-3 shadow-lg shadow-primary/10"
                   >
                     <p className="text-xs font-semibold text-primary mb-1">Party Invite!</p>
-                    <p className="text-xs text-muted-foreground mb-2">{inv.from_name} invites you</p>
+                    <p className="text-xs text-muted-foreground mb-2">{inv.from_name || inv.from_character_name} invites you</p>
                     <div className="flex gap-1.5">
                       <Button size="sm" className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleAccept(inv)}>
                         <Check className="w-3 h-3 mr-1" /> Accept

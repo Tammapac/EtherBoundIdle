@@ -1251,15 +1251,16 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
     if (action === "invite" && partyId) {
       const [fromChar] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       let resolvedTargetId = targetCharacterId;
-      if (targetName) {
+      const trimmedName = targetName?.trim();
+      if (trimmedName) {
         // Try exact match first, then partial match
-        let matches = await db.select().from(charactersTable).where(sql`LOWER(${charactersTable.name}) = LOWER(${targetName})`);
+        let matches = await db.select().from(charactersTable).where(sql`LOWER(${charactersTable.name}) = LOWER(${trimmedName})`);
         if (matches.length === 0) {
-          const pattern = `%${targetName}%`;
+          const pattern = `%${trimmedName}%`;
           matches = await db.select().from(charactersTable).where(sql`LOWER(${charactersTable.name}) LIKE LOWER(${pattern})`);
         }
         if (matches.length > 0) resolvedTargetId = matches[0].id;
-        else { sendError(res, 404, `Player "${targetName}" not found`); return; }
+        else { sendError(res, 404, `Player "${trimmedName}" not found`); return; }
       }
       if (!resolvedTargetId) { sendError(res, 400, "No target specified"); return; }
       if (resolvedTargetId === characterId) { sendError(res, 400, "Cannot invite yourself"); return; }
@@ -1678,6 +1679,12 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
 
     // === CREATE: make a new dungeon session in "waiting" state ===
     if (action === "enter" || action === "create") {
+      // Clean up old stuck sessions (older than 1 hour)
+      await db.update(dungeonSessionsTable).set({ status: "defeat" }).where(
+        and(eq(dungeonSessionsTable.characterId, characterId),
+          sql`${dungeonSessionsTable.status} IN ('active', 'waiting')`,
+          sql`${dungeonSessionsTable.createdAt} < NOW() - INTERVAL '1 hour'`)
+      );
       // Check for existing active/waiting session
       const existing = await db.select().from(dungeonSessionsTable).where(
         and(eq(dungeonSessionsTable.characterId, characterId),

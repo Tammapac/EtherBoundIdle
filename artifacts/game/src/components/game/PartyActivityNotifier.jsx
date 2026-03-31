@@ -31,15 +31,8 @@ export default function PartyActivityNotifier({ character, partyId, onJoinDungeo
             if (age > 120000) continue;
           }
 
-          // Handle battle action notifications
-          if (data.payload?.battle_action) {
-            setNotifications(prev => {
-              const notif = { id, ...data };
-              setTimeout(() => setNotifications(p => p.filter(n => n.id !== id)), 5000);
-              return [...prev, notif];
-            });
-            continue;
-          }
+          // Skip battle actions — PartyBattlePanel handles those
+          if (data.payload?.battle_action) continue;
 
           // Handle zone travel notifications (show once per zone per player)
           if (data.activity_type === 'enter_zone') {
