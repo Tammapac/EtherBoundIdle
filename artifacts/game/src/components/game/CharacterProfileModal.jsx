@@ -262,6 +262,31 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
               );
             })}
 
+            {/* Elemental Damage */}
+            <div className="bg-muted/30 rounded-xl p-4">
+              <h3 className="font-semibold text-sm mb-3 text-orange-400">Elemental Damage</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: "fireDmg",      emoji: "🔥", label: "Fire",      color: "text-orange-400" },
+                  { key: "iceDmg",       emoji: "❄️", label: "Ice",        color: "text-cyan-400"   },
+                  { key: "lightningDmg", emoji: "⚡", label: "Lightning", color: "text-yellow-300" },
+                  { key: "poisonDmg",    emoji: "☠️", label: "Poison",    color: "text-green-400"  },
+                  { key: "bloodDmg",     emoji: "🩸", label: "Blood",     color: "text-red-500"    },
+                  { key: "sandDmg",      emoji: "🌪️", label: "Sand",      color: "text-amber-400"  },
+                ].map(e => {
+                  const val = derived?.[e.key] ?? 0;
+                  return (
+                    <div key={e.key} className="flex items-center justify-between bg-background/50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-muted-foreground">{e.emoji} {e.label}</span>
+                      <span className={`text-sm font-bold font-mono ${val > 0 ? e.color : "text-muted-foreground"}`}>
+                        {val > 0 ? `+${val}%` : "0%"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Logout */}
             <Button variant="outline" className="w-full" onClick={() => logout()}>
               Logout
