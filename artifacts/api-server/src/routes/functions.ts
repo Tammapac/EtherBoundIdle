@@ -1667,6 +1667,15 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       return;
     }
 
+    // === GET_SESSION: fetch session by ID (for polling) ===
+    if (action === "get_session") {
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [session] = await db.select().from(dungeonSessionsTable).where(eq(dungeonSessionsTable.id, sessionId));
+      if (!session) { sendSuccess(res, { success: false, error: "Session not found" }); return; }
+      sendSuccess(res, { success: true, session: buildSessionResponse(session) });
+      return;
+    }
+
     // === CREATE: make a new dungeon session in "waiting" state ===
     if (action === "enter" || action === "create") {
       // Check for existing active/waiting session
