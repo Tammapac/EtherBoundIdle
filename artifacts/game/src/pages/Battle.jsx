@@ -776,6 +776,9 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
       // Also invalidate items query so equipment changes are picked up
       queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      // Reset HP/MP to full on tab return — combat state is stale while tabbed out
+      setPlayerHp(actualMaxHp);
+      setPlayerMp(actualMaxMp);
     };
     document.addEventListener("visibilitychange", onFocus);
 
