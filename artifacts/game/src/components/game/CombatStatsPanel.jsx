@@ -25,12 +25,12 @@ const STAT_ROWS = [
 ];
 
 const ELEMENTAL_STATS = [
-  { key: "fire_dmg",      label: "🔥 Fire",      color: "text-orange-400" },
-  { key: "ice_dmg",       label: "❄️ Ice",        color: "text-cyan-400"   },
-  { key: "lightning_dmg", label: "⚡ Lightning",  color: "text-yellow-300" },
-  { key: "poison_dmg",    label: "☠️ Poison",     color: "text-green-400"  },
-  { key: "blood_dmg",     label: "🩸 Blood",      color: "text-red-500"    },
-  { key: "sand_dmg",      label: "🌪️ Sand",       color: "text-amber-400"  },
+  { key: "fireDmg",      label: "🔥 Fire",      color: "text-orange-400" },
+  { key: "iceDmg",       label: "❄️ Ice",        color: "text-cyan-400"   },
+  { key: "lightningDmg", label: "⚡ Lightning",  color: "text-yellow-300" },
+  { key: "poisonDmg",    label: "☠️ Poison",     color: "text-green-400"  },
+  { key: "bloodDmg",     label: "🩸 Blood",      color: "text-red-500"    },
+  { key: "sandDmg",      label: "🌪️ Sand",       color: "text-amber-400"  },
 ];
 
 
@@ -43,7 +43,7 @@ export default function CombatStatsPanel({ derived, character }) {
     return true;
   });
 
-  const activeElemStats = ELEMENTAL_STATS.filter(e => (character?.[e.key] ?? 0) > 0);
+  const activeElemStats = ELEMENTAL_STATS.filter(e => (derived?.[e.key] ?? 0) > 0);
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -79,7 +79,7 @@ export default function CombatStatsPanel({ derived, character }) {
               <div key={e.key} className="bg-muted/50 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
                 <span className="text-sm">{e.label.split(" ")[0]}</span>
                 <span className="text-xs text-muted-foreground">{e.label.split(" ").slice(1).join(" ")}</span>
-                <span className={`font-bold text-sm ${e.color}`}>+{character[e.key]}%</span>
+                <span className={`font-bold text-sm ${e.color}`}>+{derived[e.key]}%</span>
               </div>
             ))}
           </div>
