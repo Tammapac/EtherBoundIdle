@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: "etherbound",
-    script: "./artifacts/api-server/dist/index.mjs",
+    script: "./artifacts/api-server/dist/index.js",
     cwd: "/root/EtherBoundIdle",
     env: {
       PORT: 3000,
