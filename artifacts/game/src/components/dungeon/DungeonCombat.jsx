@@ -64,18 +64,22 @@ export default function DungeonCombat({ session: initialSession, character, onLe
   const [profileTarget, setProfileTarget] = useState(null);
   const logRef = useRef(null);
 
-  // Poll dungeon session for updates (replaces dummy subscribe)
+  // Poll dungeon session for updates via dungeonAction (consistent data shape)
   useEffect(() => {
     if (!session.id) return;
     const poll = async () => {
       try {
-        const res = await base44.entities.DungeonSession.get(session.id);
-        if (res) setSession(res);
+        const res = await base44.functions.invoke('dungeonAction', {
+          action: 'get_session',
+          characterId: character.id,
+          sessionId: session.id,
+        });
+        if (res?.success && res.session) setSession(res.session);
       } catch {}
     };
     const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
-  }, [session.id]);
+  }, [session.id, character.id]);
 
   // Scroll log to bottom
   useEffect(() => {
