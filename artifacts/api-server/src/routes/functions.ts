@@ -90,6 +90,32 @@ async function requireCharacterOwner(req: Request, res: Response, characterId: s
   return true;
 }
 
+// Public profile lookup — returns basic info for any character IDs (no ownership check)
+router.post("/functions/getPublicProfiles", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const { characterIds } = req.body;
+    if (!Array.isArray(characterIds) || characterIds.length === 0) {
+      sendSuccess(res, { profiles: [] }); return;
+    }
+    const ids = characterIds.slice(0, 20); // limit to 20
+    const rows = await db.select({
+      id: charactersTable.id,
+      name: charactersTable.name,
+      level: charactersTable.level,
+      class: charactersTable.class,
+      currentRegion: charactersTable.currentRegion,
+    }).from(charactersTable).where(sql`${charactersTable.id} IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`);
+    const profiles = rows.map(r => ({
+      id: r.id, name: r.name, level: r.level, class: r.class, current_region: r.currentRegion,
+    }));
+    sendSuccess(res, { profiles });
+  } catch (err: any) {
+    req.log.error({ err }, "getPublicProfiles error");
+    sendError(res, 500, err.message);
+  }
+});
+
 const TICK_COOLDOWNS = new Map<string, number>();
 const MIN_TICK_INTERVAL_MS = 3000;
 

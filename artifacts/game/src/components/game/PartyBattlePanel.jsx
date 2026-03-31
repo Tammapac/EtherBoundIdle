@@ -25,12 +25,11 @@ export default function PartyBattlePanel({ party, selfId, onPartyAction }) {
     const refresh = async () => {
       try {
         const ids = party.members.map(m => m.character_id);
-        const updated = await Promise.all(
-          ids.map(id => base44.entities.Character.filter({ id }).then(r => r[0]).catch(() => null))
-        );
+        const res = await base44.functions.invoke("getPublicProfiles", { characterIds: ids });
+        const profiles = res?.profiles || [];
         setLiveMembers(prev => prev.map(m => {
-          const fresh = updated.find(u => u?.id === m.character_id);
-          return fresh ? { ...m, level: fresh.level, hp: fresh.hp, max_hp: fresh.max_hp } : m;
+          const fresh = profiles.find(p => p.id === m.character_id);
+          return fresh ? { ...m, level: fresh.level, name: fresh.name, class: fresh.class } : m;
         }));
       } catch {}
     };

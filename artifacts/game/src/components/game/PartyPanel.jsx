@@ -45,20 +45,20 @@ export default function PartyPanel({ character }) {
   useEffect(() => {
     if (!partyData?.members?.length) return;
     const fetchDetails = async () => {
-      const updates = {};
-      const levels = {};
-      await Promise.all(partyData.members.map(async (m) => {
-        if (m.character_id === character.id) return;
-        try {
-          const chars = await base44.entities.Character.filter({ id: m.character_id });
-          if (chars[0]) {
-            levels[m.character_id] = chars[0].level;
-            updates[m.character_id] = { level: chars[0].level, current_region: chars[0].current_region, class: chars[0].class };
-          }
-        } catch {}
-      }));
-      setLiveLevels(levels);
-      setMemberDetails(updates);
+      const otherIds = partyData.members.filter(m => m.character_id !== character.id).map(m => m.character_id);
+      if (otherIds.length === 0) return;
+      try {
+        const res = await base44.functions.invoke("getPublicProfiles", { characterIds: otherIds });
+        const profiles = res?.profiles || [];
+        const updates = {};
+        const levels = {};
+        for (const p of profiles) {
+          levels[p.id] = p.level;
+          updates[p.id] = { level: p.level, current_region: p.current_region, class: p.class };
+        }
+        setLiveLevels(levels);
+        setMemberDetails(updates);
+      } catch {}
     };
     fetchDetails();
     const interval = setInterval(fetchDetails, 15000);
