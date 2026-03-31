@@ -33,43 +33,30 @@ const CLASS_COLORS = {
 export default function PartyActivityDisplay({ partyMembers, currentZone }) {
   const [presenceData, setPresenceData] = useState({});
 
-  // Subscribe to presence updates for all party members
+  // Poll presence updates for all party members
   useEffect(() => {
     if (!partyMembers?.length) return;
 
     const memberIds = partyMembers.map(m => m.character_id);
-    const unsubscribers = [];
+    const memberSet = new Set(memberIds);
 
-    memberIds.forEach(memberId => {
-      const unsub = base44.entities.Presence.subscribe((event) => {
-        if (event.type === 'update' || event.type === 'create') {
-          const data = event.data;
-          if (data?.character_id === memberId) {
-            setPresenceData(prev => ({
-              ...prev,
-              [memberId]: data,
-            }));
-          }
-        }
-      });
-      unsubscribers.push(unsub);
-    });
+    const fetchPresence = () => {
+      base44.entities.Presence.list("-last_seen", 100)
+        .then(presences => {
+          const map = {};
+          presences.forEach(p => {
+            if (memberSet.has(p.character_id)) {
+              map[p.character_id] = p;
+            }
+          });
+          setPresenceData(map);
+        })
+        .catch(() => {});
+    };
 
-    // Initial fetch — entity API doesn't support $in, so fetch all and filter
-    base44.entities.Presence.list("-last_seen", 100)
-      .then(presences => {
-        const map = {};
-        const memberSet = new Set(memberIds);
-        presences.forEach(p => {
-          if (memberSet.has(p.character_id)) {
-            map[p.character_id] = p;
-          }
-        });
-        setPresenceData(map);
-      })
-      .catch(() => {});
-
-    return () => unsubscribers.forEach(u => u?.());
+    fetchPresence();
+    const interval = setInterval(fetchPresence, 10000);
+    return () => clearInterval(interval);
   }, [partyMembers?.length]);
 
   if (!partyMembers?.length) return null;

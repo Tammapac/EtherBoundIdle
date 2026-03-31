@@ -27,7 +27,7 @@ export default function MessagesPanel({ character }) {
       ]);
       return [...sent, ...received];
     },
-    refetchInterval: 60000,
+    refetchInterval: 5000,
   });
 
   // Build conversation list
@@ -78,15 +78,7 @@ export default function MessagesPanel({ character }) {
     }
   }, [activeConv?.otherId, convMessages.length]);
 
-  // Subscribe to real-time messages
-  useEffect(() => {
-    const unsub = base44.entities.PrivateMessage.subscribe((event) => {
-      if (event.type === "create") {
-        qc.invalidateQueries({ queryKey: ["messages_all", character.id] });
-      }
-    });
-    return unsub;
-  }, [character.id, qc]);
+  // Polling handles real-time updates via refetchInterval above
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;

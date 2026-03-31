@@ -47,7 +47,7 @@ export default function GuildPage({ character, onCharacterUpdate }) {
   const { data: guilds = [] } = useQuery({
     queryKey: ["guilds"],
     queryFn: () => base44.entities.Guild.list("-member_count", 30),
-    refetchInterval: 20000,
+    refetchInterval: 5000,
   });
 
   const myGuild = guilds.find(g => g.id === character?.guild_id);
@@ -56,13 +56,7 @@ export default function GuildPage({ character, onCharacterUpdate }) {
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: ["guilds"] });
 
-  // Real-time subscription so all members see guild changes instantly
-  useEffect(() => {
-    const unsub = base44.entities.Guild.subscribe(() => {
-      queryClient.invalidateQueries({ queryKey: ["guilds"] });
-    });
-    return unsub;
-  }, [queryClient]);
+  // Polling handles real-time updates via refetchInterval above
 
   const createMutation = useMutation({
     mutationFn: async () => {

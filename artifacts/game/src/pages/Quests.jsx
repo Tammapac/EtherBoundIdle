@@ -34,6 +34,7 @@ export default function Quests({ character, onCharacterUpdate }) {
   const { data: quests = [], isLoading } = useQuery({
     queryKey: ["quests", character?.id],
     queryFn: () => base44.entities.Quest.filter({ character_id: character?.id }),
+    refetchInterval: 10000,
     enabled: !!character?.id,
   });
 
@@ -45,16 +46,7 @@ export default function Quests({ character, onCharacterUpdate }) {
       .catch(() => {});
   }, [character?.id]);
 
-  // Subscribe to quest updates in real-time
-  useEffect(() => {
-    if (!character?.id) return;
-    const unsub = base44.entities.Quest.subscribe((event) => {
-      if (event.data?.character_id === character.id) {
-        queryClient.invalidateQueries({ queryKey: ["quests", character.id] });
-      }
-    });
-    return unsub;
-  }, [character?.id]);
+  // Polling handles real-time updates via refetchInterval above
 
   const claimMutation = useMutation({
     mutationFn: async (quest) => {

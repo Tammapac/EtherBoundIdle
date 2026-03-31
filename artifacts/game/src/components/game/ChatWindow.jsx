@@ -39,7 +39,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
       "-created_date",
       50
     ),
-    refetchInterval: 30000,
+    refetchInterval: 3000,
     enabled: activeTab !== "whisper",
   });
 
@@ -56,7 +56,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
         (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
       );
     },
-    refetchInterval: 15000,
+    refetchInterval: 5000,
     enabled: !!character?.id,
   });
 
@@ -126,26 +126,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
     }
   }, [chatMessages, whisperMessages, activeTab]);
 
-  // Subscribe to ChatMessage changes
-  useEffect(() => {
-    const unsub = base44.entities.ChatMessage.subscribe((event) => {
-      if (event.type === "create") {
-        queryClient.invalidateQueries({ queryKey: ["chat", activeTab, guildId] });
-      }
-    });
-    return unsub;
-  }, [activeTab, guildId, queryClient]);
-
-  // Subscribe to PrivateMessage changes
-  useEffect(() => {
-    if (!character?.id) return;
-    const unsub = base44.entities.PrivateMessage.subscribe((event) => {
-      if (event.type === "create") {
-        queryClient.invalidateQueries({ queryKey: ["whispers", character.id] });
-      }
-    });
-    return unsub;
-  }, [character?.id, queryClient]);
+  // Polling handles real-time updates via refetchInterval above
 
   // Clear whisper error when switching tabs or typing
   useEffect(() => {

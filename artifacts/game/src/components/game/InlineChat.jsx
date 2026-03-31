@@ -22,7 +22,7 @@ export default function InlineChat({ character, channel = "global", guildId = nu
   const { data: messages = [] } = useQuery({
     queryKey: ["chat", channel, guildId],
     queryFn: () => base44.entities.ChatMessage.filter(query, "-created_date", 50),
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
   const sendMutation = useMutation({
@@ -46,14 +46,7 @@ export default function InlineChat({ character, channel = "global", guildId = nu
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  useEffect(() => {
-    const unsub = base44.entities.ChatMessage.subscribe((event) => {
-      if (event.type === "create") {
-        queryClient.invalidateQueries({ queryKey: ["chat", channel, guildId] });
-      }
-    });
-    return unsub;
-  }, [channel, guildId, queryClient]);
+  // Polling handles real-time updates via refetchInterval above
 
   const sorted = [...messages].reverse();
 
