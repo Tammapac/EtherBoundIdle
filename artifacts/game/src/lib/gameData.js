@@ -869,6 +869,7 @@ export const TOWER_CONFIG = {
   MAX_ENTRIES: 3,
   ENTRY_WINDOW_MS: 60 * 60 * 1000, // 1 hour
   MULTI_ENEMY_FLOOR: 200, // floor 200+ spawns multiple enemies
+  ENTRY_GEM_COST: 1000, // gems to buy an extra entry
 };
 
 // Tower enemy name pools by floor tier

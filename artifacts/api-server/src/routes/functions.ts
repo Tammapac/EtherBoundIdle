@@ -2255,6 +2255,7 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
 const TOWER_MAX_FLOOR = 1000;
 const TOWER_MAX_ENTRIES = 3;
 const TOWER_ENTRY_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const TOWER_ENTRY_GEM_COST = 1000;
 const TOWER_MULTI_ENEMY_FLOOR = 200;
 
 const TOWER_ENEMY_TIERS = [
@@ -2365,6 +2366,38 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
         maxEntries: TOWER_MAX_ENTRIES,
         windowResetsAt: new Date((entryData.windowStart || now) + TOWER_ENTRY_WINDOW_MS).toISOString(),
         activeSession: activeSessions.length > 0 ? activeSessions[0] : null,
+        entryGemCost: TOWER_ENTRY_GEM_COST,
+      });
+      return;
+    }
+
+    // === BUY ENTRY: purchase an extra tower entry for gems ===
+    if (action === "buy_entry") {
+      const gems = char.gems || 0;
+      if (gems < TOWER_ENTRY_GEM_COST) {
+        sendError(res, 400, `Not enough gems (need ${TOWER_ENTRY_GEM_COST}, have ${gems})`);
+        return;
+      }
+      const entryKey = `tower_entries_${characterId}`;
+      const [entryRow] = await db.select().from(gameConfigTable).where(eq(gameConfigTable.id, entryKey));
+      let entryData: any = entryRow?.config || { entries: [], windowStart: 0 };
+      const now = Date.now();
+      if (now - (entryData.windowStart || 0) >= TOWER_ENTRY_WINDOW_MS) {
+        entryData = { entries: [], windowStart: now };
+      }
+      // Remove one entry from the list to free up a slot
+      if (entryData.entries.length > 0) {
+        entryData.entries.pop();
+      }
+      await db.insert(gameConfigTable).values({ id: entryKey, config: entryData })
+        .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: entryData } });
+      // Deduct gems
+      await db.update(charactersTable).set({ gems: gems - TOWER_ENTRY_GEM_COST }).where(eq(charactersTable.id, characterId));
+      sendSuccess(res, {
+        success: true,
+        gemsSpent: TOWER_ENTRY_GEM_COST,
+        gemsRemaining: gems - TOWER_ENTRY_GEM_COST,
+        entriesRemaining: TOWER_MAX_ENTRIES - entryData.entries.length,
       });
       return;
     }
