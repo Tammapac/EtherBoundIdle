@@ -314,8 +314,8 @@ export default function Battle({ character, onCharacterUpdate }) {
     // Floating numbers on player side
     if (!evaded) spawnPlayerNum(actualDmg, "damage");
 
-    // Regen at end of enemy turn
-    const mpRegen = Math.floor(character.max_mp * MP_REGEN_PER_TURN);
+    // Regen at end of enemy turn — use actual stat values from calculateFinalStats
+    const mpRegen = Math.floor(d.mpRegen || character.max_mp * MP_REGEN_PER_TURN);
     setPlayerMp(prev => {
       const next = Math.min(character.max_mp, prev + mpRegen);
       if (mpRegen > 0) spawnPlayerNum(mpRegen, "mp_regen");
@@ -422,7 +422,7 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     // Lifesteal
     const lifestealAmount = Math.max(0, Math.round(finalDmg * (derived.lifesteal / 100))) + procHeal;
-    const regenHp = Math.floor(character.max_hp * HP_REGEN_PER_TURN);
+    const regenHp = Math.floor(derived.hpRegen || character.max_hp * HP_REGEN_PER_TURN);
     const newPlayerHp = Math.min(character.max_hp, playerHp + lifestealAmount + regenHp);
     setPlayerHp(newPlayerHp);
 
@@ -1088,8 +1088,15 @@ export default function Battle({ character, onCharacterUpdate }) {
             <HealthBar current={character.exp} max={character.exp_to_next} color="bg-primary" label="EXP" />
           </div>
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
-            <span>+{Math.floor(character.max_hp * HP_REGEN_PER_TURN)} HP/turn</span>
-            <span>+{Math.floor(character.max_mp * MP_REGEN_PER_TURN)} MP/turn</span>
+            {(() => {
+              const { derived: rd } = calculateFinalStats(character, equippedItems);
+              return (
+                <>
+                  <span>+{Math.floor(rd.hpRegen || 0)} HP/turn</span>
+                  <span>+{Math.floor(rd.mpRegen || 0)} MP/turn</span>
+                </>
+              );
+            })()}
           </div>
         </motion.div>
 
