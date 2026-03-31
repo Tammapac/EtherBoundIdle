@@ -94,8 +94,30 @@ export default function Battle({ character, onCharacterUpdate }) {
     .filter(Boolean)
     .slice(0, 6);
 
-  // Party bonus: +5% EXP and gold per additional member ONLY IF SAME MAP
-  const sameMapMembers = partyData?.members?.filter(m => m.character_id === character.id || m.current_zone === character.current_region) || [];
+  // Party bonus: +5% EXP and gold per additional member in same zone
+  // Fetch member zones from presence data (party members array doesn't have current_zone)
+  const [memberZones, setMemberZones] = useState({});
+  useEffect(() => {
+    if (!partyData?.members?.length) return;
+    const fetchZones = async () => {
+      try {
+        const memberIds = partyData.members.map(m => m.character_id);
+        const res = await base44.functions.invoke("getPublicProfiles", { characterIds: memberIds });
+        const zones = {};
+        for (const p of (res?.profiles || [])) {
+          zones[p.id] = p.current_region;
+        }
+        setMemberZones(zones);
+      } catch {}
+    };
+    fetchZones();
+    const interval = setInterval(fetchZones, 10000);
+    return () => clearInterval(interval);
+  }, [partyData?.members?.length]);
+
+  const sameMapMembers = partyData?.members?.filter(m =>
+    m.character_id === character.id || memberZones[m.character_id] === character.current_region
+  ) || [];
   const partySize = sameMapMembers.length || 1;
   const partyBonus = Math.max(0, partySize - 1) * 0.05;
   const isLeader = partyData?.leader_id === character.id;

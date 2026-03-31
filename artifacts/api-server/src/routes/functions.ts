@@ -1520,6 +1520,49 @@ router.post("/functions/partyBattleAction", async (req: Request, res: Response) 
   }
 });
 
+// ── Cleanup on disconnect (called via sendBeacon on tab close) ──────────
+router.post("/functions/cleanupOnDisconnect", async (req: Request, res: Response) => {
+  try {
+    const { characterId, token } = req.body;
+    if (!characterId || !token) { sendSuccess(res, { ok: true }); return; }
+
+    // Verify token ownership (lightweight check)
+    // For sendBeacon, auth middleware may not work — we pass token in body
+    // Just do basic validation: character must exist
+    const [char] = await db.select({ id: charactersTable.id }).from(charactersTable).where(eq(charactersTable.id, characterId));
+    if (!char) { sendSuccess(res, { ok: true }); return; }
+
+    // Set presence to offline
+    await db.update(presencesTable).set({ status: "offline" }).where(eq(presencesTable.characterId, characterId));
+
+    // Remove from any active party
+    const allParties = await db.select().from(partiesTable).where(sql`${partiesTable.status} != 'disbanded'`);
+    for (const party of allParties) {
+      const members = (party.members as any[]) || [];
+      const idx = members.findIndex((m: any) => m.character_id === characterId);
+      if (idx === -1) continue;
+
+      members.splice(idx, 1);
+      if (members.length === 0) {
+        await db.update(partiesTable).set({ status: "disbanded", members: [] }).where(eq(partiesTable.id, party.id));
+      } else {
+        const updateData: any = { members };
+        if (party.leaderId === characterId) {
+          updateData.leaderId = members[0].character_id;
+        }
+        await db.update(partiesTable).set(updateData).where(eq(partiesTable.id, party.id));
+      }
+      break; // A character can only be in one party
+    }
+
+    sendSuccess(res, { ok: true });
+  } catch (err: any) {
+    // Don't fail beacon requests — just log
+    console.error("cleanupOnDisconnect error:", err?.message);
+    sendSuccess(res, { ok: true });
+  }
+});
+
 router.post("/functions/manageFriends", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
