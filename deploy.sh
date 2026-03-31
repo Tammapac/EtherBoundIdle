@@ -23,11 +23,15 @@ echo "Frontend built: $(ls dist/index.html 2>/dev/null && echo 'OK' || echo 'MIS
 echo "=== Step 4: Building API server (copies frontend into dist/public) ==="
 cd ../api-server
 node build.mjs
+# Remove old .mjs file if it exists (PM2 was pointing to wrong file)
+rm -f dist/index.mjs
 echo "Public dir: $(ls dist/public/index.html 2>/dev/null && echo 'OK' || echo 'MISSING!')"
 
 echo "=== Step 5: Restarting PM2 ==="
 cd "$REPO_DIR"
-pm2 restart all
+pm2 delete all 2>/dev/null || true
+pm2 start ecosystem.config.cjs
+pm2 save
 
 echo ""
 echo "=== DONE! ==="
