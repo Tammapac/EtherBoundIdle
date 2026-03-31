@@ -805,6 +805,21 @@ export default function Battle({ character, onCharacterUpdate }) {
     }
   }, [character?.id, enemy]);
 
+  // ── ZONE CHANGE: spawn new enemy when player travels to different zone ──
+  const prevRegionRef = useRef(character?.current_region);
+  useEffect(() => {
+    const prevRegion = prevRegionRef.current;
+    prevRegionRef.current = character?.current_region;
+    if (prevRegion && prevRegion !== character?.current_region) {
+      addLog(`🗺️ Traveled to ${REGIONS[character.current_region]?.name || character.current_region}!`);
+      setEnemy(null);
+      setEnemyHp(0);
+      setLootDrop(null);
+      setCombatPhase("idle");
+      setTimeout(() => spawnEnemy(), 500);
+    }
+  }, [character?.current_region, spawnEnemy]);
+
   // Initialize and update Presence with combat status
   useEffect(() => {
     if (!character?.id) return;
@@ -929,6 +944,20 @@ export default function Battle({ character, onCharacterUpdate }) {
     const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
+
+  // ── SHARED→SOLO TRANSITION: resume solo combat when party members leave zone ──
+  const prevSharedBattleRef = useRef(isSharedBattle);
+  useEffect(() => {
+    const wasShared = prevSharedBattleRef.current;
+    prevSharedBattleRef.current = isSharedBattle;
+    // Transition from shared to solo: resume combat if stuck
+    if (wasShared && !isSharedBattle) {
+      if (!enemy || combatPhase === "idle") {
+        addLog("⚔️ Party members left zone — resuming solo combat!");
+        spawnEnemy();
+      }
+    }
+  }, [isSharedBattle, enemy, combatPhase, spawnEnemy]);
 
   // Offline progress catch-up — only on first load per browser session (not on tab switch)
   useEffect(() => {
