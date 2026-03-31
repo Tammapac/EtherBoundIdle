@@ -1556,6 +1556,71 @@ const SKILL_DATA: Record<string, { damage: number; mp: number }> = {
   blade_dance: { damage: 1.8, mp: 15 }, assassinate: { damage: 3.5, mp: 30 },
 };
 
+// Calculate full member stats including equipment for dungeon sessions
+async function calculateDungeonMemberStats(charId: number, char: any) {
+  let totalStr = char.strength || 10;
+  let totalDex = char.dexterity || 8;
+  let totalInt = char.intelligence || 5;
+  let totalVit = char.vitality || 8;
+  let totalLuck = char.luck || 5;
+  let totalDef = char.defense || 0;
+  let hpBonus = 0, mpBonus = 0, critChance = 0, critDmgPct = 0;
+  let dmgBonus = 0, atkSpeed = 0, lifesteal = 0, evasion = 0, blockChance = 0;
+
+  try {
+    const equippedItems = await db.select().from(itemsTable).where(
+      and(eq(itemsTable.ownerId, charId), eq((itemsTable as any).equipped, true))
+    );
+    for (const item of equippedItems) {
+      const s = (item.stats as any) || {};
+      totalStr += s.strength || 0;
+      totalDex += s.dexterity || 0;
+      totalInt += s.intelligence || 0;
+      totalVit += s.vitality || 0;
+      totalLuck += s.luck || 0;
+      totalDef += s.defense || 0;
+      hpBonus += s.hp_bonus || 0;
+      mpBonus += s.mp_bonus || 0;
+      critChance += s.crit_chance || 0;
+      critDmgPct += s.crit_dmg_pct || 0;
+      dmgBonus += s.damage || 0;
+      atkSpeed += s.attack_speed || 0;
+      lifesteal += s.lifesteal || 0;
+      evasion += s.evasion || 0;
+      blockChance += s.block_chance || 0;
+    }
+  } catch {}
+
+  const level = char.level || 1;
+  // HP formula mirrors frontend statSystem: base + vit scaling + hp_bonus + level
+  const maxHp = Math.floor(100 + totalVit * 12 + hpBonus + level * 8);
+  const maxMp = Math.floor(50 + totalInt * 5 + mpBonus + level * 3);
+
+  return {
+    character_id: charId,
+    name: char.name || "Unknown",
+    class: char.class || "warrior",
+    level,
+    hp: maxHp,
+    max_hp: maxHp,
+    mp: maxMp,
+    max_mp: maxMp,
+    strength: totalStr,
+    dexterity: totalDex,
+    intelligence: totalInt,
+    vitality: totalVit,
+    luck: totalLuck,
+    defense: totalDef,
+    damage: dmgBonus,
+    crit_chance: critChance,
+    crit_dmg_pct: critDmgPct,
+    attack_speed: atkSpeed,
+    lifesteal,
+    evasion,
+    block_chance: blockChance,
+  };
+}
+
 function buildSessionResponse(session: any): any {
   const d = (session.data as any) || {};
   return {
@@ -1650,7 +1715,7 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
 
       const boss = DUNGEON_BOSSES[dungeonId] || DUNGEON_BOSSES.inferno_keep;
       const bossHp = boss.hpBase + (char.level || 1) * boss.hpPerLevel;
-      const memberHp = 100 + (char.vitality || 8) * 10 + (char.level || 1) * 5;
+      const memberStats = await calculateDungeonMemberStats(characterId, char);
       const sessionData = {
         dungeon_name: boss.dungeonName,
         boss_name: boss.name,
@@ -1661,20 +1726,7 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
         boss_armor: boss.armor + (char.level || 1) * boss.armorPerLevel,
         status: "waiting",
         leader_id: characterId,
-        members: [{
-          character_id: characterId,
-          name: char.name || "Unknown",
-          class: char.class || "warrior",
-          level: char.level || 1,
-          hp: memberHp,
-          max_hp: memberHp,
-          strength: char.strength || 10,
-          dexterity: char.dexterity || 8,
-          intelligence: char.intelligence || 5,
-          vitality: char.vitality || 8,
-          luck: char.luck || 5,
-          defense: char.defense || 0,
-        }],
+        members: [memberStats],
         current_turn_index: 0,
         turn_deadline: null,
         combat_log: [{ type: "system", text: `${char.name} entered ${boss.dungeonName}.` }],
@@ -1701,21 +1753,8 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       if (members.some((m: any) => m.character_id === characterId)) {
         sendSuccess(res, { success: true, session: buildSessionResponse(session) }); return;
       }
-      const memberHp = 100 + (char.vitality || 8) * 10 + (char.level || 1) * 5;
-      members.push({
-        character_id: characterId,
-        name: char.name || "Unknown",
-        class: char.class || "warrior",
-        level: char.level || 1,
-        hp: memberHp,
-        max_hp: memberHp,
-        strength: char.strength || 10,
-        dexterity: char.dexterity || 8,
-        intelligence: char.intelligence || 5,
-        vitality: char.vitality || 8,
-        luck: char.luck || 5,
-        defense: char.defense || 0,
-      });
+      const joinMemberStats = await calculateDungeonMemberStats(characterId, char);
+      members.push(joinMemberStats);
       d.members = members;
       d.combat_log = d.combat_log || [];
       d.combat_log.push({ type: "system", text: `${char.name} joined the party.` });
@@ -1755,23 +1794,15 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       const me = members[myIdx];
       if (me.hp <= 0) { sendSuccess(res, { success: false, error: "You are KO'd" }); return; }
 
-      // Calculate player damage — include equipment bonuses
-      let equipBonusStr = 0, equipBonusDex = 0, equipBonusInt = 0, equipBonusDmg = 0;
-      try {
-        const equippedItems = await db.select().from(itemsTable).where(
-          and(eq(itemsTable.ownerId, characterId), eq((itemsTable as any).equipped, true))
-        );
-        for (const item of equippedItems) {
-          const stats = (item.stats as any) || {};
-          equipBonusStr += stats.strength || 0;
-          equipBonusDex += stats.dexterity || 0;
-          equipBonusInt += stats.intelligence || 0;
-          equipBonusDmg += stats.damage || 0;
-        }
-      } catch {}
-      const totalStr = (char.strength || 10) + equipBonusStr;
-      const totalDex = (char.dexterity || 8) + equipBonusDex;
-      const totalInt = (char.intelligence || 5) + equipBonusInt;
+      // Calculate player damage — use stored member stats (already includes equipment)
+      const totalStr = me.strength || char.strength || 10;
+      const totalDex = me.dexterity || char.dexterity || 8;
+      const totalInt = me.intelligence || char.intelligence || 5;
+      const totalLuck = me.luck || char.luck || 5;
+      const memberDmgBonus = me.damage || 0;
+      const memberCritChance = me.crit_chance || 0;
+      const memberCritDmgPct = me.crit_dmg_pct || 0;
+      const memberLifesteal = me.lifesteal || 0;
       // Class-based damage scaling (mirrors frontend statSystem)
       const classScaling: Record<string, { primary: string; mult: number }> = {
         warrior: { primary: "strength", mult: 1.3 },
@@ -1781,7 +1812,7 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       };
       const scaling = classScaling[char.class || "warrior"] || classScaling.warrior;
       const primaryStat = scaling.primary === "strength" ? totalStr : scaling.primary === "intelligence" ? totalInt : totalDex;
-      let baseDmg = primaryStat * scaling.mult + equipBonusDmg;
+      let baseDmg = primaryStat * scaling.mult + memberDmgBonus;
       // Apply guild damage bonus
       if (char.guildId) {
         try {
@@ -1802,8 +1833,11 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       // Boss armor reduces incoming damage
       const bossArmor = d.boss_armor || 0;
       const playerDmg = Math.max(1, rawDmg - Math.floor(bossArmor * 0.4));
-      const isCrit = Math.random() < (char.luck || 5) * 0.02;
-      const finalDmg = isCrit ? Math.floor(playerDmg * 1.5) : playerDmg;
+      // Crit uses gear crit_chance + luck scaling (mirrors frontend)
+      const effectiveCritChance = Math.min(0.5, (memberCritChance + totalLuck * 0.3 + totalDex * 0.1) / 100);
+      const isCrit = Math.random() < effectiveCritChance;
+      const critMultiplier = 1.5 + (memberCritDmgPct / 100);
+      const finalDmg = isCrit ? Math.floor(playerDmg * critMultiplier) : playerDmg;
       d.boss_hp = Math.max(0, d.boss_hp - finalDmg);
       d.combat_log.push({
         type: "player_attack",
@@ -1847,13 +1881,40 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       const bossDmgBase = d.boss_dmg_base || 15;
       const bossDmgPerLvl = d.boss_dmg_per_level || 3;
       const bossDmg = Math.max(1, Math.floor((bossDmgBase + (char.level || 1) * bossDmgPerLvl * 0.3) * (0.8 + Math.random() * 0.4)));
-      const defense = (char.defense || 0) + (char.vitality || 8) * 0.5;
-      const actualBossDmg = Math.max(1, bossDmg - Math.floor(defense * 0.3));
+      // Use member's full defense (includes gear) for damage reduction
+      const memberDef = me.defense || (char.defense || 0);
+      const memberVit = me.vitality || (char.vitality || 8);
+      const totalDefense = memberDef + memberVit * 0.5;
+      // Evasion check (mirrors frontend)
+      const memberEvasion = Math.min(0.4, (me.evasion || 0) / 100);
+      const evaded = Math.random() < memberEvasion;
+      // Block check (60% damage reduction)
+      const memberBlock = Math.min(0.35, (me.block_chance || 0) / 100);
+      const blocked = !evaded && Math.random() < memberBlock;
+      let actualBossDmg = 0;
+      if (evaded) {
+        actualBossDmg = 0;
+      } else {
+        const mitigated = Math.max(1, bossDmg - Math.floor(totalDefense * 0.3));
+        actualBossDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+      }
+      // Lifesteal from player attack
+      if (memberLifesteal > 0 && finalDmg > 0) {
+        const healAmt = Math.floor(finalDmg * memberLifesteal / 100);
+        if (healAmt > 0) {
+          me.hp = Math.min(me.max_hp, me.hp + healAmt);
+          d.combat_log.push({ type: "heal", text: `${me.name} leeches ${healAmt} HP!` });
+        }
+      }
       me.hp = Math.max(0, me.hp - actualBossDmg);
-      d.combat_log.push({
-        type: "boss_attack",
-        text: `${d.boss_name} strikes ${me.name} for ${actualBossDmg} damage!`,
-      });
+      if (evaded) {
+        d.combat_log.push({ type: "boss_attack", text: `${me.name} evaded ${d.boss_name}'s attack!` });
+      } else {
+        d.combat_log.push({
+          type: "boss_attack",
+          text: `${d.boss_name} strikes ${me.name} for ${actualBossDmg} damage${blocked ? " (BLOCKED!)" : ""}!`,
+        });
+      }
       if (me.hp <= 0) {
         d.combat_log.push({ type: "system", text: `${me.name} has been knocked out!` });
       }
