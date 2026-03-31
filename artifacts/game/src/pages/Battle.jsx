@@ -133,9 +133,12 @@ export default function Battle({ character, onCharacterUpdate }) {
   const equippedItems = allItems.filter(i => i.equipped);
 
   // Compute actual max HP/MP including equipment bonuses
+  const equippedItemsKey = equippedItems.map(i => i.id).sort().join(",");
   const { derived: battleDerived } = React.useMemo(
     () => calculateFinalStats(character, equippedItems),
-    [character, equippedItems.length]
+    [character?.id, character?.level, character?.strength, character?.dexterity,
+     character?.intelligence, character?.vitality, character?.luck,
+     character?.max_hp, character?.max_mp, equippedItemsKey]
   );
   const actualMaxHp = battleDerived.maxHp || character.max_hp || 100;
   const actualMaxMp = battleDerived.maxMp || character.max_mp || 50;
@@ -749,7 +752,23 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     // Sync every 60 seconds
     const interval = setInterval(syncProgression, 60000);
-    return () => clearInterval(interval);
+
+    // Also refresh character data on tab focus to get latest stats
+    const onFocus = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const chars = await base44.entities.Character.filter({ id: character.id });
+        if (chars[0]) onCharacterUpdate(chars[0]);
+      } catch {}
+      // Also invalidate items query so equipment changes are picked up
+      queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+    };
+    document.addEventListener("visibilitychange", onFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [character?.id]);
 
   // Spawn first enemy or restore combat state
