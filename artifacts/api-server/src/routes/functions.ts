@@ -1544,16 +1544,53 @@ const DUNGEON_MAX_ENTRIES = 5;
 const DUNGEON_RESET_COST = 500;
 const DUNGEON_WINDOW_MS = 8 * 60 * 60 * 1000;
 
-// Skill data for damage multipliers (mirrored from frontend gameData)
+// Skill data for damage multipliers (mirrored from frontend skillData.js)
 const SKILL_DATA: Record<string, { damage: number; mp: number }> = {
-  power_strike: { damage: 1.5, mp: 10 }, shield_bash: { damage: 1.2, mp: 8 },
-  war_cry: { damage: 0, mp: 15 }, berserker_rage: { damage: 2.5, mp: 25 },
-  fireball: { damage: 1.8, mp: 12 }, ice_lance: { damage: 1.4, mp: 10 },
-  arcane_shield: { damage: 0, mp: 20 }, meteor: { damage: 3.0, mp: 30 },
-  arrow_rain: { damage: 1.6, mp: 12 }, poison_shot: { damage: 1.0, mp: 8 },
-  eagle_eye: { damage: 0, mp: 10 }, multishot: { damage: 2.2, mp: 20 },
-  backstab: { damage: 2.0, mp: 10 }, smoke_bomb: { damage: 0, mp: 12 },
-  blade_dance: { damage: 1.8, mp: 15 }, assassinate: { damage: 3.5, mp: 30 },
+  // ── Warrior ──
+  w_basic_strike: { damage: 1.3, mp: 18 }, w_shield_block: { damage: 0, mp: 22 },
+  w_power_strike: { damage: 1.8, mp: 32 }, w_flame_slash: { damage: 1.5, mp: 35 },
+  w_shield_bash: { damage: 1.5, mp: 42 }, w_war_cry: { damage: 0, mp: 40 },
+  w_rage: { damage: 2.2, mp: 55 }, w_blood_rage: { damage: 1.7, mp: 48 },
+  w_whirlwind: { damage: 1.7, mp: 65 }, w_taunt: { damage: 0, mp: 45 },
+  w_ground_slam: { damage: 2.5, mp: 75 }, w_thunder_strike: { damage: 2.0, mp: 70 },
+  w_bulwark: { damage: 0, mp: 85 }, w_avatar: { damage: 3.0, mp: 110 },
+  w_juggernaut: { damage: 2.8, mp: 100 }, w_sand_veil: { damage: 1.5, mp: 90 },
+  w_titan_form: { damage: 0, mp: 140 }, w_armageddon: { damage: 5.0, mp: 160 },
+  w_eternal_guard: { damage: 3.5, mp: 130 },
+  // ── Mage ──
+  m_magic_bolt: { damage: 1.4, mp: 22 }, m_frost_armor: { damage: 0, mp: 28 },
+  m_fireball: { damage: 1.9, mp: 38 }, m_poison_bolt: { damage: 1.2, mp: 30 },
+  m_ice_lance: { damage: 1.6, mp: 48 }, m_mana_shield: { damage: 0, mp: 55 },
+  m_arcane_burst: { damage: 2.4, mp: 65 }, m_lightning_bolt: { damage: 1.8, mp: 45 },
+  m_blizzard: { damage: 2.0, mp: 85 }, m_flame_wall: { damage: 1.8, mp: 80 },
+  m_time_warp: { damage: 0, mp: 75 }, m_meteor: { damage: 3.0, mp: 100 },
+  m_black_hole: { damage: 2.5, mp: 110 }, m_arcane_nova: { damage: 3.2, mp: 130 },
+  m_blood_pact: { damage: 2.0, mp: 95 }, m_chrono_rift: { damage: 0, mp: 100 },
+  m_ice_prison: { damage: 2.2, mp: 105 },
+  m_singularity: { damage: 4.0, mp: 150 }, m_genesis: { damage: 3.5, mp: 140 },
+  m_apocalypse: { damage: 6.0, mp: 180 },
+  // ── Ranger ──
+  r_quick_shot: { damage: 1.2, mp: 15 }, r_dodge_roll: { damage: 0, mp: 20 },
+  r_poison_shot: { damage: 1.0, mp: 22 }, r_fire_arrow: { damage: 1.4, mp: 28 },
+  r_triple_shot: { damage: 1.5, mp: 40 }, r_frost_arrow: { damage: 1.3, mp: 35 },
+  r_multishot: { damage: 2.2, mp: 60 }, r_lightning_arrow: { damage: 1.8, mp: 52 },
+  r_eagle_eye: { damage: 0, mp: 45 }, r_traps: { damage: 1.5, mp: 55 },
+  r_sand_trap: { damage: 1.4, mp: 50 }, r_arrow_rain: { damage: 2.5, mp: 80 },
+  r_hunters_mark: { damage: 0, mp: 70 }, r_blood_arrow: { damage: 2.0, mp: 75 },
+  r_volley: { damage: 2.8, mp: 100 }, r_shadow_step: { damage: 1.8, mp: 85 },
+  r_death_arrow: { damage: 4.0, mp: 130 }, r_storm_bow: { damage: 4.5, mp: 150 },
+  r_wrath_of_hunt: { damage: 5.0, mp: 160 },
+  // ── Rogue ──
+  ro_quick_slash: { damage: 1.3, mp: 16 }, ro_smoke_bomb: { damage: 0, mp: 22 },
+  ro_poison_blade: { damage: 1.1, mp: 20 }, ro_backstab: { damage: 2.0, mp: 32 },
+  ro_open_wounds: { damage: 1.5, mp: 38 }, ro_pickpocket: { damage: 0, mp: 30 },
+  ro_frost_strike: { damage: 1.4, mp: 35 }, ro_lightning_step: { damage: 1.8, mp: 48 },
+  ro_blade_dance: { damage: 1.8, mp: 60 }, ro_garrote: { damage: 1.6, mp: 55 },
+  ro_sand_blind: { damage: 1.3, mp: 50 }, ro_shadow_strike: { damage: 2.5, mp: 75 },
+  ro_blood_frenzy: { damage: 2.2, mp: 85 }, ro_death_mark: { damage: 2.0, mp: 80 },
+  ro_assassinate: { damage: 3.5, mp: 110 }, ro_shadow_realm_entry: { damage: 2.0, mp: 90 },
+  ro_oblivion: { damage: 4.0, mp: 130 }, ro_phantom: { damage: 3.5, mp: 125 },
+  ro_reaper: { damage: 5.5, mp: 170 },
 };
 
 // Calculate full member stats including equipment for dungeon sessions
