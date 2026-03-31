@@ -101,15 +101,23 @@ export const RARITY_MULTIPLIER: Record<string, number> = {
 };
 
 const TYPE_STAT_POOLS: Record<string, string[]> = {
-  weapon:  ["damage", "strength", "dexterity", "intelligence", "crit_chance", "crit_dmg_pct", "attack_speed", "mp_regen"],
+  weapon:  ["damage", "strength", "dexterity", "intelligence", "crit_chance", "crit_dmg_pct", "attack_speed", "mp_regen", "lifesteal"],
   armor:   ["defense", "vitality", "hp_bonus", "strength", "hp_regen", "block_chance", "evasion"],
   helmet:  ["defense", "intelligence", "vitality", "mp_bonus", "mp_regen", "hp_regen"],
   gloves:  ["strength", "dexterity", "crit_chance", "crit_dmg_pct", "attack_speed", "defense"],
   boots:   ["dexterity", "defense", "luck", "evasion", "attack_speed"],
-  ring:    ["luck", "strength", "dexterity", "intelligence", "crit_chance", "crit_dmg_pct", "gold_gain_pct", "exp_gain_pct"],
+  ring:    ["luck", "strength", "dexterity", "intelligence", "crit_chance", "crit_dmg_pct", "gold_gain_pct", "exp_gain_pct", "lifesteal"],
   amulet:  ["vitality", "hp_bonus", "mp_bonus", "luck", "intelligence", "hp_regen", "mp_regen", "block_chance"],
   consumable: ["hp_bonus", "mp_bonus"],
   material: [],
+};
+
+const ZONE_ELEMENTAL_POOL: Record<string, string[]> = {
+  verdant_forest: ["poison_dmg"],
+  scorched_desert: ["fire_dmg", "sand_dmg"],
+  frozen_peaks: ["ice_dmg"],
+  shadow_realm: ["blood_dmg", "poison_dmg"],
+  celestial_spire: ["lightning_dmg", "fire_dmg", "ice_dmg"],
 };
 
 const PCT_STATS = new Set([
@@ -117,7 +125,7 @@ const PCT_STATS = new Set([
   "lifesteal", "gold_gain_pct", "exp_gain_pct", "attack_speed"
 ]);
 
-function generateItemStats(type: string, rarity: string, itemLevel: number): Record<string, number> {
+function generateItemStats(type: string, rarity: string, itemLevel: number, zone?: string): Record<string, number> {
   const pool = TYPE_STAT_POOLS[type] || ["strength"];
   const rarityConfig: Record<string, { slots: number; basePerSlot: number }> = {
     common:    { slots: 1, basePerSlot: 0.5 },
@@ -132,8 +140,18 @@ function generateItemStats(type: string, rarity: string, itemLevel: number): Rec
   const mult = RARITY_STAT_MULTIPLIERS[rarity] || 1.0;
   const lvlScale = 1 + (itemLevel - 1) * 0.07;
   const stats: Record<string, number> = {};
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
-  for (let i = 0; i < cfg.slots && i < shuffled.length; i++) {
+
+  // Weapons ALWAYS get damage as their primary stat first
+  if (type === "weapon") {
+    const dmgBase = cfg.basePerSlot * mult * lvlScale;
+    stats["damage"] = Math.max(1, Math.round(dmgBase * (0.85 + Math.random() * 0.3)));
+  }
+
+  // Shuffle remaining pool (exclude damage for weapons since already assigned)
+  const remainingPool = type === "weapon" ? pool.filter(s => s !== "damage") : [...pool];
+  const shuffled = remainingPool.sort(() => Math.random() - 0.5);
+  const slotsLeft = type === "weapon" ? cfg.slots - 1 : cfg.slots;
+  for (let i = 0; i < slotsLeft && i < shuffled.length; i++) {
     const stat = shuffled[i];
     const lifestealsReduction = stat === "lifesteal" ? 0.2 : 1.0;
     const pctReduction = PCT_STATS.has(stat) ? 0.35 : 1.0;
@@ -141,6 +159,20 @@ function generateItemStats(type: string, rarity: string, itemLevel: number): Rec
     const value = Math.max(1, Math.round(base * (0.8 + Math.random() * 0.4)));
     stats[stat] = (stats[stat] || 0) + value;
   }
+
+  // Epic+ weapons/rings/amulets have a 40% chance to add one elemental stat from the zone's pool
+  const epicRarities = new Set(["epic", "legendary", "mythic", "shiny"]);
+  const elementalEligibleTypes = new Set(["weapon", "ring", "amulet"]);
+  if (epicRarities.has(rarity) && elementalEligibleTypes.has(type) && zone) {
+    const elemPool = ZONE_ELEMENTAL_POOL[zone];
+    if (elemPool && elemPool.length > 0 && Math.random() < 0.40) {
+      const elemStat = elemPool[Math.floor(Math.random() * elemPool.length)];
+      const elemScale = 0.03 + (itemLevel / 100) * 0.12; // 3-15% range scaled by item level
+      const elemValue = Math.max(3, Math.round(elemScale * 100 * (0.8 + Math.random() * 0.4)));
+      stats[elemStat] = (stats[elemStat] || 0) + elemValue;
+    }
+  }
+
   return stats;
 }
 
@@ -190,139 +222,503 @@ function weightedRarityRoll(weights: Record<string, number>): string {
 const ITEM_NAMES: Record<string, any> = {
   verdant_forest: {
     weapon: {
-      sword: ["Rusty Shortsword","Iron Sword","Elven Blade","Verdant Edge","Thornblade","Forest Sentinel"],
-      axe: ["Stone Hatchet","Iron Axe","Woodcutter's Axe","Forest Cleaver","Thornwood Axe"],
-      mace: ["Wooden Club","Iron Mace","Mossy Flail","Grove Hammer"],
-      staff: ["Gnarled Branch","Mystic Staff","Arcane Rod","Nature Staff","Druid's Focus"],
-      wand: ["Twig Wand","Vine Wand","Bark Wand","Petal Wand","Leaf Focus"],
-      bow: ["Worn Shortbow","Hunter's Bow","Elven Longbow","Thornbow","Greenwood Recurve"],
-      crossbow: ["Makeshift Crossbow","Ranger Crossbow","Thornshot Crossbow"],
-      dagger: ["Rusty Dagger","Bone Knife","Serpent Fang","Forest Shiv","Thornprick"],
-      blade: ["Jagged Blade","Broken Shortsword","Leaf Blade","Split Fang"],
+      sword: [
+        "Mosscutter","Greenleaf Rapier","Briarfang","Thornstrike","Wildwood Falchion",
+        "Ivyvein Saber","Fernblade","Oakguard Broadsword","Rootsplitter","Willowsting",
+        "Ancient Elm Blade","Dryad's Claymore","Verdant Edge","Forest Sentinel","Thorn Duelist",
+      ],
+      axe: [
+        "Stone Hatchet","Woodcutter's Axe","Bramblesplit Axe","Forest Cleaver","Thornwood Axe",
+        "Grovekeeper's Hatchet","Barkbiter","Roottorn Axe","Canopy Cleaver","Wild Elm Axe",
+        "Dryad's Felling Axe","Gnarlfang Axe",
+      ],
+      mace: [
+        "Mossy Flail","Grove Hammer","Treant's Fist","Ironbark Club","Briarknot Mace",
+        "Rootcrown Maul","Thornwood Hammer","Fungal Mace","Earthgrip Mace","Ancient Bark Maul",
+        "Dryad's Gavel",
+      ],
+      staff: [
+        "Gnarled Branch","Druid's Focus","Nature Staff","Arcane Sapling","Living Vine Staff",
+        "Elder Bough Scepter","Heartwood Rod","Mossgrown Staff","Thornweave Conduit","Dryad's Wand",
+        "Owlfeather Staff","Bloomcrest Stave","Rootsong Focus",
+      ],
+      wand: [
+        "Twig Wand","Vine Wand","Bark Wand","Petal Wand","Leaf Focus",
+        "Spore Wand","Seedling Focus","Fernspray Wand","Budding Wand","Briarvine Focus",
+        "Dew-kissed Wand","Sproutling Rod",
+      ],
+      bow: [
+        "Worn Shortbow","Hunter's Bow","Elven Longbow","Thornbow","Greenwood Recurve",
+        "Snapvine Bow","Canopy Hunter","Briar Longbow","Fernstring Bow","Mossgrown Recurve",
+        "Ancient Oak Bow","Dryad's Shortbow","Owlsong Longbow",
+      ],
+      crossbow: [
+        "Makeshift Crossbow","Ranger Crossbow","Thornshot Crossbow","Mossvine Repeater",
+        "Bark Crossbow","Fernwood Bolt-thrower","Briarshot Crossbow","Greenwood Repeater",
+        "Forest Warden's Crossbow","Canopy Crossbow",
+      ],
+      dagger: [
+        "Bone Knife","Serpent Fang","Forest Shiv","Thornprick","Briarshard Dagger",
+        "Mossbite Stiletto","Fernfang Knife","Splinterbark Dagger","Root-carved Shiv","Dewclaw Dagger",
+        "Dryad's Fang","Sporebloom Dagger","Ivy Piercer",
+      ],
+      blade: [
+        "Leaf Blade","Split Fang","Thornkris","Briarweave Blade","Fernedge Kris",
+        "Barkstrip Cutter","Mossveil Blade","Rootbind Kris","Canopy Slasher","Dewvine Blade",
+        "Overgrown Kris",
+      ],
     },
     armor: {
-      heavy: ["Iron Chestplate","Forest Platemail","Guardsman's Plate","Thornskin Mail"],
-      medium: ["Reinforced Cloak","Forestweave Tunic","Scout's Jerkin","Hunter's Vest"],
-      light: ["Torn Cloak","Druidic Bark Armor","Mossy Robe","Nature's Vestment"],
+      heavy: [
+        "Iron Chestplate","Forest Platemail","Guardsman's Plate","Thornskin Mail",
+        "Barksteel Breastplate","Ironoak Warplate","Treant's Carapace","Grove Sentinel's Plate",
+      ],
+      medium: [
+        "Reinforced Cloak","Forestweave Tunic","Scout's Jerkin","Hunter's Vest",
+        "Briarweave Coat","Thornbark Vest","Mosshide Tunic","Canopy Ranger's Coat",
+      ],
+      light: [
+        "Torn Cloak","Druidic Bark Armor","Mossy Robe","Nature's Vestment",
+        "Leafweave Robes","Fernspun Wrap","Vinethread Coat","Dryad's Shroud",
+      ],
     },
     helmet: {
-      plate_helm: ["Iron Helmet","War Helm","Bark Helm","Thornwood Cap"],
-      leather_helm: ["Ranger's Hood","Antler Crown","Forest Cowl","Scout's Cap"],
-      cloth_helm: ["Frayed Helmet","Leaf Circlet","Vine Wreath","Dryad's Diadem"],
+      plate_helm: [
+        "Iron Helmet","War Helm","Bark Helm","Thornwood Cap",
+        "Ironbark Greathelm","Grove Warden's Visor","Briarforged Helm","Oakleaf War Mask",
+      ],
+      leather_helm: [
+        "Ranger's Hood","Antler Crown","Forest Cowl","Scout's Cap",
+        "Thornleaf Hood","Mosswarden Cowl","Ferntracker's Cap","Canopy Hood",
+      ],
+      cloth_helm: [
+        "Frayed Helmet","Leaf Circlet","Vine Wreath","Dryad's Diadem",
+        "Bloomcrown","Fernweave Cowl","Spore-dusted Hood","Briarvine Circlet",
+      ],
     },
-    gloves: ["Tattered Gloves","Leather Gauntlets","Iron Grips","Mossy Handwraps"],
-    boots: ["Old Boots","Leather Boots","Swift Boots","Thornstep Boots","Forest Treads"],
-    ring: ["Cracked Ring","Silver Ring","Emerald Ring","Ring of Growth","Vine Ring"],
-    amulet: ["Hemp Amulet","Jade Amulet","Forest Spirit Amulet","Nature's Amulet"],
+    gloves: [
+      "Tattered Gloves","Leather Gauntlets","Iron Grips","Mossy Handwraps",
+      "Thornweave Gloves","Briar Grips","Forestwarden's Gauntlets","Fernbind Wraps",
+      "Bark-strip Handguards","Vinethread Gloves","Druid's Grips","Oakmoss Grips",
+    ],
+    boots: [
+      "Old Boots","Leather Boots","Swift Boots","Thornstep Boots","Forest Treads",
+      "Mosscrawler Boots","Briarpatch Sandals","Fernstride Greaves","Rootrunner Boots",
+      "Canopy Treads","Dryad's Slippers","Vinebound Boots",
+    ],
+    ring: [
+      "Cracked Ring","Silver Ring","Emerald Ring","Ring of Growth","Vine Ring",
+      "Band of the Grove","Oakmoss Ring","Thornroot Band","Ferncoil Ring","Blossom Band",
+      "Druid's Circlet","Ring of the Ancient Oak",
+    ],
+    amulet: [
+      "Hemp Amulet","Jade Amulet","Forest Spirit Amulet","Nature's Amulet",
+      "Pendant of Thorns","Heartwood Amulet","Dryad's Charm","Mosstone Pendant",
+      "Briar Talisman","Canopy Locket","Fernweave Amulet",
+    ],
   },
   scorched_desert: {
     weapon: {
-      sword: ["Scimitar","Flame Sword","Dragon Fang","Sunfire Scimitar","Sunblade of Ra"],
-      axe: ["Bone Axe","Sand Cleaver","Dune Splitter","Sunfire Hatchet"],
-      mace: ["Bone Club","Desert Flail","Sandstone Hammer","Sunscorch Mace"],
-      staff: ["Scorpion Staff","Sun Staff","Staff of the Oasis","Sandfire Scepter"],
-      wand: ["Desert Wand","Sun Wand","Amber Wand","Heatwave Focus"],
-      bow: ["Desert Longbow","Sandstorm Bow","Hunter's Recurve","Scorpion Bow"],
-      crossbow: ["Sand Crossbow","Bandit Crossbow","Scorpion Repeater"],
-      dagger: ["Curved Knife","Sand Fang","Scorpion Stinger","Viper Blade"],
-      blade: ["Bandit's Blade","Desert Kris","Heat Blade","Sandstorm Cutter"],
+      sword: [
+        "Scimitar","Sunfire Scimitar","Sunblade of Ra","Pharaoh's Edge","Blazing Falchion",
+        "Sandstorm Saber","Dune Reaper","Scorched Khopesh","Flame-kissed Scimitar","Pyrestone Sword",
+        "Mirage Blade","Desert Viper's Fang","Ember Khopesh","Inferno Saber",
+      ],
+      axe: [
+        "Bone Axe","Sand Cleaver","Dune Splitter","Sunfire Hatchet",
+        "Scorpion's Cleave","Flamecrest Axe","Sandstone Hatchet","Ember Axe",
+        "Tomb Raider's Axe","Pyrewarden's Cleaver","Desert Warlord's Axe","Scorched Tomahawk",
+      ],
+      mace: [
+        "Bone Club","Desert Flail","Sandstone Hammer","Sunscorch Mace",
+        "Pharaoh's Flail","Ember Maul","Dune Basher","Scorpion Tail Mace",
+        "Blazing Hammer","Tomb Warden's Club","Sunbaked Maul",
+      ],
+      staff: [
+        "Scorpion Staff","Staff of the Oasis","Sandfire Scepter","Pharaoh's Crook",
+        "Solar Conduit","Ember Staff","Pyramid Focus","Sandstorm Scepter",
+        "Obelisk Rod","Desert Oracle's Staff","Mirage Focus","Sunpriest Stave","Flamecaller's Staff",
+      ],
+      wand: [
+        "Desert Wand","Amber Wand","Heatwave Focus","Sun Wand",
+        "Scarab Focus","Sandglass Wand","Mirage Rod","Solarheat Wand",
+        "Emberglass Wand","Tomb Inscribed Wand","Pyrestone Focus","Heatbloom Wand",
+      ],
+      bow: [
+        "Desert Longbow","Sandstorm Bow","Scorpion Bow","Hunter's Recurve",
+        "Pharaoh's Longbow","Ember Recurve","Dune Runner's Bow","Blazing Shortbow",
+        "Sand Harpy Bow","Oasis Stalker's Bow","Pyrestring Recurve","Mirageshot Longbow",
+        "Sunscorched Bow",
+      ],
+      crossbow: [
+        "Sand Crossbow","Scorpion Repeater","Bandit Crossbow",
+        "Ember Crossbow","Dune Striker","Tomb Warden's Repeater","Pharaoh's Arbalest",
+        "Sandstrike Crossbow","Flame-bolt Repeater","Desert Brigand's Crossbow",
+      ],
+      dagger: [
+        "Curved Knife","Sand Fang","Scorpion Stinger","Viper Blade",
+        "Ember Stiletto","Dune Shiv","Tomb Raider's Knifepoint","Sandcrack Fang",
+        "Scorching Dirk","Pharaoh's Needle","Mirage Slicer","Boneshank Dagger","Sandviper's Fang",
+      ],
+      blade: [
+        "Desert Kris","Sandstorm Cutter","Bandit's Blade","Heat Blade",
+        "Mirage Kris","Emberedge Saber","Dune Dancer's Blade","Scorch Kris",
+        "Sand Bandit's Cutter","Flamestep Blade","Tomb Raider's Kris",
+      ],
     },
     armor: {
-      heavy: ["Sunscale Platemail","Sandstorm Platemail","Pharaoh's Plate"],
-      medium: ["Bandit's Chainmail","Dune Guard Vest","Sandweave Coat"],
-      light: ["Sand Wrap Armor","Heatweave Robe","Desert Wraps","Pharaoh's Linen"],
+      heavy: [
+        "Sunscale Platemail","Sandstorm Platemail","Pharaoh's Plate",
+        "Burnished Warlord's Plate","Embersteel Breastplate","Pyreguard Chestplate",
+        "Dune Conqueror's Mail","Scarab-forged Platemail",
+      ],
+      medium: [
+        "Bandit's Chainmail","Dune Guard Vest","Sandweave Coat",
+        "Scorpion-hide Tunic","Desert Ranger's Vest","Ember-trimmed Coat",
+        "Sandcrawler's Jacket","Mirage Duelist's Coat",
+      ],
+      light: [
+        "Sand Wrap Armor","Heatweave Robe","Pharaoh's Linen","Desert Wraps",
+        "Sunpriest's Vestment","Emberweave Robes","Sandstorm Shawl","Tomb Oracle's Wrap",
+      ],
     },
     helmet: {
-      plate_helm: ["Dune Helm","Pharaoh's Crown","Warlord's Helm","Scarab Visage"],
-      leather_helm: ["Desert Wrap","Oasis Hood","Scorpion Crown","Heat Cap"],
-      cloth_helm: ["Tomb Mask","Desert Cowl","Heatwave Veil","Mirage Hood"],
+      plate_helm: [
+        "Dune Helm","Pharaoh's Crown","Warlord's Helm","Scarab Visage",
+        "Burnished War Visor","Sunfire Greathelm","Pyreguard's Faceplate","Sandstone War Mask",
+      ],
+      leather_helm: [
+        "Oasis Hood","Scorpion Crown","Desert Wrap","Heat Cap",
+        "Dune Runner's Cowl","Mirage Stalker's Hood","Sandstorm Cap","Scorched Leather Crown",
+      ],
+      cloth_helm: [
+        "Tomb Mask","Desert Cowl","Heatwave Veil","Mirage Hood",
+        "Sandpriest's Headwrap","Ember Oracle's Veil","Sun Seer's Diadem","Pharaoh's Veil",
+      ],
     },
-    gloves: ["Sand Gauntlets","Scorpion Grips","Warlord's Gloves","Dune Handwraps"],
-    boots: ["Traveler's Boots","Sand Dancer Boots","Dunerunner Boots","Miragewalker Boots"],
-    ring: ["Copper Ring","Amber Ring","Topaz Ring","Ring of the Sun"],
-    amulet: ["Desert Fox Amulet","Scarab Amulet","Phoenix Amulet","Eye of Ra"],
+    gloves: [
+      "Sand Gauntlets","Scorpion Grips","Warlord's Gloves","Dune Handwraps",
+      "Ember Bracers","Pyreforged Gauntlets","Sandstone Grips","Mirage Duelist's Gloves",
+      "Tomb Warden's Handguards","Sunscorched Wraps","Scarab-plate Gauntlets","Flamewarden's Grips",
+    ],
+    boots: [
+      "Traveler's Boots","Sand Dancer Boots","Dunerunner Boots","Miragewalker Boots",
+      "Scorpion's Stride","Ember Treads","Pharaoh's Sandals","Sandstorm Greaves",
+      "Desert Fox Boots","Pyrewarden's Sabatons","Dune Strider's Sandals",
+    ],
+    ring: [
+      "Copper Ring","Amber Ring","Topaz Ring","Ring of the Sun",
+      "Scarab Band","Pharaoh's Signet","Band of Embers","Scorpion's Coil",
+      "Sunstone Ring","Desert Mirage Band","Pyrestone Ring","Sandstone Circlet",
+    ],
+    amulet: [
+      "Desert Fox Amulet","Scarab Amulet","Phoenix Amulet","Eye of Ra",
+      "Pendant of the Oasis","Tomb Guardian's Locket","Sunfire Talisman","Amber Scarab Amulet",
+      "Dune Prophet's Charm","Ember Phoenix Pendant","Sandstorm Amulet",
+    ],
   },
   frozen_peaks: {
     weapon: {
-      sword: ["Frostfire Greatsword","Icefang Blade","Glacial Sword","Permafrost Edge"],
-      axe: ["Glacial Axe","Frostbite Axe","Ice Splitter","Yeti's Cleaver"],
-      mace: ["Frost Hammer","Ice Club","Glacial Mace","Blizzard Mallet"],
-      staff: ["Crystal Staff","Arcane Scepter","Blizzard Staff","Permafrost Conduit"],
-      wand: ["Ice Wand","Crystal Wand","Blizzard Focus","Frost Focus"],
-      bow: ["Frost Bow","Ice Longbow","Snowstorm Bow","Glacial Recurve"],
-      crossbow: ["Glacial Crossbow","Ice Hunter","Blizzard Repeater"],
-      dagger: ["Ice Shard Dagger","Frost Shiv","Icicle Blade","Blizzard Dagger"],
-      blade: ["Frozen Kris","Blizzard Blade","Frostbite Knife"],
+      sword: [
+        "Frostfire Greatsword","Icefang Blade","Glacial Sword","Permafrost Edge",
+        "Avalanche Saber","Tundra Claymore","Shattersteel Greatsword","Blizzard Falchion",
+        "Crystal Shard Blade","Frozen Rampart Sword","Yeti's Fang Blade","Snowpeak Saber",
+        "Cryosteel Longsword",
+      ],
+      axe: [
+        "Glacial Axe","Frostbite Axe","Ice Splitter","Yeti's Cleaver",
+        "Avalanche Hatchet","Permafrost Cleaver","Blizzard Axe","Snowpeak Waraxe",
+        "Tundra Raider's Axe","Crystaledge Hatchet","Cryoforged Axe","Froststrike Tomahawk",
+      ],
+      mace: [
+        "Frost Hammer","Glacial Mace","Blizzard Mallet","Ice Club",
+        "Avalanche Maul","Permafrost Crusher","Tundra Basher","Yeti Knuckle Mace",
+        "Crystal Flail","Blizzard Hammer","Snowpeak Warhammer",
+      ],
+      staff: [
+        "Crystal Staff","Blizzard Staff","Permafrost Conduit","Arcane Scepter",
+        "Frostweave Stave","Glacial Tome Staff","Tundra Oracle's Scepter","Avalanche Focus",
+        "Cryomancer's Rod","Snowdrift Conduit","Icebound Staff","Polar Vortex Stave","Frozen Pinnacle Staff",
+      ],
+      wand: [
+        "Ice Wand","Crystal Wand","Blizzard Focus","Frost Focus",
+        "Tundra Wand","Avalanche Rod","Snowflake Focus","Cryoglass Wand",
+        "Permafrost Wand","Glacial Shard Wand","Polar Wand","Blizzard Spark Wand",
+      ],
+      bow: [
+        "Frost Bow","Snowstorm Bow","Glacial Recurve","Ice Longbow",
+        "Permafrost Hunter","Tundra Longbow","Avalanche Recurve","Yeti Bone Bow",
+        "Crystalstring Bow","Blizzard Shortbow","Polar Bear Sinew Bow","Snowpeak Longbow","Cryoshard Recurve",
+      ],
+      crossbow: [
+        "Glacial Crossbow","Blizzard Repeater","Ice Hunter",
+        "Permafrost Arbalest","Tundra Crossbow","Crystal Bolt Repeater","Avalanche Repeater",
+        "Snowblast Crossbow","Froststrike Arbalest","Polar Crossbow",
+      ],
+      dagger: [
+        "Ice Shard Dagger","Frost Shiv","Icicle Blade","Blizzard Dagger",
+        "Crystalpick Dagger","Tundra Shiv","Glacial Fang","Snowflake Stiletto",
+        "Permafrost Piercer","Frostbite Knife","Avalanche Dirk","Cryoblade Shiv","Frozen Sliver",
+      ],
+      blade: [
+        "Frozen Kris","Blizzard Blade","Frostbite Knife",
+        "Tundra Cutter","Glacial Kris","Avalanche Slicer","Crystal Kris",
+        "Permafrost Edge","Snowpeak Blade","Cryoedge Kris","Blizzard Slasher",
+      ],
     },
     armor: {
-      heavy: ["Permafrost Armor","Glacier Plate","Iceguard Plate"],
-      medium: ["Bear Hide Armor","Frostweave Coat","Snowhunter's Vest"],
-      light: ["Padded Coat","Frostweave Robe","Blizzard Robes"],
+      heavy: [
+        "Permafrost Armor","Glacier Plate","Iceguard Plate",
+        "Avalanche Warplate","Frostforged Breastplate","Tundra Sentinel's Mail","Glacial Titan Plate","Cryosteel Chestguard",
+      ],
+      medium: [
+        "Bear Hide Armor","Frostweave Coat","Snowhunter's Vest",
+        "Glacial Ranger's Jacket","Tundra Scout Coat","Permafrost Tunic","Blizzard Stalker's Vest","Yeti Hide Armor",
+      ],
+      light: [
+        "Padded Coat","Frostweave Robe","Blizzard Robes",
+        "Glacial Oracle's Wrap","Snowdrift Vestment","Tundra Mage's Robes","Cryomancer's Coat","Permafrost Shawl",
+      ],
     },
     helmet: {
-      plate_helm: ["Yeti Skull Helm","Dragon Ice Helm","Frostforged Helm"],
-      leather_helm: ["Snowpeak Hood","Blizzard Crown","Blizzard Cowl"],
-      cloth_helm: ["Wool Cap","Icecrystal Crown","Cryomancer's Crown"],
+      plate_helm: [
+        "Yeti Skull Helm","Frostforged Helm","Dragon Ice Helm",
+        "Glacial War Visor","Avalanche Greathelm","Permafrost Faceplate","Tundra Warlord's Helm","Cryosteel Visage",
+      ],
+      leather_helm: [
+        "Snowpeak Hood","Blizzard Cowl","Blizzard Crown",
+        "Tundra Ranger's Hood","Glacial Cowl","Permafrost Cap","Bearfur Hood","Crystal-laced Hood",
+      ],
+      cloth_helm: [
+        "Wool Cap","Icecrystal Crown","Cryomancer's Crown",
+        "Tundra Oracle's Circlet","Snowdrift Diadem","Glacial Mage's Cap","Avalanche Cowl","Blizzard Crown of Frost",
+      ],
     },
-    gloves: ["Fur Mitts","Ice Gauntlets","Frost Grips","Yeti Handwraps"],
-    boots: ["Fur Boots","Snowtreader Boots","Icestep Greaves","Frostwalker Boots"],
-    ring: ["Tin Circlet","Sapphire Ring","Frost Ring","Diamond Ring"],
-    amulet: ["Frozen Amulet","Blizzard Amulet","Avalanche Amulet","Permafrost Amulet"],
+    gloves: [
+      "Fur Mitts","Ice Gauntlets","Frost Grips","Yeti Handwraps",
+      "Glacial Gauntlets","Permafrost Bracers","Blizzard Grips","Tundra War Mitts",
+      "Crystal-plated Gloves","Snowpeak Handguards","Cryoforged Gauntlets","Avalanche Grips",
+    ],
+    boots: [
+      "Fur Boots","Snowtreader Boots","Icestep Greaves","Frostwalker Boots",
+      "Glacial Sabatons","Permafrost Treads","Blizzard Striders","Tundra Ranger's Boots",
+      "Crystalstep Greaves","Avalanche Treads","Cryostep Boots","Yeti-hide Boots",
+    ],
+    ring: [
+      "Tin Circlet","Sapphire Ring","Frost Ring","Diamond Ring",
+      "Glacial Band","Permafrost Circlet","Snowflake Ring","Tundra Signet",
+      "Crystalice Band","Avalanche Ring","Cryoglass Ring","Blizzard Coil",
+    ],
+    amulet: [
+      "Frozen Amulet","Blizzard Amulet","Avalanche Amulet","Permafrost Amulet",
+      "Tundra Pendant","Glacial Crystal Locket","Snowdrift Charm","Yeti Bone Talisman",
+      "Cryomancer's Amulet","Polar Heart Pendant","Icebound Locket",
+    ],
   },
   shadow_realm: {
     weapon: {
-      sword: ["Nightmare Blade","Void Blade","Shadowmourne","Dreadedge","Shadow Edge"],
-      axe: ["Void Cleaver","Dread Axe","Soul Splitter","Nightmare Hatchet"],
-      mace: ["Nightmare Flail","Doom Mace","Wraith Hammer","Soul Crusher"],
-      staff: ["Void Wand","Hex Scepter","Oblivion Staff","Void Reaper"],
-      wand: ["Shadow Wand","Void Focus","Curse Wand","Nightmare Rod"],
-      bow: ["Shadow Bow","Void Longbow","Nightmare Recurve","Cursed Hunter"],
-      crossbow: ["Dread Crossbow","Shadow Hunter","Void Repeater"],
-      dagger: ["Cracked Obsidian Dagger","Shadow Blade","Soul Reaper","Void Shiv"],
-      blade: ["Cursed Blade","Shadowstep Kris","Rift Knife","Void Kris"],
+      sword: [
+        "Nightmare Blade","Void Blade","Shadowmourne","Dreadedge","Soulpiercer",
+        "Wraith's Despair","Abyssal Greatsword","Riftcleave","Umbral Saber","Dread Reaper Sword",
+        "Bloodmourne Blade","Cursed Phantom Edge","Voidforged Claymore","Necrotic Longsword",
+      ],
+      axe: [
+        "Void Cleaver","Soul Splitter","Dread Axe","Nightmare Hatchet",
+        "Abyssal Waraxe","Rift Cleaver","Umbral Hatchet","Wraith's Fury Axe",
+        "Blood Toll Axe","Shadowforged Cleaver","Cursed Tomahawk","Soulshred Axe",
+      ],
+      mace: [
+        "Nightmare Flail","Soul Crusher","Doom Mace","Wraith Hammer",
+        "Abyss Maul","Rift Flail","Void Basher","Shadowcast Warhammer",
+        "Necrotic Flail","Cursed Mace","Dread Maul","Oblivion Hammer",
+      ],
+      staff: [
+        "Hex Scepter","Oblivion Staff","Void Reaper","Shadow Wand",
+        "Dread Conduit","Lich's Stave","Abyssal Focus","Rift Scepter",
+        "Necrotic Rod","Umbral Staff","Cursed Tome Staff","Soul Drain Stave","Nightmare Conduit",
+      ],
+      wand: [
+        "Shadow Wand","Void Focus","Curse Wand","Nightmare Rod",
+        "Abyssal Wand","Rift Focus","Wraith Wand","Dread Pulse Rod",
+        "Necrotic Wand","Umbral Focus","Soul Spark Wand","Bleeding Wand",
+      ],
+      bow: [
+        "Shadow Bow","Void Longbow","Nightmare Recurve","Cursed Hunter",
+        "Abyssal Bow","Rift Longbow","Wraith Stalker's Bow","Dread Recurve",
+        "Umbral Shortbow","Necrotic Longbow","Soul Weep Bow","Crimson Nightmare Bow","Rift Hunter's Recurve",
+      ],
+      crossbow: [
+        "Dread Crossbow","Void Repeater","Shadow Hunter",
+        "Abyssal Crossbow","Rift Repeater","Nightmare Arbalest","Wraith Bolt Repeater",
+        "Cursed Crossbow","Umbral Arbalest","Necrotic Repeater",
+      ],
+      dagger: [
+        "Shadow Blade","Soul Reaper","Void Shiv","Cracked Obsidian Dagger",
+        "Abyssal Stiletto","Rift Fang","Wraith's Bite","Nightmare Dirk",
+        "Blood Harvest Dagger","Umbral Piercer","Cursed Obsidian Shiv","Necrotic Fang","Soul Siphon Dagger",
+      ],
+      blade: [
+        "Cursed Blade","Shadowstep Kris","Rift Knife","Void Kris",
+        "Abyssal Slicer","Nightmare Kris","Wraith Cutter","Umbral Kris",
+        "Blood Veil Blade","Necrotic Kris","Dread Slasher","Oblivion Kris",
+      ],
     },
     armor: {
-      heavy: ["Soulshred Armor","Armor of the Void","Dreadweave Plate"],
-      medium: ["Darkweave Armor","Voidweave Vest","Shadow Scout Coat"],
-      light: ["Tattered Shadow Robe","Darkweave Robe","Shadowstitch Coat"],
+      heavy: [
+        "Soulshred Armor","Armor of the Void","Dreadweave Plate",
+        "Abyssal Warplate","Riftforged Breastplate","Necrotic Plate Mail","Umbral Warlord's Plate","Nightmare Battleplate",
+      ],
+      medium: [
+        "Darkweave Armor","Voidweave Vest","Shadow Scout Coat",
+        "Abyssal Duelist's Coat","Rift Stalker's Vest","Wraith-hide Tunic","Dread Scout Jacket","Umbral Ranger's Coat",
+      ],
+      light: [
+        "Tattered Shadow Robe","Darkweave Robe","Shadowstitch Coat",
+        "Void Oracle's Robes","Abyssal Vestment","Lich Robes","Cursed Shroud","Necrotic Wrap",
+      ],
     },
     helmet: {
-      plate_helm: ["Horned Shadow Helm","Deathmask","Soulfire Helm"],
-      leather_helm: ["Shroud Helm","Void Hood","Cursed Cowl"],
-      cloth_helm: ["Lich Crown","Wraith Crown","Soul Crown"],
+      plate_helm: [
+        "Horned Shadow Helm","Deathmask","Soulfire Helm",
+        "Void Warlord's Greathelm","Abyssal Visor","Rift-forged Faceplate","Nightmare Plate Helm","Necrotic War Mask",
+      ],
+      leather_helm: [
+        "Shroud Helm","Void Hood","Cursed Cowl",
+        "Abyssal Stalker's Hood","Rift Shadow Cowl","Wraith Hood","Dread Phantom's Cowl","Umbral Leather Helm",
+      ],
+      cloth_helm: [
+        "Lich Crown","Wraith Crown","Soul Crown",
+        "Void Oracle's Diadem","Abyssal Circlet","Nightmare Mage's Cowl","Necrotic Crown","Umbral Seer's Diadem",
+      ],
     },
-    gloves: ["Shadow Grips","Void Gauntlets","Lich Handwraps","Dread Gloves"],
-    boots: ["Shadowwalker Sandals","Phantom Boots","Duskstrider Boots"],
-    ring: ["Dim Ring","Obsidian Ring","Shadow Ring","Ring of Void"],
-    amulet: ["Soul Charm","Rift Amulet","Amulet of Despair"],
+    gloves: [
+      "Shadow Grips","Void Gauntlets","Lich Handwraps","Dread Gloves",
+      "Abyssal Bracers","Rift Gauntlets","Wraith Grips","Necrotic Handguards",
+      "Umbral War Gloves","Cursed Gauntlets","Nightmare Handwraps","Soulstitch Grips",
+    ],
+    boots: [
+      "Shadowwalker Sandals","Phantom Boots","Duskstrider Boots",
+      "Void Strider's Greaves","Abyssal Treads","Rift Walker's Boots","Wraith Step Greaves",
+      "Necrotic Sabatons","Umbral Phantom Boots","Cursed Whisper Boots","Nightmare Treads","Dread Stalker's Sandals",
+    ],
+    ring: [
+      "Dim Ring","Obsidian Ring","Shadow Ring","Ring of Void",
+      "Abyssal Coil","Rift Band","Wraith's Signet","Necrotic Ring",
+      "Umbral Circlet","Cursed Obsidian Band","Soul Drain Ring","Nightmare Ring",
+    ],
+    amulet: [
+      "Soul Charm","Rift Amulet","Amulet of Despair",
+      "Void Pendant","Abyssal Locket","Wraith's Talisman","Necrotic Amulet",
+      "Umbral Charm","Cursed Soul Pendant","Nightmare Locket","Dread Talisman","Lich's Amulet",
+    ],
   },
   celestial_spire: {
     weapon: {
-      sword: ["Starforged Sword","Nova Sword","Godslayer","Cosmic Blade","Solarburst Edge"],
-      axe: ["Starfire Axe","Celestial Cleaver","Nova Splitter","Divine Hatchet"],
-      mace: ["Divine Hammer","Cosmic Mace","Star Flail","Nova Basher"],
-      staff: ["Pulsar Staff","Celestial Scepter","Genesis Staff","Astral Focus"],
-      wand: ["Star Wand","Nova Wand","Cosmic Focus","Divine Rod"],
-      bow: ["Celestial Longbow","Starborn Bow","Nova Recurve","Cosmic Hunter"],
-      crossbow: ["Astral Crossbow","Star Hunter","Celestial Repeater"],
-      dagger: ["Starlight Dagger","Nova Fang","Astral Shiv","Celestial Stiletto"],
-      blade: ["Cosmic Kris","Starblade","Nebula Knife","Celestial Cutter"],
+      sword: [
+        "Starforged Sword","Nova Sword","Solarburst Edge","Cosmic Blade","Eternity's Edge",
+        "Astral Claymore","Empyrean Greatsword","Seraph's Judgment","Zodiac Saber","Constellation Blade",
+        "Pulsar Sword","Nebula Falchion","Quasar Edge","Radiant Divinity Blade",
+      ],
+      axe: [
+        "Starfire Axe","Celestial Cleaver","Divine Hatchet","Nova Splitter",
+        "Empyrean Waraxe","Cosmic Fury Axe","Astral Hatchet","Quasar Cleaver",
+        "Pulsar Axe","Supernova Waraxe","Zodiac Axe","Seraph's Tomahawk",
+      ],
+      mace: [
+        "Divine Hammer","Cosmic Mace","Star Flail","Nova Basher",
+        "Empyrean Maul","Celestial Warhammer","Astral Basher","Quasar Flail",
+        "Pulsar Hammer","Supernova Mace","Zodiac Maul","Seraph's Sceptre","Starlight Basher",
+      ],
+      staff: [
+        "Pulsar Staff","Celestial Scepter","Astral Focus","Genesis Staff",
+        "Empyrean Conduit","Nova Tome Staff","Cosmic Oracle's Stave","Quasar Focus",
+        "Starweave Staff","Zodiac Scepter","Supernova Conduit","Nebula Stave","Seraph's Arcane Focus",
+      ],
+      wand: [
+        "Star Wand","Nova Wand","Divine Rod","Cosmic Focus",
+        "Empyrean Wand","Astral Spark Wand","Quasar Rod","Nebula Focus",
+        "Pulsar Wand","Celestial Beam Wand","Zodiac Wand","Seraph's Wand",
+      ],
+      bow: [
+        "Celestial Longbow","Starborn Bow","Nova Recurve","Cosmic Hunter",
+        "Empyrean Longbow","Astral Recurve","Quasar Bow","Nebula Shortbow",
+        "Pulsar Hunter","Zodiac Longbow","Supernova Recurve","Seraph's Bow","Starfall Recurve",
+      ],
+      crossbow: [
+        "Astral Crossbow","Celestial Repeater","Star Hunter",
+        "Empyrean Arbalest","Nova Repeater","Cosmic Bolt Crossbow","Quasar Repeater",
+        "Pulsar Arbalest","Zodiac Crossbow","Seraph's Arbalest",
+      ],
+      dagger: [
+        "Starlight Dagger","Nova Fang","Celestial Stiletto","Astral Shiv",
+        "Empyrean Piercer","Cosmic Fang","Quasar Dirk","Nebula Stiletto",
+        "Pulsar Dagger","Zodiac Fang","Supernova Shiv","Seraph's Needle","Starbright Dagger",
+      ],
+      blade: [
+        "Cosmic Kris","Starblade","Nebula Knife","Celestial Cutter",
+        "Empyrean Kris","Astral Slasher","Quasar Blade","Pulsar Kris",
+        "Nova Slicer","Zodiac Blade","Supernova Kris","Seraph's Cutter",
+      ],
     },
     armor: {
-      heavy: ["Divine Plate","Celestial Godplate","Starfire Plate"],
-      medium: ["Stardust Armor","Astral Guard Coat","Nova Scout Vest"],
-      light: ["Pale Celestial Wrap","Astral Robe","Nebula Vestments"],
+      heavy: [
+        "Divine Plate","Celestial Godplate","Starfire Plate",
+        "Empyrean Warplate","Nova Titan's Breastplate","Cosmic Warlord's Mail","Astral Titan Plate","Seraph's Plate",
+      ],
+      medium: [
+        "Stardust Armor","Astral Guard Coat","Nova Scout Vest",
+        "Empyrean Ranger's Coat","Cosmic Duelist's Vest","Celestial Sentinel's Tunic","Zodiac Scout's Vest","Quasar Guard Coat",
+      ],
+      light: [
+        "Pale Celestial Wrap","Astral Robe","Nebula Vestments",
+        "Empyrean Oracle's Robes","Cosmic Archmage Robes","Zodiac Vestment","Starweave Robes","Seraph's Shroud",
+      ],
     },
     helmet: {
-      plate_helm: ["Titan Helm","Halo of Divinity","Celestial Visor"],
-      leather_helm: ["Halo Helm","Nebula Helm","Empyrean Cowl"],
-      cloth_helm: ["Starlight Crown","Divinity Crown","Quasar Crown"],
+      plate_helm: [
+        "Titan Helm","Halo of Divinity","Celestial Visor",
+        "Empyrean Greathelm","Nova Conqueror's Helm","Cosmic Titan Visor","Astral War Mask","Seraph's Faceplate",
+      ],
+      leather_helm: [
+        "Halo Helm","Nebula Helm","Empyrean Cowl",
+        "Nova Stalker's Hood","Astral Ranger's Hood","Celestial Scout's Cowl","Zodiac Hood","Cosmic Cowl",
+      ],
+      cloth_helm: [
+        "Starlight Crown","Divinity Crown","Quasar Crown",
+        "Empyrean Circlet","Nova Archmage's Crown","Cosmic Diadem","Zodiac Mage's Crown","Seraph's Diadem",
+      ],
     },
-    gloves: ["Celestial Grips","Nova Gauntlets","Divine Handwraps"],
-    boots: ["Skywalker Boots","Aurora Boots","Voidwalker Boots","Starwalker Boots"],
-    ring: ["Nebula Ring","Quasar Ring","Ring of Stars","Ring of the Cosmos"],
-    amulet: ["Comet Amulet","Zodiac Amulet","Supernova Amulet","Amulet of Creation"],
+    gloves: [
+      "Celestial Grips","Nova Gauntlets","Divine Handwraps",
+      "Empyrean Bracers","Astral Gauntlets","Cosmic War Gloves","Quasar Grips",
+      "Pulsar Handguards","Zodiac Gauntlets","Starfire Grips","Seraph's Handwraps","Nebula Bracers",
+    ],
+    boots: [
+      "Skywalker Boots","Aurora Boots","Starwalker Boots","Voidwalker Boots",
+      "Empyrean Sabatons","Nova Treads","Cosmic Striders","Astral Greaves",
+      "Quasar Boots","Zodiac Treads","Pulsar Sabatons","Seraph's Sandals",
+    ],
+    ring: [
+      "Nebula Ring","Quasar Ring","Ring of Stars","Ring of the Cosmos",
+      "Empyrean Band","Astral Signet","Nova Circlet","Zodiac Ring",
+      "Pulsar Band","Seraph's Ring","Cosmic Coil","Starburst Ring",
+    ],
+    amulet: [
+      "Comet Amulet","Zodiac Amulet","Supernova Amulet","Amulet of Creation",
+      "Empyrean Pendant","Astral Locket","Nova Talisman","Cosmic Heart Amulet",
+      "Pulsar Charm","Seraph's Amulet","Celestial Convergence Pendant","Starborn Locket",
+    ],
   },
+};
+
+const RARITY_PREFIX: Record<string, string> = {
+  common: "",
+  uncommon: "Fine",
+  rare: "Superior",
+  epic: "Exquisite",
+  legendary: "Legendary",
+  mythic: "Mythical",
+  shiny: "Divine",
 };
 
 const ZONE_SET_DROPS: Record<string, Array<{ name: string; slot: string; class: string | null; setKey: string }>> = {
@@ -649,7 +1045,10 @@ export function generateLoot(
     }
   }
 
-  const stats = generateItemStats(type, rarity, itemLevel);
+  const prefix = RARITY_PREFIX[rarity] || "";
+  if (prefix) name = `${prefix} ${name}`;
+
+  const stats = generateItemStats(type, rarity, itemLevel, zoneKey);
   const sellPrice = Math.floor((RARITY_SELL_PRICES[rarity] || 10) * (1 + itemLevel * 0.08));
 
   // Generate proc effects for epic+ items
