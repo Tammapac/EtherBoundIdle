@@ -1066,3 +1066,81 @@ export function generateLoot(
     ...(procEffects.length > 0 ? { proc_effects: procEffects } : {}),
   };
 }
+
+/**
+ * Generate a shop item using the same name/stat system as combat loot.
+ * Uses seeded RNG for deterministic shop rotations.
+ */
+export function generateShopItem(
+  charLevel: number,
+  charClass: string,
+  rarity: string,
+  rngFn: () => number // seeded RNG
+): any {
+  const zoneKey = getZoneForLevel(charLevel);
+  const zoneNames = ITEM_NAMES[zoneKey] || ITEM_NAMES.verdant_forest;
+  const allTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+
+  const useSmartLoot = rngFn() < 0.65;
+  let type: string, subtype: string | null = null, name: string;
+
+  if (useSmartLoot && rngFn() < 0.4) {
+    type = "weapon";
+    const subtypes = CLASS_WEAPON_SUBTYPES[charClass] || ["sword"];
+    subtype = subtypes[Math.floor(rngFn() * subtypes.length)];
+    const namePool = zoneNames.weapon?.[subtype] || ["Unknown Weapon"];
+    name = namePool[Math.floor(rngFn() * namePool.length)];
+  } else if (useSmartLoot && rngFn() < 0.35) {
+    type = "armor";
+    subtype = CLASS_ARMOR_WEIGHT[charClass] || "light";
+    const namePool = zoneNames.armor?.[subtype] || zoneNames.armor?.light || ["Unknown Armor"];
+    name = namePool[Math.floor(rngFn() * namePool.length)];
+  } else {
+    type = allTypes[Math.floor(rngFn() * allTypes.length)];
+    if (type === "weapon") {
+      const subtypes = CLASS_WEAPON_SUBTYPES[charClass] || ["sword"];
+      subtype = subtypes[Math.floor(rngFn() * subtypes.length)];
+      const namePool = zoneNames.weapon?.[subtype] || ["Unknown Weapon"];
+      name = namePool[Math.floor(rngFn() * namePool.length)];
+    } else if (type === "armor") {
+      const weight = CLASS_ARMOR_WEIGHT[charClass] || "light";
+      subtype = weight;
+      const namePool = zoneNames.armor?.[weight] || ["Unknown Armor"];
+      name = namePool[Math.floor(rngFn() * namePool.length)];
+    } else if (type === "helmet") {
+      const helmWeight = CLASS_HELMET_WEIGHT[charClass] || "cloth_helm";
+      subtype = helmWeight;
+      const helmNames = zoneNames.helmet;
+      const namePool = (helmNames && typeof helmNames === "object" && !Array.isArray(helmNames))
+        ? (helmNames[helmWeight] || helmNames.cloth_helm || ["Unknown Helmet"])
+        : (Array.isArray(helmNames) ? helmNames : ["Unknown Helmet"]);
+      name = namePool[Math.floor(rngFn() * namePool.length)];
+    } else {
+      subtype = null;
+      const namePool = Array.isArray(zoneNames[type]) ? zoneNames[type] : ["Unknown Item"];
+      name = namePool[Math.floor(rngFn() * namePool.length)];
+    }
+  }
+
+  const prefix = RARITY_PREFIX[rarity] || "";
+  if (prefix) name = `${prefix} ${name}`;
+
+  const itemLevel = Math.max(1, charLevel + Math.floor((rngFn() - 0.5) * 6));
+  const stats = generateItemStats(type, rarity, itemLevel, zoneKey);
+  const procEffects = generateItemProcs(type, rarity, itemLevel);
+  const sellPrice = Math.floor((RARITY_SELL_PRICES[rarity] || 10) * (1 + itemLevel * 0.08));
+  const buyPrice = Math.floor(sellPrice * 3.5);
+
+  return {
+    name,
+    type,
+    subtype: subtype || undefined,
+    rarity,
+    item_level: itemLevel,
+    level_req: Math.max(1, itemLevel - 2),
+    stats,
+    sell_price: sellPrice,
+    buy_price: buyPrice,
+    ...(procEffects.length > 0 ? { proc_effects: procEffects } : {}),
+  };
+}
