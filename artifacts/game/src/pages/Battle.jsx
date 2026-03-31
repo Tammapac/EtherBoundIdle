@@ -314,8 +314,8 @@ export default function Battle({ character, onCharacterUpdate }) {
     // Floating numbers on player side
     if (!evaded) spawnPlayerNum(actualDmg, "damage");
 
-    // Regen at end of enemy turn — use actual stat values from calculateFinalStats
-    const mpRegen = Math.floor(d.mpRegen || character.max_mp * MP_REGEN_PER_TURN);
+    // Regen at end of enemy turn — use actual stat values, with percentage fallback for low-level chars
+    const mpRegen = Math.max(Math.ceil(d.mpRegen || 0), Math.floor(character.max_mp * MP_REGEN_PER_TURN));
     setPlayerMp(prev => {
       const next = Math.min(character.max_mp, prev + mpRegen);
       if (mpRegen > 0) spawnPlayerNum(mpRegen, "mp_regen");
@@ -422,7 +422,7 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     // Lifesteal
     const lifestealAmount = Math.max(0, Math.round(finalDmg * (derived.lifesteal / 100))) + procHeal;
-    const regenHp = Math.floor(derived.hpRegen || character.max_hp * HP_REGEN_PER_TURN);
+    const regenHp = Math.max(Math.ceil(derived.hpRegen || 0), Math.floor(character.max_hp * HP_REGEN_PER_TURN));
     const newPlayerHp = Math.min(character.max_hp, playerHp + lifestealAmount + regenHp);
     setPlayerHp(newPlayerHp);
 
@@ -613,9 +613,14 @@ export default function Battle({ character, onCharacterUpdate }) {
         queryClient.invalidateQueries({ queryKey: ["items", character.id] });
       }
 
-      addLog(`⚔️ Defeated ${enemy.name}! +${rewards.exp} EXP +${rewards.gold} Gold`);
-      if (partyBonuses) {
-        addLog(`👥 Party bonus: +${partyBonuses.expPct}% EXP, +${partyBonuses.goldPct}% Gold`);
+      if (partyBonuses && (partyBonuses.expPct > 0 || partyBonuses.goldPct > 0)) {
+        const baseExp = Math.round(rewards.exp / (1 + partyBonuses.expPct / 100));
+        const baseGold = Math.round(rewards.gold / (1 + partyBonuses.goldPct / 100));
+        const bonusExp = rewards.exp - baseExp;
+        const bonusGold = rewards.gold - baseGold;
+        addLog(`⚔️ Defeated ${enemy.name}! +${rewards.exp} EXP (+${bonusExp} party) +${rewards.gold} Gold (+${bonusGold} party)`);
+      } else {
+        addLog(`⚔️ Defeated ${enemy.name}! +${rewards.exp} EXP +${rewards.gold} Gold`);
       }
 
       onCharacterUpdate(updatedChar);
@@ -899,14 +904,18 @@ export default function Battle({ character, onCharacterUpdate }) {
         }
 
         // If enemy killed by another player and not yet claimed, trigger defeat locally
-        if (se.killed_by && !sharedEnemyClaimedRef.current) {
-          sharedEnemyClaimedRef.current = true;
-          setEnemyHp(0);
-          if (se.killed_by !== character.id) {
-            // Another party member killed it — give this player rewards too
-            addLog(`👥 ${se.killed_by_name || "Party member"} defeated ${se.name || "the enemy"}!`);
+        // Check both shared_enemy and last_killed_enemy (leader may have already spawned next)
+        const killedEnemy = (se.killed_by ? se : null) || res?.last_killed_enemy;
+        if (killedEnemy?.killed_by && !sharedEnemyClaimedRef.current) {
+          const alreadyClaimed = (killedEnemy.claimed_by || []).includes(character.id);
+          if (!alreadyClaimed) {
+            sharedEnemyClaimedRef.current = true;
+            setEnemyHp(0);
+            if (killedEnemy.killed_by !== character.id) {
+              addLog(`👥 ${killedEnemy.killed_by_name || "Party member"} defeated ${killedEnemy.name || "the enemy"}!`);
+            }
+            handleEnemyDefeat();
           }
-          handleEnemyDefeat();
         }
       } catch {}
     };
@@ -1090,10 +1099,12 @@ export default function Battle({ character, onCharacterUpdate }) {
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
             {(() => {
               const { derived: rd } = calculateFinalStats(character, equippedItems);
+              const hpR = Math.max(Math.ceil(rd.hpRegen || 0), Math.floor(character.max_hp * HP_REGEN_PER_TURN));
+              const mpR = Math.max(Math.ceil(rd.mpRegen || 0), Math.floor(character.max_mp * MP_REGEN_PER_TURN));
               return (
                 <>
-                  <span>+{Math.floor(rd.hpRegen || 0)} HP/turn</span>
-                  <span>+{Math.floor(rd.mpRegen || 0)} MP/turn</span>
+                  <span>+{hpR} HP/turn</span>
+                  <span>+{mpR} MP/turn</span>
                 </>
               );
             })()}

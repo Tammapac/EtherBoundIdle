@@ -1443,6 +1443,10 @@ router.post("/functions/partyBattleAction", async (req: Request, res: Response) 
       if (!party) { sendError(res, 404, "Party not found"); return; }
       if (party.leaderId !== characterId) { sendError(res, 403, "Only the leader can spawn enemies"); return; }
       const extra = (party.extraData as any) || {};
+      // Preserve killed enemy so non-leaders can still claim rewards after new spawn
+      if (extra.shared_enemy?.killed_by) {
+        extra.last_killed_enemy = extra.shared_enemy;
+      }
       extra.shared_enemy = {
         ...enemyData,
         currentHp: enemyData.maxHp,
@@ -1488,7 +1492,11 @@ router.post("/functions/partyBattleAction", async (req: Request, res: Response) 
       const [party] = await db.select().from(partiesTable).where(eq(partiesTable.id, partyId));
       if (!party) { sendError(res, 404, "Party not found"); return; }
       const extra = (party.extraData as any) || {};
-      sendSuccess(res, { success: true, shared_enemy: extra.shared_enemy || null });
+      sendSuccess(res, {
+        success: true,
+        shared_enemy: extra.shared_enemy || null,
+        last_killed_enemy: extra.last_killed_enemy || null,
+      });
       return;
     }
 
@@ -1497,17 +1505,29 @@ router.post("/functions/partyBattleAction", async (req: Request, res: Response) 
       const [party] = await db.select().from(partiesTable).where(eq(partiesTable.id, partyId));
       if (!party) { sendError(res, 404, "Party not found"); return; }
       const extra = (party.extraData as any) || {};
-      if (!extra.shared_enemy || !extra.shared_enemy.killed_by) {
+      // Check current shared_enemy first, then last_killed_enemy as fallback
+      // (leader may have already spawned next enemy, overwriting shared_enemy)
+      let target = null;
+      let targetKey = "";
+      if (extra.shared_enemy?.killed_by) {
+        target = extra.shared_enemy;
+        targetKey = "shared_enemy";
+      } else if (extra.last_killed_enemy?.killed_by) {
+        target = extra.last_killed_enemy;
+        targetKey = "last_killed_enemy";
+      }
+      if (!target) {
         sendSuccess(res, { success: false, message: "Enemy not killed yet" });
         return;
       }
-      const claimed = extra.shared_enemy.claimed_by || [];
+      const claimed = target.claimed_by || [];
       if (claimed.includes(characterId)) {
         sendSuccess(res, { success: false, message: "Already claimed" });
         return;
       }
       claimed.push(characterId);
-      extra.shared_enemy.claimed_by = claimed;
+      target.claimed_by = claimed;
+      (extra as any)[targetKey] = target;
       await db.update(partiesTable).set({ extraData: extra }).where(eq(partiesTable.id, partyId));
       sendSuccess(res, { success: true, claimed: true });
       return;

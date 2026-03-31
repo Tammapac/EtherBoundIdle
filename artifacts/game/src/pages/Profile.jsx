@@ -73,10 +73,13 @@ export default function Profile({ character, onCharacterUpdate }) {
   const availableSkillPoints = (character?.skill_points || 0) - totalSkillsPending;
 
   const addStat = (key, amount = 1) => {
-    const toAdd = Math.min(amount, availablePoints - (pendingStats[key] ? 0 : 0));
-    const actualAdd = Math.min(amount, availablePoints);
-    if (actualAdd <= 0) return;
-    setPendingStats(prev => ({ ...prev, [key]: (prev[key] || 0) + actualAdd }));
+    setPendingStats(prev => {
+      const currentTotal = Object.values(prev).reduce((s, v) => s + v, 0);
+      const remaining = (character?.stat_points || 0) - currentTotal;
+      const actualAdd = Math.min(amount, remaining);
+      if (actualAdd <= 0) return prev;
+      return { ...prev, [key]: (prev[key] || 0) + actualAdd };
+    });
   };
 
   const removeStat = (key) => {
@@ -261,14 +264,27 @@ export default function Profile({ character, onCharacterUpdate }) {
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeStat(key)} disabled={!pendingStats[key]}>
                       <Minus className="w-3 h-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => addStat(key, 1)} disabled={availablePoints <= 0}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={() => addStat(key, 1)}
+                      onMouseDown={(e) => {
+                        if (availablePoints <= 0) return;
+                        let speed = 150;
+                        const rep = () => { addStat(key, 1); speed = Math.max(30, speed * 0.85); };
+                        const id = setInterval(rep, speed);
+                        const stop = () => { clearInterval(id); window.removeEventListener("mouseup", stop); };
+                        window.addEventListener("mouseup", stop);
+                      }}
+                      disabled={availablePoints <= 0}>
                       <Plus className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => addStat(key, 5)} disabled={availablePoints <= 0}>
+                      +5
                     </Button>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => addStat(key, 10)} disabled={availablePoints <= 0}>
                       +10
                     </Button>
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary" onClick={() => addStat(key, availablePoints)} disabled={availablePoints <= 0}>
-                      All
+                      Max
                     </Button>
                   </div>
                 )}
