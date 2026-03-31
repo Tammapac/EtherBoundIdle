@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { 
   Swords, Shield, Backpack, Map, Users, ShoppingBag, 
   Trophy, ScrollText, Menu, X, Coins, Gem, MessageCircle,
-  LogOut, RotateCcw, Leaf, ChevronDown, BarChart3, Wrench, Skull, Zap, Settings, ArrowUp
+  LogOut, RotateCcw, Leaf, ChevronDown, BarChart3, Wrench, Skull, Zap, Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -25,7 +25,6 @@ const NAV_ITEMS = [
   { path: "/lifeskills", icon: Leaf, label: "Life Skills" },
   { path: "/gearupgrading", icon: Wrench, label: "Gear Upgrading" },
   { path: "/dungeons", icon: Skull, label: "Dungeons" },
-  { path: "/tower", icon: ArrowUp, label: "Tower" },
   { path: "/skilltree", icon: Zap, label: "Skill Tree" },
   { path: "/admin", icon: Shield, label: "Admin", admin: true },
   { path: "/gameconfig", icon: Settings, label: "Game Config", admin: true },

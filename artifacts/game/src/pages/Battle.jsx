@@ -1127,21 +1127,21 @@ export default function Battle({ character, onCharacterUpdate }) {
       onJoinZone={handleJoinZone}
     />
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
+      {/* Tower of Trials - Big floating icon */}
+      <div
+        onClick={() => navigate("/tower")}
+        className="fixed bottom-24 right-6 z-30 w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
+        title="Tower of Trials"
+      >
+        <ArrowUp className="w-7 h-7 text-amber-400 group-hover:text-amber-300 transition-colors" />
+        <span className="text-[9px] font-bold text-amber-400/80 group-hover:text-amber-300 mt-0.5 tracking-wide">TOWER</span>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div>
-            <h2 className="font-orbitron text-xl font-bold">{region?.name || "Unknown"}</h2>
-            <p className="text-xs text-muted-foreground">Level {region?.levelRange?.[0]}–{region?.levelRange?.[1]}</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-            onClick={() => navigate("/tower")}
-          >
-            <ArrowUp className="w-4 h-4" /> Tower
-          </Button>
+        <div>
+          <h2 className="font-orbitron text-xl font-bold">{region?.name || "Unknown"}</h2>
+          <p className="text-xs text-muted-foreground">Level {region?.levelRange?.[0]}–{region?.levelRange?.[1]}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Turn indicator */}
