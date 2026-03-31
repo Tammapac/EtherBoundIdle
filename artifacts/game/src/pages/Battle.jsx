@@ -171,11 +171,14 @@ export default function Battle({ character, onCharacterUpdate }) {
     }
     const enemyData = ENEMIES[key];
     if (!enemyData) return;
-    // Random enemy level within region range
+    // Random enemy level within region range (never exceeds zone max)
     const regionMin = region?.levelRange?.[0] || 1;
-    const regionMax = region?.levelRange?.[1] || character.level;
+    const regionMax = region?.levelRange?.[1] || 10;
     const enemyLevel = Math.max(1, regionMin + Math.floor(Math.random() * (regionMax - regionMin + 1)));
-    const lvlScale = 1 + (enemyLevel - 1) * 0.1;
+    // Elites already have high base stats, so use reduced level scaling (0.03 per level vs 0.1)
+    const lvlScale = isEliteSpawn
+      ? 1 + (enemyLevel - 1) * 0.03
+      : 1 + (enemyLevel - 1) * 0.1;
     const hpMult = isEmpowered ? 3 : 1;
     const dmgMult = isEmpowered ? 1.5 : 1;
     const hp = Math.floor(enemyData.baseHp * lvlScale * hpMult);
