@@ -80,6 +80,17 @@ export default function PartyPanel({ character }) {
     queryClient.invalidateQueries({ queryKey: ["partyInvites"] });
   };
 
+  // Listen for party invite events from FriendPanel — open panel when invite sent
+  useEffect(() => {
+    const handler = () => {
+      setMinimized(false);
+      setExpanded(true);
+      invalidateParty();
+    };
+    window.addEventListener("eb-party-invite-sent", handler);
+    return () => window.removeEventListener("eb-party-invite-sent", handler);
+  }, []);
+
   const mutation = useMutation({
     mutationFn: async (payload) => {
       return base44.functions.invoke("manageParty", { characterId: character.id, ...payload });
@@ -105,7 +116,13 @@ export default function PartyPanel({ character }) {
     },
   });
   const handleLeave = () => mutation.mutate({ action: 'leave', partyId: partyData.id });
-  const handleAccept = (invite) => mutation.mutate({ action: 'accept', inviteId: invite.id });
+  const handleAccept = (invite) => mutation.mutate({ action: 'accept', inviteId: invite.id }, {
+    onSuccess: () => {
+      setMinimized(false);
+      setExpanded(true);
+      toast({ title: "Joined the party!", duration: 2000 });
+    },
+  });
   const handleDecline = (invite) => mutation.mutate({ action: 'decline', inviteId: invite.id });
 
   const handleInvite = () => {

@@ -1274,7 +1274,7 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       return;
     }
 
-    if (action === "invite" && partyId) {
+    if (action === "invite") {
       const [fromChar] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       let resolvedTargetId = targetCharacterId;
       const trimmedName = targetName?.trim();
@@ -1292,14 +1292,43 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       if (resolvedTargetId === characterId) { sendError(res, 400, "Cannot invite yourself"); return; }
       const [targetChar] = await db.select().from(charactersTable).where(eq(charactersTable.id, resolvedTargetId));
       if (!targetChar) { sendError(res, 404, "Player not found"); return; }
+
+      // Auto-find or auto-create a party if partyId not provided
+      let resolvedPartyId = partyId;
+      if (!resolvedPartyId) {
+        // Look for an existing active party led by this player
+        const ledParties = await db.select().from(partiesTable).where(
+          sql`${partiesTable.leaderId} = ${characterId} AND ${partiesTable.status} != 'disbanded'`
+        );
+        if (ledParties.length > 0) {
+          resolvedPartyId = ledParties[0].id;
+        } else {
+          // Check if player is a member of any active party
+          const allParties = await db.select().from(partiesTable).where(sql`${partiesTable.status} != 'disbanded'`);
+          const memberParty = allParties.find((p: any) => (p.members as any[])?.some((m: any) => m.character_id === characterId));
+          if (memberParty) {
+            resolvedPartyId = memberParty.id;
+          } else {
+            // Auto-create a party for the inviter
+            const [newParty] = await db.insert(partiesTable).values({
+              leaderId: characterId,
+              leaderName: fromChar?.name || "Unknown",
+              members: [{ character_id: characterId, name: fromChar?.name || "Unknown", class: fromChar?.class, level: fromChar?.level }],
+              status: "open",
+            }).returning();
+            resolvedPartyId = newParty.id;
+          }
+        }
+      }
+
       const [invite] = await db.insert(partyInvitesTable).values({
-        partyId,
+        partyId: resolvedPartyId,
         fromCharacterId: characterId,
         fromCharacterName: fromChar?.name || "Unknown",
         toCharacterId: resolvedTargetId,
         status: "pending",
       }).returning();
-      sendSuccess(res, { success: true, invite });
+      sendSuccess(res, { success: true, invite, partyId: resolvedPartyId });
       return;
     }
 
@@ -1318,6 +1347,27 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
         await db.update(partyInvitesTable).set({ status: "accepted" }).where(eq(partyInvitesTable.id, inviteId));
         sendSuccess(res, { success: true, message: "Already in party" }); return;
       }
+
+      // Remove player from any existing party before joining the new one
+      const allActiveParties = await db.select().from(partiesTable).where(sql`${partiesTable.status} != 'disbanded'`);
+      for (const oldParty of allActiveParties) {
+        if (oldParty.id === inv.partyId) continue;
+        const oldMembers = (oldParty.members as any[]) || [];
+        if (oldMembers.some((m: any) => m.character_id === characterId)) {
+          const filtered = oldMembers.filter((m: any) => m.character_id !== characterId);
+          if (filtered.length === 0) {
+            await db.update(partiesTable).set({ status: "disbanded", members: [] }).where(eq(partiesTable.id, oldParty.id));
+          } else {
+            const updateData: any = { members: filtered };
+            if (oldParty.leaderId === characterId) {
+              updateData.leaderId = filtered[0].character_id;
+              updateData.leaderName = filtered[0].name;
+            }
+            await db.update(partiesTable).set(updateData).where(eq(partiesTable.id, oldParty.id));
+          }
+        }
+      }
+
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       members.push({ character_id: characterId, name: char?.name || "Unknown", class: char?.class, level: char?.level });
       await db.update(partiesTable).set({ members }).where(eq(partiesTable.id, inv.partyId));

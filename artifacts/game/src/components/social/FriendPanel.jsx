@@ -243,6 +243,7 @@ export default function FriendPanel({ character, onWhisper }) {
                     try {
                       const result = await base44.functions.invoke("manageParty", { action: "invite", characterId: character.id, targetCharacterId: f.friend_id });
                       toast({ title: "Party Invite", description: result?.message || `Invited ${f.friend_name} to your party.` });
+                      window.dispatchEvent(new CustomEvent("eb-party-invite-sent"));
                     } catch (err) {
                       toast({ title: "Party Invite Failed", description: err.message || "Could not send invite.", variant: "destructive" });
                     }
