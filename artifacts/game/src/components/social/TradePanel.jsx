@@ -10,7 +10,7 @@ import { addMinutes } from "date-fns";
 
 const MIN_LEVEL_TO_TRADE = 5;
 
-export default function TradePanel({ character, onCharacterUpdate }) {
+export default function TradePanel({ character, onCharacterUpdate, tradeTarget, onTradeTargetConsumed }) {
   const [view, setView] = useState("list"); // list | initiate | active
   const [targetSearch, setTargetSearch] = useState("");
   const [targetResults, setTargetResults] = useState([]);
@@ -30,7 +30,7 @@ export default function TradePanel({ character, onCharacterUpdate }) {
   const { data: incomingTrades = [] } = useQuery({
     queryKey: ["trades_pending", character.id],
     queryFn: () => base44.entities.TradeSession.filter({ receiver_id: character.id, status: "pending" }),
-    refetchInterval: 60000,
+    refetchInterval: 10000,
   });
 
   const { data: myTrades = [] } = useQuery({
@@ -42,22 +42,36 @@ export default function TradePanel({ character, onCharacterUpdate }) {
       ]);
       return [...asInit, ...asRecv].filter(t => ["pending", "active", "initiator_locked", "receiver_locked"].includes(t.status));
     },
-    refetchInterval: 60000,
+    refetchInterval: 10000,
   });
 
-  // Subscribe to real-time trade updates
+  // Poll active trade for real-time updates
   useEffect(() => {
-    const unsub = base44.entities.TradeSession.subscribe((event) => {
-      qc.invalidateQueries({ queryKey: ["trades_pending", character.id] });
-      qc.invalidateQueries({ queryKey: ["trades_active", character.id] });
-      if (activeTrade && event.id === activeTrade.id) {
-        base44.entities.TradeSession.filter({ id: event.id }).then(res => {
-          if (res[0]) setActiveTrade(res[0]);
-        });
-      }
-    });
-    return unsub;
-  }, [character.id, activeTrade?.id, qc]);
+    if (!activeTrade?.id) return;
+    const poll = async () => {
+      try {
+        const res = await base44.entities.TradeSession.get(activeTrade.id);
+        if (res) setActiveTrade(res);
+      } catch {}
+    };
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [activeTrade?.id]);
+
+  // Auto-initiate trade when clicking trade button from friend list
+  useEffect(() => {
+    if (!tradeTarget?.friendId || !canTrade) return;
+    const autoTrade = async () => {
+      try {
+        const target = await base44.entities.Character.get(tradeTarget.friendId);
+        if (target && target.id !== character.id) {
+          initiateTradeMutation.mutate(target);
+        }
+      } catch {}
+      onTradeTargetConsumed?.();
+    };
+    autoTrade();
+  }, [tradeTarget?.friendId]);
 
   const searchPlayer = async () => {
     if (!targetSearch.trim()) return;

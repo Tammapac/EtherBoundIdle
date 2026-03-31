@@ -39,21 +39,19 @@ export default function Social({ character, onCharacterUpdate }) {
   const [activeTab, setActiveTab] = useState("friends");
   const qc = useQueryClient();
 
+  const [tradeTarget, setTradeTarget] = useState(null);
+
   // Listen for trade button clicks from FriendPanel
   useEffect(() => {
-    const handler = () => setActiveTab("trade");
+    const handler = (e) => {
+      setTradeTarget(e.detail || null);
+      setActiveTab("trade");
+    };
     window.addEventListener("eb-trade", handler);
     return () => window.removeEventListener("eb-trade", handler);
   }, []);
 
-  // Real-time subscription for friend requests badge counter
-  useEffect(() => {
-    if (!character?.id) return;
-    const unsub = base44.entities.FriendRequest.subscribe(() => {
-      qc.invalidateQueries({ queryKey: ["friend_requests_in", character.id] });
-    });
-    return unsub;
-  }, [character?.id, qc]);
+  // Friend request badge updates via polling (refetchInterval on query below)
 
   // Upsert presence on mount
   useEffect(() => {
@@ -106,7 +104,7 @@ export default function Social({ character, onCharacterUpdate }) {
     queryKey: ["friend_requests_in", character?.id],
     queryFn: () => base44.entities.FriendRequest.filter({ to_character_id: character?.id, status: "pending" }),
     enabled: !!character?.id,
-    refetchInterval: 60000,
+    refetchInterval: 15000,
   });
 
   if (!character) return null;
@@ -162,7 +160,7 @@ export default function Social({ character, onCharacterUpdate }) {
           <MailPanel character={character} onCharacterUpdate={onCharacterUpdate} />
         </TabsContent>
         <TabsContent value="trade">
-          <TradePanel character={character} onCharacterUpdate={onCharacterUpdate} />
+          <TradePanel character={character} onCharacterUpdate={onCharacterUpdate} tradeTarget={tradeTarget} onTradeTargetConsumed={() => setTradeTarget(null)} />
         </TabsContent>
       </Tabs>
     </div>

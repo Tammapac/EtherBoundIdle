@@ -54,24 +54,7 @@ export default function FriendPanel({ character, onWhisper }) {
     refetchInterval: 15000,
   });
 
-  // Real-time subscription for friend requests
-  useEffect(() => {
-    const unsub = base44.entities.FriendRequest.subscribe((event) => {
-      if (event.type === "create" || event.type === "update") {
-        qc.invalidateQueries({ queryKey: ["friend_requests_in", character.id] });
-        qc.invalidateQueries({ queryKey: ["friend_requests_out", character.id] });
-      }
-    });
-    return unsub;
-  }, [character.id, qc]);
-
-  // Real-time subscription for friendships
-  useEffect(() => {
-    const unsub = base44.entities.Friendship.subscribe((event) => {
-      qc.invalidateQueries({ queryKey: ["friends", character.id] });
-    });
-    return unsub;
-  }, [character.id, qc]);
+  // Polling already handles friend requests (15s) and friends (30s) — no-op subscribe removed
 
   // Fetch live character data for all friends to get up-to-date names/levels/classes
   const friendIds = friends.map(f => f.friend_id).filter(Boolean);

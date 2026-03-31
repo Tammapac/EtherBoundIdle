@@ -136,6 +136,7 @@ const fieldMappings: Record<string, Record<string, string>> = {
     party_id: "partyId",
     character_id: "characterId",
     character_name: "characterName",
+    activity_type: "type",
     created_at: "createdAt",
   },
   PartyInvite: {

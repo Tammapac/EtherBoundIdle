@@ -40,25 +40,34 @@ export default function PartyBattlePanel({ party, selfId, onPartyAction }) {
     return () => clearInterval(interval);
   }, [party?.id, party?.members?.length]);
 
-  // Subscribe to party activity for battle actions
+  // Poll party activities for battle actions (replaces dummy subscribe)
+  const seenBattleIdsRef = React.useRef(new Set());
   useEffect(() => {
     if (!party?.id) return;
-    const unsub = base44.entities.PartyActivity.subscribe((event) => {
-      if (event.type !== 'create') return;
-      const d = event.data;
-      if (!d || d.party_id !== party.id) return;
-      if (d.character_id === selfId) return;
-      if (d.payload?.battle_action) {
-        const dmg = d.payload.damage || 0;
-        const crit = d.payload.is_crit ? " 💥CRIT" : "";
-        const skill = d.payload.skill_name && d.payload.skill_name !== "Basic Attack" ? ` [${d.payload.skill_name}]` : "";
-        const enemy = d.payload.enemy_name ? ` on ${d.payload.enemy_name}` : "";
-        const msg = `🗡️ ${d.character_name}${skill}${crit}: ${dmg} dmg${enemy}`;
-        setRecentActions(prev => [msg, ...prev.slice(0, 4)]);
-        onPartyAction?.(msg);
-      }
-    });
-    return unsub;
+    const poll = async () => {
+      try {
+        const activities = await base44.entities.PartyActivity.filter({ party_id: party.id });
+        for (const d of activities || []) {
+          if (!d || d.character_id === selfId) continue;
+          if (seenBattleIdsRef.current.has(d.id)) continue;
+          seenBattleIdsRef.current.add(d.id);
+          // Skip old (>30s)
+          if (d.created_at && Date.now() - new Date(d.created_at).getTime() > 30000) continue;
+          if (d.payload?.battle_action) {
+            const dmg = d.payload.damage || 0;
+            const crit = d.payload.is_crit ? " 💥CRIT" : "";
+            const skill = d.payload.skill_name && d.payload.skill_name !== "Basic Attack" ? ` [${d.payload.skill_name}]` : "";
+            const enemy = d.payload.enemy_name ? ` on ${d.payload.enemy_name}` : "";
+            const msg = `🗡️ ${d.character_name}${skill}${crit}: ${dmg} dmg${enemy}`;
+            setRecentActions(prev => [msg, ...prev.slice(0, 4)]);
+            onPartyAction?.(msg);
+          }
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
   }, [party?.id, selfId]);
 
   if (!party || !liveMembers.length || liveMembers.length <= 1) return null;

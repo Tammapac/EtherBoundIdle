@@ -8,62 +8,65 @@ export default function PartyActivityNotifier({ character, partyId, onJoinDungeo
   const [notifications, setNotifications] = useState([]);
   const [seenZones, setSeenZones] = useState(new Set());
 
+  const seenIdsRef = React.useRef(new Set());
+
   useEffect(() => {
     if (!partyId || !character?.id) return;
 
-    const unsub = base44.entities.PartyActivity.subscribe((event) => {
-      if (event.type !== 'create' && event.type !== 'update') return;
-      const data = event.data;
-      if (!data) return;
-      if (data.party_id !== partyId) return;
-      if (data.character_id === character.id) return; // ignore own activity
+    const poll = async () => {
+      try {
+        // Fetch recent party activities (last 2 minutes)
+        const activities = await base44.entities.PartyActivity.filter({ party_id: partyId });
+        if (!activities?.length) return;
 
-      const id = event.id || Date.now();
-      
-      // Handle battle action notifications (damage dealt in zones)
-      if (data.payload?.battle_action) {
-        setNotifications(prev => {
-          if (prev.some(n => n.id === id)) return prev;
-          const notif = { id, ...data };
-          // Battle notifications auto-dismiss after 5 seconds
-          setTimeout(() => {
-            setNotifications(p => p.filter(n => n.id !== id));
-          }, 5000);
-          return [...prev, notif];
-        });
-        return;
-      }
+        for (const data of activities) {
+          if (!data || data.character_id === character.id) continue;
+          const id = data.id;
+          if (seenIdsRef.current.has(id)) continue;
+          seenIdsRef.current.add(id);
 
-      // Handle zone travel notifications (show once per zone per player)
-      if (data.activity_type === 'enter_zone') {
-        const zoneKey = `${data.character_id}_${data.payload?.zone}`;
-        if (seenZones.has(zoneKey)) return; // Skip if already shown
+          // Skip old activities (older than 2 minutes)
+          if (data.created_at) {
+            const age = Date.now() - new Date(data.created_at).getTime();
+            if (age > 120000) continue;
+          }
 
-        setSeenZones(prev => new Set(prev).add(zoneKey));
-        setNotifications(prev => {
-          if (prev.some(n => n.id === id)) return prev;
-          const notif = { id, ...data };
-          // Zone notifications auto-dismiss after 8 seconds
-          setTimeout(() => {
-            setNotifications(p => p.filter(n => n.id !== id));
-          }, 8000);
-          return [...prev, notif];
-        });
-        return;
-      }
+          // Handle battle action notifications
+          if (data.payload?.battle_action) {
+            setNotifications(prev => {
+              const notif = { id, ...data };
+              setTimeout(() => setNotifications(p => p.filter(n => n.id !== id)), 5000);
+              return [...prev, notif];
+            });
+            continue;
+          }
 
-      // Handle other activity types normally
-      setNotifications(prev => {
-        if (prev.some(n => n.id === id)) return prev;
-        const notif = { id, ...data };
-        setTimeout(() => {
-          setNotifications(p => p.filter(n => n.id !== id));
-        }, 30000);
-        return [...prev, notif];
-      });
-    });
+          // Handle zone travel notifications (show once per zone per player)
+          if (data.activity_type === 'enter_zone') {
+            const zoneKey = `${data.character_id}_${data.payload?.zone}`;
+            if (seenZones.has(zoneKey)) continue;
+            setSeenZones(prev => new Set(prev).add(zoneKey));
+            setNotifications(prev => {
+              const notif = { id, ...data };
+              setTimeout(() => setNotifications(p => p.filter(n => n.id !== id)), 8000);
+              return [...prev, notif];
+            });
+            continue;
+          }
 
-    return unsub;
+          // Handle dungeon entry and other activity types
+          setNotifications(prev => {
+            const notif = { id, ...data };
+            setTimeout(() => setNotifications(p => p.filter(n => n.id !== id)), 30000);
+            return [...prev, notif];
+          });
+        }
+      } catch {}
+    };
+
+    poll(); // Initial fetch
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
   }, [partyId, character?.id]);
 
   const dismiss = (id) => setNotifications(prev => prev.filter(n => n.id !== id));
