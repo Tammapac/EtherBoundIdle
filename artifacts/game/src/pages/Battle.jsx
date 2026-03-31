@@ -269,7 +269,11 @@ export default function Battle({ character, onCharacterUpdate }) {
   const doEnemyTurn = useCallback((currentPlayerHp, currentEnemyData) => {
     if (!currentEnemyData) return;
     // Guard: abort if enemy already dead (e.g. killed by party member via polling)
-    if (enemyDeadRef.current) return;
+    if (enemyDeadRef.current) {
+      // Reset phase so combat doesn't get stuck in "enemy_turn"
+      setCombatPhase(prev => prev === "enemy_turn" ? "enemy_dead" : prev);
+      return;
+    }
     const equipped = allItems.filter(i => i.equipped);
     const { derived: d } = calculateFinalStats(character, equipped);
     const rawEnemyDmg = Math.floor(currentEnemyData.dmg * (0.8 + Math.random() * 0.4));
@@ -985,9 +989,24 @@ export default function Battle({ character, onCharacterUpdate }) {
     // If no enemy and not in shared battle mode, spawn one after a short delay
     if (!enemy && !isSharedBattle && (combatPhase === "idle" || combatPhase === "enemy_dead")) {
       const timer = setTimeout(() => {
+        enemyDeadRef.current = false;
         spawnEnemy();
       }, 200);
       return () => clearTimeout(timer);
+    }
+    // Safety: if stuck in enemy_turn for too long (e.g. doEnemyTurn aborted), recover
+    if (combatPhase === "enemy_turn" && enemy) {
+      const stuckTimer = setTimeout(() => {
+        // If still in enemy_turn after 5s, something went wrong — force player turn
+        setCombatPhase(prev => {
+          if (prev === "enemy_turn") {
+            setIsPlayerTurn(true);
+            return "player_turn";
+          }
+          return prev;
+        });
+      }, 5000);
+      return () => clearTimeout(stuckTimer);
     }
   }, [character?.id, enemy, isSharedBattle, combatPhase, region, spawnEnemy]);
 
