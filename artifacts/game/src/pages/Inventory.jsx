@@ -17,6 +17,7 @@ import { canEquipItem, validateEquip, getAllowedClassesLabel, EQUIPMENT_SLOTS, S
 import { calculateFinalStats } from "@/lib/statSystem";
 import { aggregateSetStats } from "@/lib/setSystem";
 import ItemTooltip from "@/components/game/ItemTooltip";
+import SetCollectionPanel from "@/components/game/SetCollectionPanel";
 
 const TYPE_ICONS = {
   weapon: Swords,
@@ -432,9 +433,19 @@ export default function Inventory({ character, onCharacterUpdate }) {
               <TabsTrigger value="ring" className="flex items-center gap-1 text-xs"><CircleDot className="w-3 h-3" />Rings</TabsTrigger>
               <TabsTrigger value="amulet" className="flex items-center gap-1 text-xs"><Gem className="w-3 h-3" />Amulets</TabsTrigger>
               <TabsTrigger value="consumable" className="flex items-center gap-1 text-xs"><FlaskConical className="w-3 h-3" />Consumables</TabsTrigger>
+              <TabsTrigger value="sets" className="flex items-center gap-1 text-xs"><Shield className="w-3 h-3 text-yellow-400" />Sets</TabsTrigger>
             </TabsList>
           </Tabs>
 
+          {filter === "sets" ? (
+            <div className="bg-card border border-border rounded-xl p-4">
+              <SetCollectionPanel
+                equippedItems={equipped}
+                allItems={items}
+                characterClass={character?.class}
+              />
+            </div>
+          ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {isLoading && Array(4).fill(0).map((_, i) => (
               <div key={i} className="bg-card border border-border rounded-lg p-3 animate-pulse h-24" />
@@ -462,6 +473,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
               </div>
             )}
           </div>
+          )}
         </div>
 
         <div className="hidden md:block w-52 flex-shrink-0">

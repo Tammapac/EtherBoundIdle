@@ -30,9 +30,10 @@ export default function SetCollectionPanel({ equippedItems = [], allItems = [], 
   }
 
   // Count owned pieces (in inventory + equipped)
+  // Items from API have setId (from set_id column) or set_name (from extraData)
   const ownedPieceNames = new Set([
-    ...allItems.filter(i => i.set_key || i.set_name).map(i => i.name),
-    ...equippedItems.filter(i => i.set_key || i.set_name).map(i => i.name),
+    ...allItems.filter(i => i.setId || i.set_key || i.set_name).map(i => i.name),
+    ...equippedItems.filter(i => i.setId || i.set_key || i.set_name).map(i => i.name),
   ]);
 
   return (
