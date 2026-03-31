@@ -233,10 +233,12 @@ export default function Profile({ character, onCharacterUpdate }) {
         </div>
         <div className="space-y-1">
           {STAT_CONFIG.map(({ key, label, icon: Icon, color }) => {
-            const baseVal = base[key] || 0;
+            // Use character's original stat (not previewChar's base which already includes pending)
+            const baseVal = character[key] || (key === "luck" ? 5 : 10);
             const gearBonus = equipBonus[key] || 0;
             const pending = pendingStats[key] || 0;
-            const finalVal = (total[key] || 0) + pending;
+            // total already includes pending via previewChar, no need to add pending again
+            const finalVal = total[key] || 0;
             return (
               <div key={key} className="flex items-center gap-3 py-1">
                 <div className="flex-1">
