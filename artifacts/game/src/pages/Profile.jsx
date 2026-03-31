@@ -231,7 +231,7 @@ export default function Profile({ character, onCharacterUpdate }) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Attributes</h3>
           <Badge variant="outline" className="text-primary border-primary/30">
-            {availablePoints} points available
+            {availablePoints} pts available (Shift+Click=10)
           </Badge>
         </div>
         <div className="space-y-1">
@@ -265,26 +265,42 @@ export default function Profile({ character, onCharacterUpdate }) {
                 </div>
                 {(character.stat_points || 0) > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => removeStat(key, e.shiftKey ? 10 : 1)} disabled={!pendingStats[key]} title="Click -1, Shift+Click -10">
-                      <Minus className="w-3.5 h-3.5" />
-                    </Button>
+                    <button
+                      type="button"
+                      className="h-7 w-7 flex items-center justify-center rounded bg-red-900/50 text-red-300 hover:bg-red-800 disabled:opacity-30"
+                      onClick={(e) => removeStat(key, e.shiftKey ? 10 : 1)}
+                      disabled={!pendingStats[key]}
+                    >
+                      -
+                    </button>
                     <input
-                      type="number"
-                      min="0"
-                      max={availablePoints + pending}
+                      type="text"
+                      inputMode="numeric"
                       value={pending}
                       onChange={(e) => {
-                        const val = Math.max(0, Math.min(parseInt(e.target.value) || 0, availablePoints + pending));
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        const val = Math.max(0, Math.min(parseInt(raw) || 0, availablePoints + pending));
                         setPendingStats(prev => ({ ...prev, [key]: val }));
                       }}
-                      className="w-12 h-7 text-center text-xs bg-background border border-border rounded px-1 font-mono text-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-10 h-7 text-center text-xs rounded px-1 font-mono"
+                      style={{ backgroundColor: '#1e293b', color: '#e2e8f0', border: '1px solid #475569' }}
                     />
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => addStat(key, e.shiftKey ? 10 : 1)} disabled={availablePoints <= 0} title="Click +1, Shift+Click +10">
-                      <Plus className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary" onClick={() => addStat(key, availablePoints)} disabled={availablePoints <= 0}>
-                      Max
-                    </Button>
+                    <button
+                      type="button"
+                      className="h-7 w-7 flex items-center justify-center rounded bg-green-900/50 text-green-300 hover:bg-green-800 disabled:opacity-30"
+                      onClick={(e) => addStat(key, e.shiftKey ? 10 : 1)}
+                      disabled={availablePoints <= 0}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      className="h-7 px-2 text-xs rounded bg-cyan-900/50 text-cyan-300 hover:bg-cyan-800 disabled:opacity-30"
+                      onClick={() => addStat(key, availablePoints)}
+                      disabled={availablePoints <= 0}
+                    >
+                      MAX
+                    </button>
                   </div>
                 )}
               </div>
