@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import WelcomeBackModal from "@/components/game/WelcomeBackModal";
 import {
   Swords, Skull, Sparkles, Heart,
-  Shield, Zap,
+  Shield, Zap, ArrowUp,
   ShieldCheck, Crown, Footprints, CircleDot, Gem, FlaskConical, Package, Play, Pause
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const LOOT_TYPE_ICONS = {
   weapon: Swords, armor: ShieldCheck, helmet: Crown,
@@ -40,6 +41,7 @@ const HP_REGEN_PER_TURN = 0.03; // 3%
 const MP_REGEN_PER_TURN = 0.05; // 5%
 
 export default function Battle({ character, onCharacterUpdate }) {
+  const navigate = useNavigate();
   useEffect(() => {
     idleEngine.pauseFight();
     return () => { idleEngine.resumeFight(); };
@@ -1127,9 +1129,19 @@ export default function Battle({ character, onCharacterUpdate }) {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-orbitron text-xl font-bold">{region?.name || "Unknown"}</h2>
-          <p className="text-xs text-muted-foreground">Level {region?.levelRange?.[0]}–{region?.levelRange?.[1]}</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="font-orbitron text-xl font-bold">{region?.name || "Unknown"}</h2>
+            <p className="text-xs text-muted-foreground">Level {region?.levelRange?.[0]}–{region?.levelRange?.[1]}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+            onClick={() => navigate("/tower")}
+          >
+            <ArrowUp className="w-4 h-4" /> Tower
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           {/* Turn indicator */}

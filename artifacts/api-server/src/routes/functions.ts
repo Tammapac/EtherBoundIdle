@@ -2537,9 +2537,11 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
         text: `You use ${skillName} on ${enemy.name} for ${finalDmg}${isCrit ? " (CRIT!)" : ""}${elemBonusDmg > 0 ? ` (+${elemBonusDmg} elem)` : ""}!`,
       });
 
-      // Lifesteal
+      // Lifesteal (capped at 10% of max HP per hit)
       if (memberLifesteal > 0 && finalDmg > 0) {
-        const healAmt = Math.floor(finalDmg * memberLifesteal / 100);
+        const rawHeal = Math.floor(finalDmg * memberLifesteal / 100);
+        const maxHeal = Math.floor(me.max_hp * 0.10);
+        const healAmt = Math.min(rawHeal, maxHeal);
         if (healAmt > 0) {
           me.hp = Math.min(me.max_hp, me.hp + healAmt);
           d.combat_log.push({ type: "heal", text: `You leech ${healAmt} HP!` });

@@ -14,20 +14,24 @@ git pull origin main
 echo "=== Step 2: Installing dependencies ==="
 pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
-echo "=== Step 3: Building frontend (Vite) ==="
-cd artifacts/game
+echo "=== Step 3: Building shared libraries (db) ==="
+npx tsc --build lib/db
+echo "DB lib built: $(ls lib/db/dist/schema/game.js 2>/dev/null && echo 'OK' || echo 'MISSING!')"
+
+echo "=== Step 4: Building frontend (Vite) ==="
+cd "$REPO_DIR/artifacts/game"
 rm -rf dist node_modules/.vite
 npx vite build
 echo "Frontend built: $(ls dist/index.html 2>/dev/null && echo 'OK' || echo 'MISSING!')"
 
-echo "=== Step 4: Building API server (copies frontend into dist/public) ==="
-cd ../api-server
+echo "=== Step 5: Building API server (copies frontend into dist/public) ==="
+cd "$REPO_DIR/artifacts/api-server"
 node build.mjs
 # Remove old .mjs file if it exists (PM2 was pointing to wrong file)
 rm -f dist/index.mjs
 echo "Public dir: $(ls dist/public/index.html 2>/dev/null && echo 'OK' || echo 'MISSING!')"
 
-echo "=== Step 5: Restarting PM2 ==="
+echo "=== Step 6: Restarting PM2 ==="
 cd "$REPO_DIR"
 pm2 delete all 2>/dev/null || true
 pm2 start ecosystem.config.cjs
