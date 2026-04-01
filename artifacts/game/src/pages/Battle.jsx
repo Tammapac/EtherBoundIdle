@@ -83,6 +83,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   const sharedEnemyClaimedRef = useRef(false);
   const enemyDeadRef = useRef(false);
 
+  const [lastPetInfo, setLastPetInfo] = useState(null);
   const queryClient = useQueryClient();
   const region = REGIONS[character?.current_region || "verdant_forest"];
   const charClass = CLASSES[character?.class || "warrior"];
@@ -630,7 +631,8 @@ export default function Battle({ character, onCharacterUpdate }) {
         partySize: partySize,
       });
 
-      const { rewards, character: updatedChar, levelsGained, loot, partyBonuses } = result;
+      const { rewards, character: updatedChar, levelsGained, loot, partyBonuses, petInfo } = result;
+      if (petInfo) setLastPetInfo(petInfo);
 
       if (levelsGained?.length > 0) {
         levelsGained.forEach(lv => addLog(`🎉 LEVEL UP! You are now level ${lv}!`));
@@ -1215,6 +1217,29 @@ export default function Battle({ character, onCharacterUpdate }) {
               );
             })()}
           </div>
+          {/* Pet Companion Display */}
+          {lastPetInfo && (() => {
+            const PET_SPECIES_ICONS = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
+            const PET_EVO_SUFFIX = ["", "⭐", "👑"];
+            const icon = PET_SPECIES_ICONS[lastPetInfo.species] || "🐾";
+            const evoSuffix = PET_EVO_SUFFIX[lastPetInfo.evolution || 0] || "";
+            const RARITY_PET_COLORS = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
+            const rarityColor = RARITY_PET_COLORS[lastPetInfo.rarity] || "text-gray-400";
+            return (
+              <div className="mt-2 flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-2 py-1.5">
+                <span className="text-base leading-none">{icon}{evoSuffix}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
+                    {lastPetInfo.name || lastPetInfo.species}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
+                    Lv.{lastPetInfo.level} · {lastPetInfo.skillType || "companion"}
+                  </p>
+                </div>
+                <span className="text-[9px] text-muted-foreground flex-shrink-0">🐾 pet</span>
+              </div>
+            );
+          })()}
         </motion.div>
 
         {/* VS */}

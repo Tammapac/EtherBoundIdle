@@ -3224,7 +3224,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     // Award pet XP from combat
     if (equippedPet) {
       try {
-        let petXp = (equippedPet.xp || 0) + 10 + Math.floor((char.level || 1) / 5);
+        let petXp = (equippedPet.xp || 0) + 5;
         let petLevel = equippedPet.level || 1;
         while (petXp >= PET_XP_PER_LEVEL && petLevel < PET_MAX_LEVEL) {
           petXp -= PET_XP_PER_LEVEL;
@@ -3330,7 +3330,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
           else if (luckRoll > 92) petRarity = "epic";
           else if (luckRoll > 80) petRarity = "rare";
           else if (luckRoll > 60) petRarity = "uncommon";
-          const petLevel = Math.max(1, Math.floor((char.level || 1) / 3));
+          const petLevel = 1;
           await db.insert(petsTable).values({
             characterId,
             name: speciesData.species,
@@ -3407,7 +3407,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         newLevel,
         newExp,
         newGold,
-        petInfo: equippedPet ? { id: equippedPet.id, level: equippedPet.level, xp: equippedPet.xp } : null,
+        petInfo: equippedPet ? { id: equippedPet.id, species: equippedPet.species, name: equippedPet.name, level: equippedPet.level, xp: equippedPet.xp, rarity: equippedPet.rarity, skillType: equippedPet.skillType, skillValue: equippedPet.skillValue, evolution: equippedPet.evolution || 0 } : null,
       });
   } catch (err: any) {
     req.log.error({ err }, "fight error");
@@ -3996,7 +3996,7 @@ const PET_SPECIES = [
 
 const PET_RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
 const PET_RARITY_MULT: Record<string, number> = { common: 1, uncommon: 1.5, rare: 2.2, epic: 3, legendary: 4.5, mythic: 7 };
-const PET_XP_PER_LEVEL = 200;
+const PET_XP_PER_LEVEL = 500;
 const PET_MAX_LEVEL = 50;
 
 const PET_TRAITS = [
@@ -4165,7 +4165,10 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         auras: PET_AURAS,
         setBonuses: SET_BONUSES,
         mutationTraits: MUTATION_TRAITS,
-        secretCombos: Object.keys(SECRET_COMBOS),
+        secretCombos: Object.entries(SECRET_COMBOS).map(([key, val]) => {
+          const [parent1, parent2] = key.split("+");
+          return { parent1, parent2, result: val.species, resultName: val.name, rarity: val.rarity };
+        }),
       });
       return;
     }
@@ -4254,6 +4257,23 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       return;
     }
 
+    // === SELL PET ===
+    if (action === "sell") {
+      if (!petId) { sendError(res, 400, "petId required"); return; }
+      const [pet] = await db.select().from(petsTable).where(
+        and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
+      );
+      if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      if (pet.equipped) { sendError(res, 400, "Cannot sell equipped pet"); return; }
+      const sellPrices: Record<string, number> = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
+      const goldGain = sellPrices[pet.rarity] || 100;
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      await db.update(charactersTable).set({ gold: (char?.gold || 0) + goldGain }).where(eq(charactersTable.id, characterId));
+      await db.delete(petsTable).where(eq(petsTable.id, petId));
+      sendSuccess(res, { sold: petId, goldGain });
+      return;
+    }
+
     // === REROLL TRAITS (costs gold) ===
     if (action === "reroll_traits" || action === "rerollTraits") {
       if (!petId) { sendError(res, 400, "petId required"); return; }
@@ -4284,10 +4304,10 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       if ((pet.level || 1) < nextStage.levelReq) {
         sendError(res, 400, `Pet needs level ${nextStage.levelReq} to evolve (currently ${pet.level})`); return;
       }
-      const goldCost = EVOLUTION_MATERIAL_COST[pet.rarity] || 1000;
+      const gemCost = 500;
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
-      if (!char || (char.gold || 0) < goldCost) { sendError(res, 400, `Need ${goldCost} gold to evolve`); return; }
-      await db.update(charactersTable).set({ gold: (char.gold || 0) - goldCost }).where(eq(charactersTable.id, characterId));
+      if (!char || (char.gems || 0) < gemCost) { sendError(res, 400, `Need ${gemCost} gems to evolve`); return; }
+      await db.update(charactersTable).set({ gems: (char.gems || 0) - gemCost }).where(eq(charactersTable.id, characterId));
       const newName = `${nextStage.prefix}${pet.species}`;
       const newPassive = Math.floor(getPetPassiveValue(pet.level, pet.rarity) * nextStage.statMult);
       const newSkill = Math.floor(getPetSkillValue(pet.level, pet.rarity) * nextStage.statMult);
@@ -4295,7 +4315,7 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         evolution: currentEvo + 1, name: newName,
         passiveValue: newPassive, skillValue: newSkill,
       }).where(eq(petsTable.id, petId)).returning();
-      sendSuccess(res, { pet: updated, goldCost, stage: nextStage.name });
+      sendSuccess(res, { pet: updated, gemCost, stage: nextStage.name });
       return;
     }
 
@@ -4348,15 +4368,15 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
       );
       if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      const feedCost = 200;
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char || (char.gold || 0) < feedCost) { sendError(res, 400, `Need ${feedCost} gold for pet food`); return; }
       const now = new Date();
       if (pet.lastFedAt && (now.getTime() - new Date(pet.lastFedAt).getTime()) < FEED_COOLDOWN_MS) {
         const remaining = Math.ceil((FEED_COOLDOWN_MS - (now.getTime() - new Date(pet.lastFedAt).getTime())) / 60000);
         sendError(res, 400, `Pet was fed recently. Try again in ${remaining} minutes`);
         return;
       }
-      const feedCost = 100 + (pet.bondLevel || 0) * 50;
-      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
-      if (!char || (char.gold || 0) < feedCost) { sendError(res, 400, `Need ${feedCost} gold to feed`); return; }
       await db.update(charactersTable).set({ gold: (char.gold || 0) - feedCost }).where(eq(charactersTable.id, characterId));
       let newBond = (pet.bond || 0) + FEED_BOND_GAIN;
       let newBondLevel = pet.bondLevel || 0;
@@ -4374,13 +4394,15 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
     if (action === "get_auras" || action === "getAuras") {
       const pets = await db.select().from(petsTable).where(eq(petsTable.characterId, characterId));
       const ownedSpecies = [...new Set(pets.map(p => p.species))];
-      const activeAuras = ownedSpecies.filter(s => PET_AURAS[s]).map(s => ({
-        species: s, ...PET_AURAS[s],
+      const activeAuras = ownedSpecies.filter(s => PET_AURAS[s]).map(s => {
+        const aura = PET_AURAS[s];
+        return { species: s, name: aura.name, desc: aura.desc, effect: aura.desc };
+      });
+      const allSets = SET_BONUSES.map(sb => ({
+        name: sb.name, requiredSpecies: sb.required, bonus: sb.desc, description: sb.desc,
+        isActive: sb.required.every(sp => ownedSpecies.includes(sp)),
       }));
-      const activeSets = SET_BONUSES.filter(sb =>
-        sb.required.every(sp => ownedSpecies.includes(sp))
-      );
-      sendSuccess(res, { auras: activeAuras, setBonuses: activeSets, ownedSpecies });
+      sendSuccess(res, { auras: activeAuras, setBonuses: allSets, ownedSpecies });
       return;
     }
 
@@ -4394,10 +4416,11 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       if (!p1 || !p2) { sendError(res, 404, "Pet not found"); return; }
       if (p1.equipped || p2.equipped) { sendError(res, 400, "Cannot breed equipped pets"); return; }
 
-      const goldCost = Math.floor(BREEDING_COST * (PET_RARITY_MULT[p1.rarity] || 1 + PET_RARITY_MULT[p2.rarity] || 1) / 2);
+      const goldCost = 5000;
+      const gemCost = 100;
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
-      if (!char || (char.gold || 0) < goldCost) { sendError(res, 400, `Need ${goldCost} gold to breed`); return; }
-      await db.update(charactersTable).set({ gold: (char.gold || 0) - goldCost }).where(eq(charactersTable.id, characterId));
+      if (!char || (char.gold || 0) < goldCost || (char.gems || 0) < gemCost) { sendError(res, 400, `Need ${goldCost} gold and ${gemCost} gems to breed`); return; }
+      await db.update(charactersTable).set({ gold: (char.gold || 0) - goldCost, gems: (char.gems || 0) - gemCost }).where(eq(charactersTable.id, characterId));
 
       // Check for secret combo
       const comboKey1 = `${p1.species}+${p2.species}`;
@@ -4435,7 +4458,7 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       }
 
       const speciesData = PET_SPECIES.find(s => s.species === childSpecies) || PET_SPECIES[0];
-      const childLevel = Math.max(1, Math.floor(((p1.level || 1) + (p2.level || 1)) / 3));
+      const childLevel = 1;
       const childTraits = rollTraits(childRarity);
       if (mutationTrait) childTraits.push({ key: mutationTrait.key, name: mutationTrait.name, desc: mutationTrait.desc });
 
@@ -4456,6 +4479,7 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         isMutation,
         mutationTrait: mutationTrait ? { name: mutationTrait.name, desc: mutationTrait.desc } : null,
         goldCost,
+        gemCost,
       });
       return;
     }
@@ -4466,7 +4490,7 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       const speciesData = PET_SPECIES.find(s => s.species === (reqSpecies || "Wolf")) || PET_SPECIES[0];
       const rarity = reqRarity || "rare";
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
-      const petLevel = Math.max(1, Math.floor(((char?.level || 1)) / 3));
+      const petLevel = 1;
       const [pet] = await db.insert(petsTable).values({
         characterId, name: speciesData.species, species: speciesData.species,
         rarity, level: petLevel, xp: 0,
@@ -4598,7 +4622,7 @@ router.post("/functions/petExpedition", async (req: Request, res: Response) => {
       if (rewards.petEgg) {
         const speciesData = PET_SPECIES[Math.floor(Math.random() * PET_SPECIES.length)];
         const petRarity = Math.random() > 0.8 ? "rare" : Math.random() > 0.5 ? "uncommon" : "common";
-        const eggLevel = Math.max(1, Math.floor(((pet?.level || 1) + (char?.level || 1)) / 4));
+        const eggLevel = 1;
         await db.insert(petsTable).values({
           characterId, name: speciesData.species, species: speciesData.species,
           rarity: petRarity, level: eggLevel, xp: 0,

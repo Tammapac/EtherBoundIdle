@@ -82,7 +82,7 @@ const TRAIT_COLORS = [
   "bg-teal-500/20 text-teal-300 border-teal-500/30",
 ];
 
-const PET_XP_PER_LEVEL = 200;
+const PET_XP_PER_LEVEL = 500;
 
 // Evolution stage config
 const EVOLUTION_STAGES = [
@@ -226,6 +226,8 @@ function PetsInner({ character, onCharacterUpdate }) {
   // My Pets state
   const [selectedForFuse, setSelectedForFuse] = useState([]);
   const [fuseMode, setFuseMode] = useState(false);
+  const [fuseSpeciesFilter, setFuseSpeciesFilter] = useState(null);
+  const [fuseRarityFilter, setFuseRarityFilter] = useState(null);
 
   // Expeditions state
   const [selectedExpeditionPet, setSelectedExpeditionPet] = useState("");
@@ -303,13 +305,27 @@ function PetsInner({ character, onCharacterUpdate }) {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["pets"] }); toast({ title: "Pet released", duration: 1500 }); },
   });
 
+  const sellMutation = useMutation({
+    mutationFn: (petId) => base44.functions.invoke("petAction", { characterId: character.id, action: "sell", petId }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      if (onCharacterUpdate) onCharacterUpdate();
+      toast({ title: "Pet sold!", description: `+${data?.goldGain?.toLocaleString() || 0} gold`, duration: 2000 });
+    },
+    onError: (err) => toast({ title: "Sell failed", description: err?.message, variant: "destructive" }),
+  });
+
   const fuseMutation = useMutation({
     mutationFn: ({ species, rarity }) => base44.functions.invoke("petAction", { characterId: character.id, action: "fuse", species, rarity }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
       setSelectedForFuse([]);
       setFuseMode(false);
-      toast({ title: "Fusion successful!", description: `Created a new ${data?.pet?.rarity} ${data?.pet?.species}!`, duration: 3000 });
+      setFuseSpeciesFilter(null);
+      setFuseRarityFilter(null);
+      const p = data?.pet;
+      const desc = p ? `${p.rarity} ${p.species} — Lv.${p.level}, Passive: +${p.passiveValue}, Skill: ${p.skillValue}` : "New pet created!";
+      toast({ title: "Fusion successful!", description: desc, duration: 4000 });
     },
     onError: (err) => toast({ title: "Fusion failed", description: err?.message, variant: "destructive" }),
   });
@@ -354,9 +370,12 @@ function PetsInner({ character, onCharacterUpdate }) {
     mutationFn: (petId) => base44.functions.invoke("petAction", { characterId: character.id, action: "evolve", petId }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
+      if (onCharacterUpdate) onCharacterUpdate();
       setEvolvingPetId(null);
-      const stageName = EVOLUTION_STAGES[data?.stage ?? 1]?.name || "Adult";
-      toast({ title: `Evolution complete!`, description: `Your pet is now ${stageName}!`, duration: 3000 });
+      const p = data?.pet;
+      const stageName = data?.stage || (p?.evolution === 1 ? "Adult" : "Elder");
+      const desc = p ? `${p.species} is now ${stageName}! Passive: +${p.passiveValue}, Skill: ${p.skillValue}` : `Your pet is now ${stageName}!`;
+      toast({ title: `Evolution complete!`, description: desc, duration: 4000 });
     },
     onError: (err) => {
       setEvolvingPetId(null);
@@ -493,7 +512,9 @@ function PetsInner({ character, onCharacterUpdate }) {
     if (!fuseMode) return;
     const already = selectedForFuse.find(p => p.id === pet.id);
     if (already) {
-      setSelectedForFuse(selectedForFuse.filter(p => p.id !== pet.id));
+      const next = selectedForFuse.filter(p => p.id !== pet.id);
+      setSelectedForFuse(next);
+      if (next.length === 0) { setFuseSpeciesFilter(null); setFuseRarityFilter(null); }
       return;
     }
     if (selectedForFuse.length >= 3) return;
@@ -504,7 +525,13 @@ function PetsInner({ character, onCharacterUpdate }) {
         return;
       }
     }
-    setSelectedForFuse([...selectedForFuse, pet]);
+    const next = [...selectedForFuse, pet];
+    setSelectedForFuse(next);
+    // Auto-filter to matching species/rarity when first pet selected
+    if (next.length === 1) {
+      setFuseSpeciesFilter(pet.species);
+      setFuseRarityFilter(pet.rarity);
+    }
   };
 
   const canFuse = selectedForFuse.length === 3;
@@ -627,14 +654,16 @@ function PetsInner({ character, onCharacterUpdate }) {
         </div>
 
         {/* Passive */}
-        <div className="flex items-center gap-1.5 text-[10px] mb-1">
+        <div className="flex items-center gap-1.5 text-[10px] mb-1"
+          title={`${PASSIVE_LABELS[pet.passiveType] || pet.passiveType}: Provides +${pet.passiveValue}${pet.passiveType === "crit_chance" ? "% critical hit chance" : pet.passiveType === "luck" ? " luck bonus" : pet.passiveType === "damage" ? "% damage boost" : pet.passiveType === "defense" ? "% defense boost" : pet.passiveType === "exp_gain" ? "% experience gain" : pet.passiveType === "gold_gain" ? "% gold gain" : " bonus"} passively while equipped`}>
           <Star className="w-3 h-3 text-amber-400" />
           <span className="text-muted-foreground">{PASSIVE_LABELS[pet.passiveType] || pet.passiveType}:</span>
           <span className="font-bold">+{pet.passiveValue}{pet.passiveType === "crit_chance" || pet.passiveType === "luck" ? "" : "%"}</span>
         </div>
 
         {/* Skill */}
-        <div className="flex items-center gap-1.5 text-[10px] mb-2">
+        <div className="flex items-center gap-1.5 text-[10px] mb-2"
+          title={`${SKILL_LABELS[pet.skillType] || pet.skillType}: ${pet.skillType === "heal" ? `Restores ${pet.skillValue} HP during combat` : pet.skillType === "shield" ? `Absorbs ${pet.skillValue} damage in combat` : pet.skillType === "extra_attack" ? `Deals ${pet.skillValue} bonus damage` : `Value: ${pet.skillValue}`}`}>
           <SkillIcon className="w-3 h-3 text-cyan-400" />
           <span className="text-muted-foreground">{SKILL_LABELS[pet.skillType] || pet.skillType}:</span>
           <span className="font-bold">{pet.skillValue}</span>
@@ -659,11 +688,11 @@ function PetsInner({ character, onCharacterUpdate }) {
                   size="sm"
                   variant="outline"
                   className={`h-7 px-2 text-[10px] gap-1 ${canFeedNow ? "text-pink-400 border-pink-500/30 hover:bg-pink-500/10" : "text-muted-foreground border-gray-600"}`}
-                  title={canFeedNow ? "Feed pet (+bond)" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
+                  title={canFeedNow ? "Feed pet (+bond) — costs 200 gold" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
                   onClick={() => canFeedNow && feedMutation.mutate(pet.id)}
                   disabled={!canFeedNow || feedMutation.isPending}
                 >
-                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed" : formatCountdown(feedCooldown)}
+                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed (200g)" : formatCountdown(feedCooldown)}
                 </Button>
               </>
             ) : (
@@ -675,11 +704,11 @@ function PetsInner({ character, onCharacterUpdate }) {
                   size="sm"
                   variant="outline"
                   className={`h-7 px-2 text-[10px] gap-1 ${canFeedNow ? "text-pink-400 border-pink-500/30 hover:bg-pink-500/10" : "text-muted-foreground border-gray-600"}`}
-                  title={canFeedNow ? "Feed pet (+bond)" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
+                  title={canFeedNow ? "Feed pet (+bond) — costs 200 gold" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
                   onClick={() => canFeedNow && feedMutation.mutate(pet.id)}
                   disabled={!canFeedNow || feedMutation.isPending}
                 >
-                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed" : formatCountdown(feedCooldown)}
+                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed (200g)" : formatCountdown(feedCooldown)}
                 </Button>
                 <Button
                   size="sm"
@@ -690,6 +719,20 @@ function PetsInner({ character, onCharacterUpdate }) {
                   disabled={rerollTraitsMutation.isPending}
                 >
                   <RefreshCw className="w-3 h-3 mr-1" />Traits
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-[10px] text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                  title={`Sell for gold (${({ common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 }[pet.rarity] || 100).toLocaleString()} gold)`}
+                  onClick={() => {
+                    const prices = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
+                    const price = prices[pet.rarity] || 100;
+                    if (confirm(`Sell ${pet.species} for ${price.toLocaleString()} gold?`)) sellMutation.mutate(pet.id);
+                  }}
+                  disabled={sellMutation.isPending}
+                >
+                  Sell
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300" onClick={() => {
                   if (confirm("Release this pet?")) releaseMutation.mutate(pet.id);
@@ -868,7 +911,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                 size="sm"
                 variant={fuseMode ? "destructive" : "outline"}
                 className="gap-1.5 text-xs"
-                onClick={() => { setFuseMode(!fuseMode); setSelectedForFuse([]); }}
+                onClick={() => { setFuseMode(!fuseMode); setSelectedForFuse([]); setFuseSpeciesFilter(null); setFuseRarityFilter(null); }}
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 {fuseMode ? "Cancel Fusion" : "Fuse Pets"}
@@ -945,7 +988,18 @@ function PetsInner({ character, onCharacterUpdate }) {
                 {fuseMode ? "Select pets to fuse" : "Collection"}
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {unequippedPets.map(pet => renderPetCard(pet))}
+                {[...unequippedPets]
+                  .filter(pet => !fuseSpeciesFilter || !fuseMode || (pet.species === fuseSpeciesFilter && pet.rarity === fuseRarityFilter))
+                  .sort((a, b) => {
+                    const evoA = a.evolution ?? a.evolutionStage ?? 0;
+                    const evoB = b.evolution ?? b.evolutionStage ?? 0;
+                    if (evoB !== evoA) return evoB - evoA;
+                    const rarityOrder = ["mythic","legendary","epic","rare","uncommon","common"];
+                    const rA = rarityOrder.indexOf(a.rarity); const rB = rarityOrder.indexOf(b.rarity);
+                    if (rA !== rB) return rA - rB;
+                    return (b.level || 0) - (a.level || 0);
+                  })
+                  .map(pet => renderPetCard(pet))}
               </div>
             </div>
           )}
@@ -1261,7 +1315,7 @@ function PetsInner({ character, onCharacterUpdate }) {
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
               Pets evolve through 3 stages: <span className="text-gray-300 font-medium">Baby</span> → <span className="text-amber-300 font-medium">Adult ⭐ (Lv.15)</span> → <span className="text-purple-300 font-medium">Elder 👑 (Lv.35)</span>.
-              Evolving costs gold and permanently upgrades your pet's appearance and stats.
+              Evolving costs <span className="text-cyan-300 font-semibold">500 gems</span> and permanently upgrades your pet's appearance and stats.
             </p>
           </div>
 
@@ -1346,14 +1400,14 @@ function PetsInner({ character, onCharacterUpdate }) {
                           disabled={!eligible || isEvolving}
                           onClick={() => {
                             if (!eligible) return;
-                            if (confirm(`Evolve ${pet.species} to ${nextStage?.name} for ${goldCost.toLocaleString()} gold?`)) {
+                            if (confirm(`Evolve ${pet.species} to ${nextStage?.name} for 500 gems?`)) {
                               setEvolvingPetId(pet.id);
                               evolveMutation.mutate(pet.id);
                             }
                           }}
                         >
                           <TrendingUp className="w-3 h-3" />
-                          {isEvolving ? "Evolving..." : eligible ? `Evolve (${goldCost.toLocaleString()} gold)` : `Lv.${nextStage?.levelReq} required`}
+                          {isEvolving ? "Evolving..." : eligible ? "Evolve (500 💎)" : `Lv.${nextStage?.levelReq} required`}
                         </Button>
                       </div>
                     )}
@@ -1601,17 +1655,20 @@ function PetsInner({ character, onCharacterUpdate }) {
                   <span className="text-muted-foreground text-sm">=</span>
                   <span className="text-xl">?</span>
                 </div>
-                <Button
-                  className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white gap-1.5"
-                  onClick={() => {
-                    setBreedResult(null);
-                    breedMutation.mutate({ pet1Id: breedSlot1.id, pet2Id: breedSlot2.id });
-                  }}
-                  disabled={breedMutation.isPending}
-                >
-                  <Heart className="w-4 h-4" />
-                  {breedMutation.isPending ? "Breeding..." : "Breed"}
-                </Button>
+                <div className="flex flex-col items-end gap-1.5">
+                  <p className="text-[10px] text-amber-400">Cost: 5,000 gold + 100 gems</p>
+                  <Button
+                    className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white gap-1.5"
+                    onClick={() => {
+                      setBreedResult(null);
+                      breedMutation.mutate({ pet1Id: breedSlot1.id, pet2Id: breedSlot2.id });
+                    }}
+                    disabled={breedMutation.isPending}
+                  >
+                    <Heart className="w-4 h-4" />
+                    {breedMutation.isPending ? "Breeding..." : "Breed (5,000g + 100💎)"}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -1666,35 +1723,39 @@ function PetsInner({ character, onCharacterUpdate }) {
                     </div>
                   )}
                   {breedResult.goldCost > 0 && (
-                    <p className="text-[10px] text-amber-400">Cost: {breedResult.goldCost.toLocaleString()} gold</p>
+                    <p className="text-[10px] text-amber-400">Cost: {breedResult.goldCost.toLocaleString()} gold{breedResult.gemCost > 0 ? ` + ${breedResult.gemCost} gems` : ""}</p>
                   )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Secret combos hint list */}
-          {(petData?.secretCombos || []).length > 0 && (
-            <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
-              <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
-                <Star className="w-3.5 h-3.5 text-amber-400" /> Known Secret Combos
-              </p>
+          {/* Secret Combos reference */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5 text-amber-400" /> Secret Combos Reference
+            </p>
+            <p className="text-[10px] text-muted-foreground mb-3">Breed these pairs for a 25% chance to unlock a special pet!</p>
+            {(petData?.secretCombos || []).length > 0 ? (
               <div className="space-y-2">
-                {(petData?.secretCombos || []).map((combo, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs">
-                    <span className={combo.discovered ? "text-amber-300" : "text-gray-500"}>
-                      {combo.discovered
-                        ? `${SPECIES_ICONS[combo.parent1] || "???"} ${combo.parent1} + ${SPECIES_ICONS[combo.parent2] || "???"} ${combo.parent2} = ${SPECIES_ICONS[combo.result] || "???"} ${combo.result}`
-                        : "??? + ??? = ???"}
-                    </span>
-                    {combo.discovered && (
-                      <Badge className="bg-amber-500/20 text-amber-300 text-[8px] px-1">Discovered</Badge>
-                    )}
+                {(petData.secretCombos).map((combo, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs bg-gray-900/50 rounded-lg px-3 py-2">
+                    <span className="text-lg">{SPECIES_ICONS[combo.parent1] || "🐾"}</span>
+                    <span className="text-muted-foreground">{combo.parent1}</span>
+                    <span className="text-pink-400">+</span>
+                    <span className="text-lg">{SPECIES_ICONS[combo.parent2] || "🐾"}</span>
+                    <span className="text-muted-foreground">{combo.parent2}</span>
+                    <span className="text-amber-400 mx-1">→</span>
+                    <span className="text-lg">{SPECIES_ICONS[combo.result] || "✨"}</span>
+                    <span className="text-amber-300 font-semibold">{combo.resultName || combo.result}</span>
+                    <Badge className={`text-[8px] px-1 ml-auto ${RARITY_BADGE[combo.rarity] || RARITY_BADGE.common}`}>{combo.rarity}</Badge>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-[10px] text-muted-foreground italic">Secret combo data loading...</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -1732,7 +1793,11 @@ function PetsInner({ character, onCharacterUpdate }) {
                             <p className="text-sm font-semibold text-white">{aura.name || `${aura.species} Aura`}</p>
                             <p className="text-[10px] text-muted-foreground mt-0.5">{aura.species}</p>
                             {aura.effect && (
-                              <p className="text-[10px] text-cyan-300 mt-1">{aura.effect}</p>
+                              <p className="text-[10px] text-cyan-300 mt-1">
+                                {typeof aura.effect === 'object'
+                                  ? Object.entries(aura.effect).map(([k, v]) => `+${Math.round(v * 100)}% ${k}`).join(', ')
+                                  : aura.effect}
+                              </p>
                             )}
                           </div>
                         </div>
@@ -1755,7 +1820,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                     <div className="space-y-3">
                       {setBonuses.map((set, i) => {
                         const requiredSpecies = set.requiredSpecies || set.species || [];
-                        const isActive = Array.isArray(requiredSpecies) && requiredSpecies.every(s => ownedSpecies.has(s));
+                        const isActive = set.isActive ?? (Array.isArray(requiredSpecies) && requiredSpecies.every(s => ownedSpecies.has(s)));
 
                         return (
                           <div key={i} className={`rounded-xl border-2 p-4 transition-all ${
