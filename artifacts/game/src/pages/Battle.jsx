@@ -1130,7 +1130,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       {/* Tower of Trials - Big floating icon */}
       <div
         onClick={() => navigate("/tower")}
-        className="fixed bottom-24 right-6 z-30 w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
+        className="fixed top-20 left-4 z-30 w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
         title="Tower of Trials"
       >
         <ArrowUp className="w-7 h-7 text-amber-400 group-hover:text-amber-300 transition-colors" />
