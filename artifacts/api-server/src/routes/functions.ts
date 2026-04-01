@@ -3279,6 +3279,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         else if (m.missionKey === "earn_exp" || m.missionKey === "earn_exp_w") inc = expGain;
         else if (m.missionKey === "win_battles") inc = 1;
         else if (m.missionKey === "collect_items" && lootItem) inc = 1;
+        else if (m.missionKey === "use_skills") inc = 1;
         else if (m.missionKey === "boss_kills" && (serverIsBoss || serverIsElite)) inc = 1;
         if (inc > 0) {
           const newProg = Math.min((m.progress || 0) + inc, m.target);
