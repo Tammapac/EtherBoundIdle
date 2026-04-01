@@ -1093,7 +1093,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                                 <div className="text-[9px] text-muted-foreground space-y-0.5">
                                   {region.element && <div>Element: <span className="capitalize text-white/70">{region.element}</span></div>}
                                   {region.minLevel && <div>Min Level: <span className="text-white/70">{region.minLevel}</span></div>}
-                                  {region.baseRewards && <div>Rewards: <span className="text-white/70">{region.baseRewards}</span></div>}
+                                  {region.baseRewards && <div>Rewards: <span className="text-white/70">{typeof region.baseRewards === 'object' ? Object.entries(region.baseRewards).map(([k, v]) => `${v} ${k}`).join(', ') : region.baseRewards}</span></div>}
                                 </div>
                               </div>
                             );
