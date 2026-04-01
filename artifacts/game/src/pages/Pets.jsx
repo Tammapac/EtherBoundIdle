@@ -227,10 +227,11 @@ export default function Pets({ character, onCharacterUpdate }) {
   const [auraData, setAuraData] = useState(null);
 
   // ── Pets query ──
-  const { data: petData, isLoading: petsLoading } = useQuery({
+  const { data: petData, isLoading: petsLoading, error: petsError } = useQuery({
     queryKey: ["pets", character?.id],
     queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "list" }),
     enabled: !!character?.id,
+    retry: 1,
   });
 
   const pets = petData?.pets || [];
@@ -751,6 +752,19 @@ export default function Pets({ character, onCharacterUpdate }) {
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────────
+  if (petsError) {
+    return (
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+          <PawPrint className="w-10 h-10 text-red-400 mx-auto mb-3" />
+          <h3 className="font-bold text-red-300 mb-2">Pet System Error</h3>
+          <p className="text-sm text-red-200/70 mb-3">{petsError?.message || "Failed to load pets. The database may need updating."}</p>
+          <p className="text-xs text-muted-foreground">If you just merged a pet update, make sure to run the SQL from the PR description in Supabase first, then redeploy.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
       {/* Header */}
