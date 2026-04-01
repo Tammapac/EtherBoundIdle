@@ -24,6 +24,8 @@ import {
   chatMessagesTable,
   presencesTable,
   gemLabsTable,
+  seasonPassTable,
+  seasonMissionsTable,
 } from "@workspace/db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 
@@ -2613,6 +2615,22 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
         extraData.tower = towerProgress;
         await db.update(charactersTable).set({ extraData }).where(eq(charactersTable.id, characterId));
 
+        // Update season mission progress for tower floors
+        try {
+          const seasonMissions = await db.select().from(seasonMissionsTable).where(
+            and(eq(seasonMissionsTable.characterId, characterId), eq(seasonMissionsTable.status, "active"))
+          );
+          const nowMs = new Date();
+          for (const m of seasonMissions) {
+            if (m.expiresAt && new Date(m.expiresAt) < nowMs) continue;
+            if (m.missionKey === "tower_floors" || m.missionKey === "tower_floors_w") {
+              const newProg = Math.min((m.progress || 0) + 1, m.target);
+              const newSt = newProg >= m.target ? "completed" : "active";
+              await db.update(seasonMissionsTable).set({ progress: newProg, status: newSt }).where(eq(seasonMissionsTable.id, m.id));
+            }
+          }
+        } catch {}
+
         // Generate loot if applicable
         if (rewards.hasLoot) {
           try {
@@ -3140,6 +3158,31 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       req.log.error({ err: questErr }, "fight quest update error");
     }
 
+    // Update season pass mission progress
+    try {
+      const seasonMissions = await db.select().from(seasonMissionsTable).where(
+        and(eq(seasonMissionsTable.characterId, characterId), eq(seasonMissionsTable.status, "active"))
+      );
+      const now = new Date();
+      for (const m of seasonMissions) {
+        if (m.expiresAt && new Date(m.expiresAt) < now) continue;
+        let inc = 0;
+        if (m.missionKey === "kill_enemies" || m.missionKey === "kill_enemies_w") inc = 1;
+        else if (m.missionKey === "earn_gold" || m.missionKey === "earn_gold_w") inc = goldGain;
+        else if (m.missionKey === "earn_exp" || m.missionKey === "earn_exp_w") inc = expGain;
+        else if (m.missionKey === "win_battles") inc = 1;
+        else if (m.missionKey === "collect_items" && lootItem) inc = 1;
+        else if (m.missionKey === "boss_kills" && (serverIsBoss || serverIsElite)) inc = 1;
+        if (inc > 0) {
+          const newProg = Math.min((m.progress || 0) + inc, m.target);
+          const newSt = newProg >= m.target ? "completed" : "active";
+          await db.update(seasonMissionsTable).set({ progress: newProg, status: newSt }).where(eq(seasonMissionsTable.id, m.id));
+        }
+      }
+    } catch (smErr: any) {
+      req.log.error({ err: smErr }, "fight season mission update error");
+    }
+
     sendSuccess(res, {
         success: true,
         rewards: { exp: expGain, gold: goldGain },
@@ -3399,5 +3442,293 @@ function toClientCharacter(c: any) {
     updated_at: c.updatedAt,
   };
 }
+
+// ========== SEASON / BATTLE PASS ==========
+const SEASON_CONFIG = {
+  CURRENT_SEASON: 1,
+  SEASON_NAME: "Season 1: Dawn of Trials",
+  MAX_TIER: 50,
+  XP_PER_TIER: 1000,
+  PREMIUM_COST_GEMS: 2000,
+  // Season start: April 1, 2026. Season end: 30 days later.
+  SEASON_START: new Date("2026-04-01T00:00:00Z").getTime(),
+  SEASON_DURATION_MS: 30 * 24 * 60 * 60 * 1000,
+};
+
+// Rewards per tier. Even tiers = free, all tiers = premium.
+function getSeasonRewards() {
+  const rewards: Record<number, { free?: any; premium?: any }> = {};
+  for (let t = 1; t <= SEASON_CONFIG.MAX_TIER; t++) {
+    const r: any = {};
+    // Free track: every 2nd tier
+    if (t % 2 === 0 || t === 1 || t === SEASON_CONFIG.MAX_TIER) {
+      const freeGold = 100 + t * 50;
+      const freeReward: any = { gold: freeGold };
+      if (t % 10 === 0) freeReward.gems = t;
+      if (t === SEASON_CONFIG.MAX_TIER) { freeReward.gems = 200; freeReward.tammablocks = 50; }
+      r.free = freeReward;
+    }
+    // Premium track: every tier
+    const premGold = 200 + t * 80;
+    const premReward: any = { gold: premGold };
+    if (t % 5 === 0) premReward.gems = Math.floor(t * 1.5);
+    if (t % 10 === 0) premReward.tammablocks = Math.floor(t / 2);
+    if (t === 25) premReward.towershards = 10;
+    if (t === SEASON_CONFIG.MAX_TIER) { premReward.gems = 500; premReward.tammablocks = 100; premReward.towershards = 25; }
+    r.premium = premReward;
+    rewards[t] = r;
+  }
+  return rewards;
+}
+
+const SEASON_REWARDS = getSeasonRewards();
+
+const DAILY_MISSION_POOL = [
+  { key: "kill_enemies", title: "Monster Slayer", description: "Kill 30 enemies", target: 30, xp: 100 },
+  { key: "earn_gold", title: "Gold Rush", description: "Earn 2,000 gold", target: 2000, xp: 100 },
+  { key: "tower_floors", title: "Tower Climber", description: "Clear 3 tower floors", target: 3, xp: 120 },
+  { key: "use_skills", title: "Skilled Fighter", description: "Use 15 skills in combat", target: 15, xp: 80 },
+  { key: "earn_exp", title: "Seeker of Knowledge", description: "Earn 1,000 EXP", target: 1000, xp: 90 },
+  { key: "win_battles", title: "Victorious", description: "Win 10 battles", target: 10, xp: 100 },
+];
+
+const WEEKLY_MISSION_POOL = [
+  { key: "kill_enemies_w", title: "Warmonger", description: "Kill 200 enemies", target: 200, xp: 400 },
+  { key: "earn_gold_w", title: "Treasure Hunter", description: "Earn 15,000 gold", target: 15000, xp: 400 },
+  { key: "tower_floors_w", title: "Tower Master", description: "Clear 15 tower floors", target: 15, xp: 500 },
+  { key: "collect_items", title: "Collector", description: "Collect 20 items", target: 20, xp: 350 },
+  { key: "earn_exp_w", title: "Scholar", description: "Earn 10,000 EXP", target: 10000, xp: 450 },
+  { key: "boss_kills", title: "Boss Hunter", description: "Defeat 5 bosses", target: 5, xp: 500 },
+];
+
+function pickRandom<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+router.post("/functions/seasonPassAction", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const { characterId, action } = req.body;
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
+
+    const season = SEASON_CONFIG.CURRENT_SEASON;
+    const seasonEnd = SEASON_CONFIG.SEASON_START + SEASON_CONFIG.SEASON_DURATION_MS;
+
+    // === GET STATUS ===
+    if (action === "get_status") {
+      let [pass] = await db.select().from(seasonPassTable).where(
+        and(eq(seasonPassTable.characterId, characterId), eq(seasonPassTable.season, season))
+      );
+      if (!pass) {
+        [pass] = await db.insert(seasonPassTable).values({ characterId, season, tier: 0, xp: 0, isPremium: false, claimedFree: [], claimedPremium: [] }).returning();
+      }
+      // Get missions
+      const missions = await db.select().from(seasonMissionsTable).where(
+        and(eq(seasonMissionsTable.characterId, characterId), eq(seasonMissionsTable.season, season))
+      );
+      const now = new Date();
+      const activeMissions = missions.filter(m => m.status === "active" || m.status === "completed");
+      const expiredMissions = activeMissions.filter(m => m.expiresAt && new Date(m.expiresAt) < now);
+      // Expire old missions
+      for (const m of expiredMissions) {
+        await db.update(seasonMissionsTable).set({ status: "expired" }).where(eq(seasonMissionsTable.id, m.id));
+      }
+      const currentMissions = activeMissions.filter(m => !m.expiresAt || new Date(m.expiresAt) >= now);
+
+      sendSuccess(res, {
+        pass: { id: pass.id, tier: pass.tier, xp: pass.xp, isPremium: pass.isPremium, claimedFree: pass.claimedFree, claimedPremium: pass.claimedPremium },
+        missions: currentMissions.map(m => ({ id: m.id, type: m.type, title: m.title, description: m.description, progress: m.progress, target: m.target, xpReward: m.xpReward, status: m.status, expiresAt: m.expiresAt })),
+        config: { season, seasonName: SEASON_CONFIG.SEASON_NAME, maxTier: SEASON_CONFIG.MAX_TIER, xpPerTier: SEASON_CONFIG.XP_PER_TIER, premiumCost: SEASON_CONFIG.PREMIUM_COST_GEMS, seasonEnd: new Date(seasonEnd).toISOString() },
+        rewards: SEASON_REWARDS,
+      });
+      return;
+    }
+
+    // === GENERATE MISSIONS (daily + weekly) ===
+    if (action === "generate_missions") {
+      const now = new Date();
+      const existing = await db.select().from(seasonMissionsTable).where(
+        and(eq(seasonMissionsTable.characterId, characterId), eq(seasonMissionsTable.season, season))
+      );
+      const activeDailies = existing.filter(m => m.type === "daily" && (m.status === "active" || m.status === "completed") && m.expiresAt && new Date(m.expiresAt) >= now);
+      const activeWeeklies = existing.filter(m => m.type === "weekly" && (m.status === "active" || m.status === "completed") && m.expiresAt && new Date(m.expiresAt) >= now);
+
+      const newMissions: any[] = [];
+
+      // Generate dailies (3 per day)
+      if (activeDailies.length < 3) {
+        const tomorrow = new Date(now);
+        tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+        tomorrow.setUTCHours(0, 0, 0, 0);
+        const usedKeys = new Set(activeDailies.map(m => m.missionKey));
+        const available = DAILY_MISSION_POOL.filter(m => !usedKeys.has(m.key));
+        const picks = pickRandom(available, 3 - activeDailies.length);
+        for (const p of picks) {
+          const [m] = await db.insert(seasonMissionsTable).values({
+            characterId, season, type: "daily", missionKey: p.key, title: p.title, description: p.description,
+            progress: 0, target: p.target, xpReward: p.xp, status: "active", expiresAt: tomorrow,
+          }).returning();
+          newMissions.push(m);
+        }
+      }
+
+      // Generate weeklies (3 per week)
+      if (activeWeeklies.length < 3) {
+        const nextWeek = new Date(now);
+        nextWeek.setUTCDate(nextWeek.getUTCDate() + (7 - nextWeek.getUTCDay()));
+        nextWeek.setUTCHours(0, 0, 0, 0);
+        if (nextWeek <= now) nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
+        const usedKeys = new Set(activeWeeklies.map(m => m.missionKey));
+        const available = WEEKLY_MISSION_POOL.filter(m => !usedKeys.has(m.key));
+        const picks = pickRandom(available, 3 - activeWeeklies.length);
+        for (const p of picks) {
+          const [m] = await db.insert(seasonMissionsTable).values({
+            characterId, season, type: "weekly", missionKey: p.key, title: p.title, description: p.description,
+            progress: 0, target: p.target, xpReward: p.xp, status: "active", expiresAt: nextWeek,
+          }).returning();
+          newMissions.push(m);
+        }
+      }
+
+      sendSuccess(res, { generated: newMissions.length, missions: [...activeDailies, ...activeWeeklies, ...newMissions].map(m => ({ id: m.id, type: m.type, title: m.title, description: m.description, progress: m.progress, target: m.target, xpReward: m.xpReward, status: m.status, expiresAt: m.expiresAt })) });
+      return;
+    }
+
+    // === UPDATE MISSION PROGRESS ===
+    if (action === "update_progress") {
+      const { missionKey, amount } = req.body;
+      if (!missionKey || !amount) { sendError(res, 400, "missionKey and amount required"); return; }
+      const now = new Date();
+      const missions = await db.select().from(seasonMissionsTable).where(
+        and(eq(seasonMissionsTable.characterId, characterId), eq(seasonMissionsTable.season, season))
+      );
+      const active = missions.filter(m => m.status === "active" && m.missionKey === missionKey && (!m.expiresAt || new Date(m.expiresAt) >= now));
+      let updated = 0;
+      for (const m of active) {
+        const newProgress = Math.min((m.progress || 0) + amount, m.target);
+        const newStatus = newProgress >= m.target ? "completed" : "active";
+        await db.update(seasonMissionsTable).set({ progress: newProgress, status: newStatus }).where(eq(seasonMissionsTable.id, m.id));
+        updated++;
+      }
+      sendSuccess(res, { success: true, updated });
+      return;
+    }
+
+    // === CLAIM MISSION (get season XP) ===
+    if (action === "claim_mission") {
+      const { missionId } = req.body;
+      if (!missionId) { sendError(res, 400, "missionId required"); return; }
+      const [mission] = await db.select().from(seasonMissionsTable).where(eq(seasonMissionsTable.id, missionId));
+      if (!mission || mission.characterId !== characterId) { sendError(res, 404, "Mission not found"); return; }
+      if (mission.status !== "completed") { sendError(res, 400, "Mission not completed yet"); return; }
+      await db.update(seasonMissionsTable).set({ status: "claimed" }).where(eq(seasonMissionsTable.id, missionId));
+
+      // Add XP to season pass
+      let [pass] = await db.select().from(seasonPassTable).where(
+        and(eq(seasonPassTable.characterId, characterId), eq(seasonPassTable.season, season))
+      );
+      if (!pass) {
+        [pass] = await db.insert(seasonPassTable).values({ characterId, season }).returning();
+      }
+      const newXp = (pass.xp || 0) + mission.xpReward;
+      const newTier = Math.min(Math.floor(newXp / SEASON_CONFIG.XP_PER_TIER), SEASON_CONFIG.MAX_TIER);
+      await db.update(seasonPassTable).set({ xp: newXp, tier: newTier }).where(eq(seasonPassTable.id, pass.id));
+
+      sendSuccess(res, { success: true, xpGained: mission.xpReward, newXp, newTier, tierUp: newTier > (pass.tier || 0) });
+      return;
+    }
+
+    // === CLAIM TIER REWARD ===
+    if (action === "claim_reward") {
+      const { tier, track } = req.body; // track: "free" or "premium"
+      if (!tier || !track) { sendError(res, 400, "tier and track required"); return; }
+
+      let [pass] = await db.select().from(seasonPassTable).where(
+        and(eq(seasonPassTable.characterId, characterId), eq(seasonPassTable.season, season))
+      );
+      if (!pass) { sendError(res, 404, "No season pass found"); return; }
+      if ((pass.tier || 0) < tier) { sendError(res, 400, `Haven't reached tier ${tier} yet (current: ${pass.tier})`); return; }
+
+      const tierRewards = SEASON_REWARDS[tier];
+      if (!tierRewards) { sendError(res, 400, "Invalid tier"); return; }
+
+      const claimedFree = (pass.claimedFree as number[]) || [];
+      const claimedPremium = (pass.claimedPremium as number[]) || [];
+
+      if (track === "free") {
+        if (!tierRewards.free) { sendError(res, 400, "No free reward at this tier"); return; }
+        if (claimedFree.includes(tier)) { sendError(res, 400, "Already claimed"); return; }
+        // Grant reward
+        const reward = tierRewards.free;
+        const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+        const updates: any = {};
+        if (reward.gold) updates.gold = (char.gold || 0) + reward.gold;
+        if (reward.gems) updates.gems = (char.gems || 0) + reward.gems;
+        if (reward.tammablocks || reward.towershards) {
+          const extraData = (char.extraData as any) || {};
+          const tower = extraData.tower || {};
+          if (reward.tammablocks) tower.tammablocks = (tower.tammablocks || 0) + reward.tammablocks;
+          if (reward.towershards) tower.towershards = (tower.towershards || 0) + reward.towershards;
+          updates.extraData = { ...extraData, tower };
+        }
+        if (Object.keys(updates).length > 0) await db.update(charactersTable).set(updates).where(eq(charactersTable.id, characterId));
+        claimedFree.push(tier);
+        await db.update(seasonPassTable).set({ claimedFree }).where(eq(seasonPassTable.id, pass.id));
+        sendSuccess(res, { success: true, reward, track: "free", tier });
+      } else if (track === "premium") {
+        if (!pass.isPremium) { sendError(res, 400, "Premium pass required"); return; }
+        if (!tierRewards.premium) { sendError(res, 400, "No premium reward at this tier"); return; }
+        if (claimedPremium.includes(tier)) { sendError(res, 400, "Already claimed"); return; }
+        const reward = tierRewards.premium;
+        const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+        const updates: any = {};
+        if (reward.gold) updates.gold = (char.gold || 0) + reward.gold;
+        if (reward.gems) updates.gems = (char.gems || 0) + reward.gems;
+        if (reward.tammablocks || reward.towershards) {
+          const extraData = (char.extraData as any) || {};
+          const tower = extraData.tower || {};
+          if (reward.tammablocks) tower.tammablocks = (tower.tammablocks || 0) + reward.tammablocks;
+          if (reward.towershards) tower.towershards = (tower.towershards || 0) + reward.towershards;
+          updates.extraData = { ...extraData, tower };
+        }
+        if (Object.keys(updates).length > 0) await db.update(charactersTable).set(updates).where(eq(charactersTable.id, characterId));
+        claimedPremium.push(tier);
+        await db.update(seasonPassTable).set({ claimedPremium }).where(eq(seasonPassTable.id, pass.id));
+        sendSuccess(res, { success: true, reward, track: "premium", tier });
+      } else {
+        sendError(res, 400, "track must be 'free' or 'premium'");
+      }
+      return;
+    }
+
+    // === UNLOCK PREMIUM ===
+    if (action === "unlock_premium") {
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char) { sendError(res, 404, "Character not found"); return; }
+      const gems = char.gems || 0;
+      if (gems < SEASON_CONFIG.PREMIUM_COST_GEMS) {
+        sendError(res, 400, `Not enough gems (need ${SEASON_CONFIG.PREMIUM_COST_GEMS}, have ${gems})`);
+        return;
+      }
+      let [pass] = await db.select().from(seasonPassTable).where(
+        and(eq(seasonPassTable.characterId, characterId), eq(seasonPassTable.season, season))
+      );
+      if (!pass) {
+        [pass] = await db.insert(seasonPassTable).values({ characterId, season }).returning();
+      }
+      if (pass.isPremium) { sendError(res, 400, "Already premium"); return; }
+      await db.update(charactersTable).set({ gems: gems - SEASON_CONFIG.PREMIUM_COST_GEMS }).where(eq(charactersTable.id, characterId));
+      await db.update(seasonPassTable).set({ isPremium: true }).where(eq(seasonPassTable.id, pass.id));
+      sendSuccess(res, { success: true, gemsSpent: SEASON_CONFIG.PREMIUM_COST_GEMS, gemsRemaining: gems - SEASON_CONFIG.PREMIUM_COST_GEMS });
+      return;
+    }
+
+    sendError(res, 400, `Unknown action: ${action}`);
+  } catch (err: any) {
+    req.log.error({ err }, "seasonPassAction error");
+    sendError(res, 500, err.message);
+  }
+});
 
 export default router;

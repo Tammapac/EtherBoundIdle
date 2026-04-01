@@ -315,6 +315,41 @@ export const towerSessionsTable = pgTable("tower_sessions", {
   index("idx_tower_sessions_character").on(table.characterId),
 ]);
 
+export const seasonPassTable = pgTable("season_passes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id").notNull(),
+  season: integer("season").notNull().default(1),
+  tier: integer("tier").notNull().default(0),
+  xp: integer("xp").notNull().default(0),
+  isPremium: boolean("is_premium").notNull().default(false),
+  claimedFree: jsonb("claimed_free").default([]),
+  claimedPremium: jsonb("claimed_premium").default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_season_passes_character").on(table.characterId),
+  index("idx_season_passes_season").on(table.season),
+]);
+
+export const seasonMissionsTable = pgTable("season_missions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id").notNull(),
+  season: integer("season").notNull().default(1),
+  type: varchar("type").notNull(), // "daily" or "weekly"
+  missionKey: varchar("mission_key").notNull(),
+  title: varchar("title").notNull(),
+  description: varchar("description"),
+  progress: integer("progress").notNull().default(0),
+  target: integer("target").notNull(),
+  xpReward: integer("xp_reward").notNull().default(50),
+  status: varchar("status").notNull().default("active"), // active, completed, claimed
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_season_missions_character").on(table.characterId),
+]);
+
 export const userRolesTable = pgTable("user_roles", {
   userId: varchar("user_id").primaryKey().references(() => usersTable.id),
   role: varchar("role").notNull().default("player"),
