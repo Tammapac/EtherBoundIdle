@@ -1127,26 +1127,6 @@ export default function Battle({ character, onCharacterUpdate }) {
       onJoinZone={handleJoinZone}
     />
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
-      {/* Feature icons - fixed top-left of content area (more icons will go here) */}
-      <div className="fixed top-16 left-4 md:left-[17rem] z-30 flex gap-2">
-        <div
-          onClick={() => navigate("/tower")}
-          className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
-          title="Tower of Trials"
-        >
-          <ArrowUp className="w-6 h-6 text-amber-400 group-hover:text-amber-300 transition-colors" />
-          <span className="text-[8px] font-bold text-amber-400/80 group-hover:text-amber-300 mt-0.5 tracking-wide">TOWER</span>
-        </div>
-        <div
-          onClick={() => navigate("/seasonpass")}
-          className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-600/20 border-2 border-purple-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-purple-400 hover:from-purple-500/40 hover:to-pink-500/30 transition-all shadow-lg shadow-purple-500/20 group"
-          title="Battle Pass"
-        >
-          <Star className="w-6 h-6 text-purple-400 group-hover:text-purple-300 transition-colors" />
-          <span className="text-[8px] font-bold text-purple-400/80 group-hover:text-purple-300 mt-0.5 tracking-wide">PASS</span>
-        </div>
-      </div>
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

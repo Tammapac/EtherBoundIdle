@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { 
-  Swords, Shield, Backpack, Map, Users, ShoppingBag, 
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Swords, Shield, Backpack, Map, Users, ShoppingBag,
   Trophy, ScrollText, Menu, X, Coins, Gem, MessageCircle,
-  LogOut, RotateCcw, Leaf, ChevronDown, BarChart3, Wrench, Skull, Zap, Settings
+  LogOut, RotateCcw, Leaf, ChevronDown, BarChart3, Wrench, Skull, Zap, Settings,
+  ArrowUp, Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -36,6 +37,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     const loadUserRole = async () => {
@@ -236,7 +238,26 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
         {character && <IdleStatusBar character={character} />}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative">
+          {/* Feature quick-access icons — global, shown on all pages */}
+          <div className="fixed top-16 left-4 md:left-[17rem] z-30 flex gap-2">
+            <div
+              onClick={() => navigate("/tower")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
+              title="Tower of Trials"
+            >
+              <ArrowUp className="w-6 h-6 text-amber-400 group-hover:text-amber-300 transition-colors" />
+              <span className="text-[8px] font-bold text-amber-400/80 group-hover:text-amber-300 mt-0.5 tracking-wide">TOWER</span>
+            </div>
+            <div
+              onClick={() => navigate("/seasonpass")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-600/20 border-2 border-purple-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-purple-400 hover:from-purple-500/40 hover:to-pink-500/30 transition-all shadow-lg shadow-purple-500/20 group"
+              title="Battle Pass"
+            >
+              <Star className="w-6 h-6 text-purple-400 group-hover:text-purple-300 transition-colors" />
+              <span className="text-[8px] font-bold text-purple-400/80 group-hover:text-purple-300 mt-0.5 tracking-wide">PASS</span>
+            </div>
+          </div>
           <Outlet />
         </main>
       </div>
