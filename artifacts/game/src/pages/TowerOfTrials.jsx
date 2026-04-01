@@ -76,6 +76,30 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
     }
   };
 
+  const [buyingEntry, setBuyingEntry] = useState(false);
+  const entryGemCost = towerStatus?.entryGemCost || 1000;
+
+  const handleBuyEntry = async () => {
+    setBuyingEntry(true);
+    try {
+      const res = await base44.functions.invoke("towerAction", {
+        action: "buy_entry",
+        characterId: character.id,
+      });
+      if (res?.success) {
+        toast({ title: `Bought 1 Tower Entry for ${res.gemsSpent} gems!` });
+        refetch();
+        if (onCharacterUpdate) onCharacterUpdate();
+      } else {
+        toast({ title: res?.error || "Failed to buy entry", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: e.message, variant: "destructive" });
+    } finally {
+      setBuyingEntry(false);
+    }
+  };
+
   const handleLeave = () => {
     setActiveSession(null);
     refetch();
@@ -192,6 +216,21 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
             Resets at {new Date(towerStatus.windowResetsAt).toLocaleTimeString()}
           </p>
         )}
+        {/* Buy Entry with Gems */}
+        <div className="pt-2 border-t border-amber-500/20">
+          <Button
+            onClick={handleBuyEntry}
+            disabled={buyingEntry || (character?.gems || 0) < entryGemCost}
+            variant="outline"
+            className="gap-2 border-purple-500/40 text-purple-300 hover:bg-purple-500/10 hover:text-purple-200"
+          >
+            <Gem className="w-4 h-4 text-purple-400" />
+            {buyingEntry ? "Buying..." : `Buy Entry — ${entryGemCost.toLocaleString()} Gems`}
+          </Button>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            You have {(character?.gems || 0).toLocaleString()} gems
+          </p>
+        </div>
       </div>
 
       {/* Floor Ladder */}
