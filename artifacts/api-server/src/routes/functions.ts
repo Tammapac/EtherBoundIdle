@@ -3217,7 +3217,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
 
       // 4. Pet egg drop chance (from any kill, boosted by boss/luck)
       try {
-        const petDropChance = (serverIsBoss ? 0.03 : 0.005) + (charLuck + petLuckBonus) * 0.0001;
+        const petDropChance = (serverIsBoss ? 0.15 : 0.05) + (charLuck + petLuckBonus) * 0.0005;
         if (Math.random() < petDropChance) {
           const speciesData = PET_SPECIES[Math.floor(Math.random() * PET_SPECIES.length)];
           // Rarity based on luck
@@ -4116,6 +4116,26 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       const newTraits = rollTraits(pet.rarity);
       const [updated] = await db.update(petsTable).set({ traits: newTraits }).where(eq(petsTable.id, petId)).returning();
       sendSuccess(res, { pet: updated, cost });
+      return;
+    }
+
+    // === GRANT PET (for testing / admin) ===
+    if (action === "grant_pet") {
+      const { species: reqSpecies, rarity: reqRarity } = req.body;
+      const speciesData = PET_SPECIES.find(s => s.species === (reqSpecies || "Wolf")) || PET_SPECIES[0];
+      const rarity = reqRarity || "rare";
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const petLevel = Math.max(1, Math.floor(((char?.level || 1)) / 3));
+      const [pet] = await db.insert(petsTable).values({
+        characterId, name: speciesData.species, species: speciesData.species,
+        rarity, level: petLevel, xp: 0,
+        passiveType: speciesData.passiveType,
+        passiveValue: getPetPassiveValue(petLevel, rarity),
+        skillType: speciesData.skillType,
+        skillValue: getPetSkillValue(petLevel, rarity),
+        traits: rollTraits(rarity),
+      }).returning();
+      sendSuccess(res, { pet });
       return;
     }
 

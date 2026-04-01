@@ -241,6 +241,17 @@ export default function Pets({ character, onCharacterUpdate }) {
     onError: (err) => toast({ title: "Reroll failed", description: err?.message, variant: "destructive" }),
   });
 
+  const [grantSpecies, setGrantSpecies] = useState("Wolf");
+  const [grantRarity, setGrantRarity] = useState("rare");
+  const grantPetMutation = useMutation({
+    mutationFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "grant_pet", species: grantSpecies, rarity: grantRarity }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      toast({ title: "Pet granted!", description: `Got a ${data?.pet?.rarity} ${data?.pet?.species}!`, duration: 3000 });
+    },
+    onError: (err) => toast({ title: "Grant failed", description: err?.message, variant: "destructive" }),
+  });
+
   // ── Expedition mutations ──
   const startExpeditionMutation = useMutation({
     mutationFn: ({ petId, region, duration }) =>
@@ -569,6 +580,29 @@ export default function Pets({ character, onCharacterUpdate }) {
          ══════════════════════════════════════════════════════ */}
       {activeTab === "pets" && (
         <div className="space-y-4">
+          {/* Debug: Grant test pet */}
+          <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-3">
+            <p className="text-xs text-cyan-400 font-semibold mb-2">Test: Grant a Pet</p>
+            <div className="flex flex-wrap gap-2 items-center">
+              <select value={grantSpecies} onChange={e => setGrantSpecies(e.target.value)}
+                className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                {["Wolf","Phoenix","Dragon","Turtle","Cat","Owl","Slime","Fairy","Serpent","Golem"].map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              <select value={grantRarity} onChange={e => setGrantRarity(e.target.value)}
+                className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white">
+                {["common","uncommon","rare","epic","legendary","mythic"].map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <Button size="sm" className="text-xs gap-1" onClick={() => grantPetMutation.mutate()}
+                disabled={grantPetMutation.isPending}>
+                <PawPrint className="w-3 h-3" /> Grant Pet
+              </Button>
+            </div>
+          </div>
+
           {/* Fuse toggle */}
           <div className="flex justify-end">
             {fusionGroups.length > 0 && (
