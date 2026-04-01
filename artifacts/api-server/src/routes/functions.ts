@@ -93,6 +93,41 @@ async function requireCharacterOwner(req: Request, res: Response, characterId: s
   return true;
 }
 
+// Lookup a player by name (case-insensitive) — for whispers, mail, social features
+router.post("/functions/lookupPlayerByName", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== "string" || !name.trim()) {
+      sendError(res, 400, "Name is required"); return;
+    }
+    const trimmed = name.trim();
+    // Exact match first (case-insensitive)
+    let matches = await db.select({
+      id: charactersTable.id,
+      name: charactersTable.name,
+      level: charactersTable.level,
+      class: charactersTable.class,
+    }).from(charactersTable).where(sql`LOWER(${charactersTable.name}) = LOWER(${trimmed})`);
+    // Fallback to partial match
+    if (matches.length === 0) {
+      const pattern = `%${trimmed}%`;
+      matches = await db.select({
+        id: charactersTable.id,
+        name: charactersTable.name,
+        level: charactersTable.level,
+        class: charactersTable.class,
+      }).from(charactersTable).where(sql`LOWER(${charactersTable.name}) LIKE LOWER(${pattern})`).limit(10);
+    }
+    sendSuccess(res, matches.map(r => ({
+      id: r.id, name: r.name, level: r.level, class: r.class,
+    })));
+  } catch (err: any) {
+    req.log.error({ err }, "lookupPlayerByName error");
+    sendError(res, 500, err.message);
+  }
+});
+
 // Public profile lookup — returns basic info for any character IDs (no ownership check)
 router.post("/functions/getPublicProfiles", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
