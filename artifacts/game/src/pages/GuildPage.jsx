@@ -17,6 +17,7 @@ import GuildBase from "@/components/guild/GuildBase";
 import InlineChat from "@/components/game/InlineChat";
 import { idleEngine } from "@/lib/idleEngine";
 import { calculateFinalStats, rollDamage } from "@/lib/statSystem";
+import { useToast } from "@/components/ui/use-toast";
 
 // Each boss template has 3 raid tiers with increasing HP and token multipliers
 const GUILD_BOSSES = [
@@ -38,6 +39,7 @@ const GUILD_BOSSES = [
 ];
 
 export default function GuildPage({ character, onCharacterUpdate }) {
+  const { toast } = useToast();
   const [guildName, setGuildName] = useState("");
   const [guildTag, setGuildTag] = useState("");
   const [guildDesc, setGuildDesc] = useState("");
@@ -154,25 +156,29 @@ export default function GuildPage({ character, onCharacterUpdate }) {
     },
   });
 
-  // Determine current raid tier based on guild boss kill count
+  // Determine current raid level based on guild boss kill count
   const bossKills = myGuild?.boss_kills || 0;
-  const raidTier = Math.min(2, Math.floor(bossKills / 3)); // Every 3 kills advances tier (0,1,2 = Lv.1,2,3)
+  const raidLevel = bossKills + 1; // Each kill increments the raid level
 
   const activateBossMutation = useMutation({
     mutationFn: async () => {
       const bossIdx = Math.min((myGuild.level || 1) - 1, GUILD_BOSSES.length - 1);
       const bossTemplate = GUILD_BOSSES[bossIdx];
-      const tier = bossTemplate.tiers[raidTier] || bossTemplate.tiers[0];
-      const hp = Math.floor(bossTemplate.baseHp * tier.hpMult * (1 + (myGuild.level - 1) * 0.5));
+      // Cycle through tiers (0,1,2) based on kills, scaling HP further with total kills
+      const tierIdx = Math.min(2, Math.floor(bossKills / 3));
+      const tier = bossTemplate.tiers[tierIdx] || bossTemplate.tiers[0];
+      const killScaling = 1 + bossKills * 0.15; // +15% HP per kill
+      const hp = Math.floor(bossTemplate.baseHp * tier.hpMult * (1 + (myGuild.level - 1) * 0.5) * killScaling);
+      const tokenMult = tier.tokenMult * (1 + bossKills * 0.1); // +10% tokens per kill
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       await base44.entities.Guild.update(myGuild.id, {
         boss_active: true,
-        boss_name: `${bossTemplate.name} (Raid Lv.${tier.level})`,
+        boss_name: `${bossTemplate.name} (Raid Lv.${raidLevel})`,
         boss_hp: hp,
         boss_max_hp: hp,
         boss_expires_at: expires,
-        boss_raid_tier: raidTier,
-        boss_token_mult: tier.tokenMult,
+        boss_raid_tier: tierIdx,
+        boss_token_mult: tokenMult,
       });
       refetch();
     },
@@ -215,8 +221,7 @@ export default function GuildPage({ character, onCharacterUpdate }) {
         const tokenMult = myGuild.boss_token_mult || 1;
         const tokenReward = Math.floor((100 * bossLevel + Math.floor(dmg / 50)) * tokenMult);
         updates.guild_tokens = (myGuild.guild_tokens || 0) + tokenReward;
-        updates.boss_kills = (myGuild.boss_kills || 0) + 1; // Track kills for raid tier progression
-        // Reset damage for all members
+        updates.boss_kills = (myGuild.boss_kills || 0) + 1;
         updates.members = newMembers.map(m => ({ ...m, boss_damage_today: 0 }));
         const newExp = (myGuild.exp || 0) + 500;
         updates.exp = newExp;
@@ -226,6 +231,14 @@ export default function GuildPage({ character, onCharacterUpdate }) {
           updates.exp_to_next = Math.floor((myGuild.exp_to_next || 1000) * 1.5);
           updates.max_members = (myGuild.max_members || 20) + 5;
         }
+        // Show defeat notification with rewards
+        setTimeout(() => {
+          toast({
+            title: "Boss Defeated!",
+            description: `${myGuild.boss_name || "Guild Boss"} has been slain! +${tokenReward.toLocaleString()} Guild Tokens, +500 Guild EXP. Next raid: Lv.${(myGuild.boss_kills || 0) + 2}`,
+            duration: 6000,
+          });
+        }, 300);
       }
       await base44.entities.Guild.update(myGuild.id, updates);
       idleEngine.recordGuildBossAttack(character.id);

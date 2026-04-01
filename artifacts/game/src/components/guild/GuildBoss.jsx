@@ -88,10 +88,13 @@ export default function GuildBoss({ guild, myMemberEntry, onAttack, onActivate, 
         <div className="bg-card border border-border rounded-xl p-8 text-center">
           <Skull className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
           <p className="font-semibold mb-1">No Active Boss</p>
-          <p className="text-sm text-muted-foreground mb-4">Leaders can activate a guild boss for all members to fight.</p>
+          <p className="text-sm text-muted-foreground mb-2">Leaders can activate a guild boss for all members to fight.</p>
+          <p className="text-xs text-purple-400 mb-4">
+            Next Raid: Lv.{(guild.boss_kills || 0) + 1} | Bosses defeated: {guild.boss_kills || 0}
+          </p>
           {canActivate && (
             <Button onClick={onActivate} className="gap-2">
-              <Flame className="w-4 h-4" /> Activate Guild Boss
+              <Flame className="w-4 h-4" /> Activate Raid Lv.{(guild.boss_kills || 0) + 1}
             </Button>
           )}
         </div>
