@@ -121,7 +121,7 @@ function getProgressPct(startedAt, completesAt) {
 }
 
 function getEvolutionInfo(pet) {
-  const stage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+  const stage = pet.evolution ?? pet.evolutionStage ?? pet.evolution_stage ?? 0;
   return EVOLUTION_STAGES[Math.min(stage, 2)];
 }
 
@@ -189,9 +189,34 @@ function ExpeditionTimer({ completesAt, startedAt }) {
   );
 }
 
+// ─── Error Boundary ──────────────────────────────────────────────────────────
+
+class PetsErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 max-w-lg mx-auto mt-10">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+            <h3 className="font-bold text-red-300 mb-2">Pet System Error</h3>
+            <p className="text-sm text-red-200/70 mb-3">{String(this.state.error?.message || "Something went wrong rendering the Pets page.")}</p>
+            <p className="text-xs text-gray-400 mb-4">Check browser console (F12) for details. Make sure all SQL migrations were run in Supabase.</p>
+            <button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+              className="px-4 py-2 bg-red-500/20 border border-red-500/30 rounded text-sm text-red-300 hover:bg-red-500/30">
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function Pets({ character, onCharacterUpdate }) {
+function PetsInner({ character, onCharacterUpdate }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -531,14 +556,14 @@ export default function Pets({ character, onCharacterUpdate }) {
 
   // ── Evolution helpers ──
   const canEvolve = (pet) => {
-    const currentStage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+    const currentStage = pet.evolution ?? pet.evolutionStage ?? pet.evolution_stage ?? 0;
     if (currentStage >= 2) return false;
     const nextStage = EVOLUTION_STAGES[currentStage + 1];
     return nextStage && (pet.level || 1) >= nextStage.levelReq;
   };
 
   const getEvolveCost = (pet) => {
-    const stage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+    const stage = pet.evolution ?? pet.evolutionStage ?? pet.evolution_stage ?? 0;
     return stage === 0 ? 500 : 1500;
   };
 
@@ -1254,7 +1279,7 @@ export default function Pets({ character, onCharacterUpdate }) {
                 const colors = RARITY_COLORS[pet.rarity] || RARITY_COLORS.common;
                 const visual = getEvolutionVisual(pet);
                 const isEvolving = evolvingPetId === pet.id && evolveMutation.isPending;
-                const currentStage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+                const currentStage = pet.evolution ?? pet.evolutionStage ?? pet.evolution_stage ?? 0;
                 const nextStage = EVOLUTION_STAGES[currentStage + 1];
 
                 return (
@@ -1655,7 +1680,7 @@ export default function Pets({ character, onCharacterUpdate }) {
                 <Star className="w-3.5 h-3.5 text-amber-400" /> Known Secret Combos
               </p>
               <div className="space-y-2">
-                {(petData.secretCombos).map((combo, i) => (
+                {(petData?.secretCombos || []).map((combo, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs">
                     <span className={combo.discovered ? "text-amber-300" : "text-gray-500"}>
                       {combo.discovered
@@ -1804,5 +1829,13 @@ export default function Pets({ character, onCharacterUpdate }) {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Pets(props) {
+  return (
+    <PetsErrorBoundary>
+      <PetsInner {...props} />
+    </PetsErrorBoundary>
   );
 }
