@@ -26,6 +26,7 @@ import {
   gemLabsTable,
   seasonPassTable,
   seasonMissionsTable,
+  petsTable,
 } from "@workspace/db";
 import { eq, desc, and, or, sql } from "drizzle-orm";
 
@@ -3049,6 +3050,30 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     let buffExpBonus = 0;
     let buffGoldBonus = 0;
     const charExtra = (char.extraData as any) || {};
+
+    // Load equipped pet buffs
+    let petExpBonus = 0;
+    let petGoldBonus = 0;
+    let petCritBonus = 0;
+    let petDmgBonus = 0;
+    let petLuckBonus = 0;
+    let equippedPet: any = null;
+    try {
+      const [pet] = await db.select().from(petsTable).where(
+        and(eq(petsTable.characterId, characterId), eq(petsTable.equipped, true))
+      );
+      if (pet) {
+        equippedPet = pet;
+        const pv = pet.passiveValue || 0;
+        if (pet.passiveType === "exp_gain") petExpBonus = pv / 100;
+        else if (pet.passiveType === "gold_gain") petGoldBonus = pv / 100;
+        else if (pet.passiveType === "crit_chance") petCritBonus = pv;
+        else if (pet.passiveType === "damage") petDmgBonus = pv / 100;
+        else if (pet.passiveType === "luck") petLuckBonus = pv;
+        else if (pet.passiveType === "defense") {} // defense applies in dungeon/tower only
+      }
+    } catch {}
+
     const activeBuffs = charExtra.active_buffs || [];
     const nowMs = Date.now();
     for (const buff of activeBuffs) {
@@ -3058,8 +3083,8 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       }
     }
 
-    const expGain = Math.round(enemyData.expReward * empoweredMult * (combatCfg.EXP_GAIN_MULTIPLIER || 1) * (1 + partyExpBonus + guildExpBonus + buffExpBonus));
-    const goldGain = Math.round(enemyData.goldReward * empoweredMult * (combatCfg.GOLD_GAIN_MULTIPLIER || 1) * (1 + partyGoldBonus + guildGoldBonus + buffGoldBonus));
+    const expGain = Math.round(enemyData.expReward * empoweredMult * (combatCfg.EXP_GAIN_MULTIPLIER || 1) * (1 + partyExpBonus + guildExpBonus + buffExpBonus + petExpBonus));
+    const goldGain = Math.round(enemyData.goldReward * empoweredMult * (combatCfg.GOLD_GAIN_MULTIPLIER || 1) * (1 + partyGoldBonus + guildGoldBonus + buffGoldBonus + petGoldBonus));
 
     let newExp = (char.exp || 0) + expGain;
     let newLevel = char.level || 1;
@@ -3097,6 +3122,24 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       maxHp: newMaxHp,
       maxMp: newMaxMp,
     }).where(eq(charactersTable.id, characterId)).returning();
+
+    // Award pet XP from combat
+    if (equippedPet) {
+      try {
+        let petXp = (equippedPet.xp || 0) + 10 + Math.floor((char.level || 1) / 5);
+        let petLevel = equippedPet.level || 1;
+        while (petXp >= PET_XP_PER_LEVEL && petLevel < PET_MAX_LEVEL) {
+          petXp -= PET_XP_PER_LEVEL;
+          petLevel++;
+        }
+        const newPassiveValue = getPetPassiveValue(petLevel, equippedPet.rarity);
+        const newSkillValue = getPetSkillValue(petLevel, equippedPet.rarity);
+        await db.update(petsTable).set({
+          xp: petXp, level: petLevel,
+          passiveValue: newPassiveValue, skillValue: newSkillValue,
+        }).where(eq(petsTable.id, equippedPet.id));
+      } catch {}
+    }
 
     let lootItem = null;
     try {
@@ -3169,6 +3212,35 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
           },
         });
       }
+
+      // 4. Pet egg drop chance (from any kill, boosted by boss/luck)
+      try {
+        const petDropChance = (serverIsBoss ? 0.03 : 0.005) + (charLuck + petLuckBonus) * 0.0001;
+        if (Math.random() < petDropChance) {
+          const speciesData = PET_SPECIES[Math.floor(Math.random() * PET_SPECIES.length)];
+          // Rarity based on luck
+          const luckRoll = Math.random() * 100 + (charLuck + petLuckBonus) * 0.5;
+          let petRarity = "common";
+          if (luckRoll > 98) petRarity = "legendary";
+          else if (luckRoll > 92) petRarity = "epic";
+          else if (luckRoll > 80) petRarity = "rare";
+          else if (luckRoll > 60) petRarity = "uncommon";
+          const petLevel = Math.max(1, Math.floor((char.level || 1) / 3));
+          await db.insert(petsTable).values({
+            characterId,
+            name: speciesData.species,
+            species: speciesData.species,
+            rarity: petRarity,
+            level: petLevel,
+            xp: 0,
+            passiveType: speciesData.passiveType,
+            passiveValue: getPetPassiveValue(petLevel, petRarity),
+            skillType: speciesData.skillType,
+            skillValue: getPetSkillValue(petLevel, petRarity),
+          });
+          // We'll notify the client via a field in the response
+        }
+      } catch {}
     } catch (lootErr: any) {
       req.log.error({ err: lootErr }, "fight loot generation error");
     }
@@ -3228,6 +3300,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         newLevel,
         newExp,
         newGold,
+        petInfo: equippedPet ? { id: equippedPet.id, level: equippedPet.level, xp: equippedPet.xp } : null,
       });
   } catch (err: any) {
     req.log.error({ err }, "fight error");
@@ -3756,6 +3829,138 @@ router.post("/functions/seasonPassAction", async (req: Request, res: Response) =
     sendError(res, 400, `Unknown action: ${action}`);
   } catch (err: any) {
     req.log.error({ err }, "seasonPassAction error");
+    sendError(res, 500, err.message);
+  }
+});
+
+// ========== PET / COMPANION SYSTEM ==========
+const PET_SPECIES = [
+  { species: "Wolf", passiveType: "crit_chance", skillType: "extra_attack", desc: "A loyal wolf companion" },
+  { species: "Phoenix", passiveType: "exp_gain", skillType: "heal", desc: "A blazing phoenix" },
+  { species: "Dragon", passiveType: "damage", skillType: "extra_attack", desc: "A fearsome dragon whelp" },
+  { species: "Turtle", passiveType: "defense", skillType: "shield", desc: "An ancient turtle guardian" },
+  { species: "Cat", passiveType: "luck", skillType: "extra_attack", desc: "A mischievous feline" },
+  { species: "Owl", passiveType: "exp_gain", skillType: "heal", desc: "A wise owl familiar" },
+  { species: "Slime", passiveType: "gold_gain", skillType: "shield", desc: "A friendly slime buddy" },
+  { species: "Fairy", passiveType: "crit_chance", skillType: "heal", desc: "A sparkling fairy" },
+  { species: "Serpent", passiveType: "damage", skillType: "extra_attack", desc: "A venomous serpent" },
+  { species: "Golem", passiveType: "defense", skillType: "shield", desc: "A sturdy stone golem" },
+];
+
+const PET_RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
+const PET_RARITY_MULT: Record<string, number> = { common: 1, uncommon: 1.5, rare: 2.2, epic: 3, legendary: 4.5, mythic: 7 };
+const PET_XP_PER_LEVEL = 200;
+const PET_MAX_LEVEL = 50;
+
+function getPetPassiveValue(level: number, rarity: string): number {
+  const base = 2 + Math.floor(level * 0.8);
+  return Math.floor(base * (PET_RARITY_MULT[rarity] || 1));
+}
+
+function getPetSkillValue(level: number, rarity: string): number {
+  const base = 3 + Math.floor(level * 0.5);
+  return Math.floor(base * (PET_RARITY_MULT[rarity] || 1));
+}
+
+router.post("/functions/petAction", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const { characterId, action, petId } = req.body;
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
+
+    // === LIST PETS ===
+    if (action === "list") {
+      const pets = await db.select().from(petsTable).where(eq(petsTable.characterId, characterId));
+      sendSuccess(res, { pets });
+      return;
+    }
+
+    // === EQUIP PET ===
+    if (action === "equip") {
+      if (!petId) { sendError(res, 400, "petId required"); return; }
+      // Unequip all first
+      await db.update(petsTable).set({ equipped: false }).where(
+        and(eq(petsTable.characterId, characterId), eq(petsTable.equipped, true))
+      );
+      // Equip selected
+      const [pet] = await db.update(petsTable).set({ equipped: true }).where(
+        and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
+      ).returning();
+      if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      sendSuccess(res, { pet });
+      return;
+    }
+
+    // === UNEQUIP PET ===
+    if (action === "unequip") {
+      await db.update(petsTable).set({ equipped: false }).where(
+        and(eq(petsTable.characterId, characterId), eq(petsTable.equipped, true))
+      );
+      sendSuccess(res, { success: true });
+      return;
+    }
+
+    // === FUSE PETS (3 same species + rarity → 1 higher rarity) ===
+    if (action === "fuse") {
+      const { species, rarity } = req.body;
+      if (!species || !rarity) { sendError(res, 400, "species and rarity required"); return; }
+      const rarityIdx = PET_RARITY_ORDER.indexOf(rarity);
+      if (rarityIdx < 0 || rarityIdx >= PET_RARITY_ORDER.length - 1) {
+        sendError(res, 400, "Cannot fuse this rarity"); return;
+      }
+      // Find 3 matching pets (unequipped)
+      const candidates = await db.select().from(petsTable).where(
+        and(
+          eq(petsTable.characterId, characterId),
+          eq(petsTable.species, species),
+          eq(petsTable.rarity, rarity),
+          eq(petsTable.equipped, false)
+        )
+      );
+      if (candidates.length < 3) {
+        sendError(res, 400, `Need 3 ${rarity} ${species} pets (have ${candidates.length})`); return;
+      }
+      // Delete 3
+      const toDelete = candidates.slice(0, 3);
+      for (const p of toDelete) {
+        await db.delete(petsTable).where(eq(petsTable.id, p.id));
+      }
+      // Create new higher rarity pet
+      const newRarity = PET_RARITY_ORDER[rarityIdx + 1];
+      const speciesData = PET_SPECIES.find(s => s.species === species) || PET_SPECIES[0];
+      const avgLevel = Math.max(1, Math.floor(toDelete.reduce((s, p) => s + p.level, 0) / 3));
+      const [newPet] = await db.insert(petsTable).values({
+        characterId,
+        name: `${species}`,
+        species,
+        rarity: newRarity,
+        level: avgLevel,
+        xp: 0,
+        passiveType: speciesData.passiveType,
+        passiveValue: getPetPassiveValue(avgLevel, newRarity),
+        skillType: speciesData.skillType,
+        skillValue: getPetSkillValue(avgLevel, newRarity),
+      }).returning();
+      sendSuccess(res, { pet: newPet, fusedFrom: toDelete.map(p => p.id) });
+      return;
+    }
+
+    // === RELEASE PET (delete) ===
+    if (action === "release") {
+      if (!petId) { sendError(res, 400, "petId required"); return; }
+      const [pet] = await db.select().from(petsTable).where(
+        and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
+      );
+      if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      if (pet.equipped) { sendError(res, 400, "Cannot release equipped pet"); return; }
+      await db.delete(petsTable).where(eq(petsTable.id, petId));
+      sendSuccess(res, { released: petId });
+      return;
+    }
+
+    sendError(res, 400, `Unknown action: ${action}`);
+  } catch (err: any) {
+    req.log.error({ err }, "petAction error");
     sendError(res, 500, err.message);
   }
 });

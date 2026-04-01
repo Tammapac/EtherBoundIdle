@@ -350,6 +350,25 @@ export const seasonMissionsTable = pgTable("season_missions", {
   index("idx_season_missions_character").on(table.characterId),
 ]);
 
+export const petsTable = pgTable("pets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id").notNull(),
+  name: varchar("name").notNull(),
+  species: varchar("species").notNull(),
+  rarity: varchar("rarity").notNull().default("common"),
+  level: integer("level").notNull().default(1),
+  xp: integer("xp").notNull().default(0),
+  passiveType: varchar("passive_type").notNull(),
+  passiveValue: integer("passive_value").notNull().default(0),
+  skillType: varchar("skill_type"),
+  skillValue: integer("skill_value").default(0),
+  equipped: boolean("equipped").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+}, (table) => [
+  index("idx_pets_character").on(table.characterId),
+]);
+
 export const userRolesTable = pgTable("user_roles", {
   userId: varchar("user_id").primaryKey().references(() => usersTable.id),
   role: varchar("role").notNull().default("player"),

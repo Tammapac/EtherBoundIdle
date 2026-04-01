@@ -20,6 +20,7 @@ import {
   dungeonSessionsTable,
   gemLabsTable,
   privateMessagesTable,
+  petsTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lt, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/authMiddleware";
@@ -47,6 +48,7 @@ const tableMap: Record<string, any> = {
   DungeonSession: dungeonSessionsTable,
   GemLab: gemLabsTable,
   PrivateMessage: privateMessagesTable,
+  Pet: petsTable,
 };
 
 const fieldMappings: Record<string, Record<string, string>> = {
@@ -217,6 +219,15 @@ const fieldMappings: Record<string, Record<string, string>> = {
   PrivateMessage: {
     from_character_id: "fromCharacterId",
     to_character_id: "toCharacterId",
+    created_at: "createdAt",
+    updated_at: "updatedAt",
+  },
+  Pet: {
+    character_id: "characterId",
+    passive_type: "passiveType",
+    passive_value: "passiveValue",
+    skill_type: "skillType",
+    skill_value: "skillValue",
     created_at: "createdAt",
     updated_at: "updatedAt",
   },
