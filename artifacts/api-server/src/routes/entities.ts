@@ -232,6 +232,10 @@ const fieldMappings: Record<string, Record<string, string>> = {
     passive_value: "passiveValue",
     skill_type: "skillType",
     skill_value: "skillValue",
+    skill_points: "skillPoints",
+    skill_tree: "skillTree",
+    bond_level: "bondLevel",
+    last_fed_at: "lastFedAt",
     created_at: "createdAt",
     updated_at: "updatedAt",
   },
@@ -255,7 +259,7 @@ const fieldMappings: Record<string, Record<string, string>> = {
 
 const timestampFields = new Set([
   "createdAt", "updatedAt", "lastIdleClaim", "lastDailyLogin",
-  "expiresAt", "lastSeen", "bossExpiresAt", "startedAt", "completesAt",
+  "expiresAt", "lastSeen", "bossExpiresAt", "startedAt", "completesAt", "lastFedAt",
 ]);
 
 function getTableColumns(entityName: string): Set<string> | null {

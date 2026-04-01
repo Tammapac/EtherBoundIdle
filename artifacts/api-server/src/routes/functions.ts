@@ -3009,6 +3009,102 @@ router.post("/functions/gameConfigManager", async (req: Request, res: Response) 
   }
 });
 
+// ── Pet Evolution System ──
+const PET_EVOLUTION_STAGES = [
+  { stage: 0, name: "Baby", prefix: "", levelReq: 0, statMult: 1.0 },
+  { stage: 1, name: "Adult", prefix: "Elder ", levelReq: 15, statMult: 1.5 },
+  { stage: 2, name: "Elder", prefix: "Ancient ", levelReq: 35, statMult: 2.5 },
+];
+
+const EVOLUTION_MATERIAL_COST: Record<string, number> = {
+  common: 500, uncommon: 1000, rare: 2500, epic: 5000, legendary: 10000, mythic: 25000,
+};
+
+// ── Pet Skill Tree ──
+const PET_SKILL_TREES = {
+  combat: {
+    damage_boost: { name: "Damage Boost", desc: "+5% damage per point", maxPoints: 5, effect: { damage: 0.05 } },
+    crit_mastery: { name: "Crit Mastery", desc: "+3% crit chance per point", maxPoints: 5, effect: { critChance: 0.03 } },
+    lethal_strikes: { name: "Lethal Strikes", desc: "+8% boss damage per point", maxPoints: 3, effect: { bossDamage: 0.08 } },
+    berserker: { name: "Berserker", desc: "+4% attack speed per point", maxPoints: 3, effect: { attackSpeed: 0.04 } },
+  },
+  resource: {
+    gold_finder: { name: "Gold Finder", desc: "+6% gold gain per point", maxPoints: 5, effect: { goldGain: 0.06 } },
+    exp_seeker: { name: "EXP Seeker", desc: "+5% exp gain per point", maxPoints: 5, effect: { expGain: 0.05 } },
+    lucky_looter: { name: "Lucky Looter", desc: "+4% drop rate per point", maxPoints: 3, effect: { luck: 0.04 } },
+    treasure_sense: { name: "Treasure Sense", desc: "+10% expedition loot per point", maxPoints: 3, effect: { expeditionLoot: 0.10 } },
+  },
+  utility: {
+    quick_learner: { name: "Quick Learner", desc: "+8% pet XP gain per point", maxPoints: 5, effect: { petXpGain: 0.08 } },
+    bond_master: { name: "Bond Master", desc: "+10% bond gain per point", maxPoints: 5, effect: { bondGain: 0.10 } },
+    expedition_pro: { name: "Expedition Pro", desc: "+10% expedition speed per point", maxPoints: 3, effect: { expeditionSpeed: 0.10 } },
+    aura_amplifier: { name: "Aura Amplifier", desc: "+5% aura strength per point", maxPoints: 3, effect: { auraStrength: 0.05 } },
+  },
+};
+
+const SKILL_POINTS_PER_LEVEL = 1; // Gain 1 skill point per pet level
+const SKILL_RESET_COST = 2000; // Gold cost to reset skill tree
+
+// ── Pet Aura/Synergy System ──
+const PET_AURAS: Record<string, { name: string; desc: string; effect: Record<string, number> }> = {
+  Wolf: { name: "Pack Howl", desc: "+5% party damage", effect: { partyDamage: 0.05 } },
+  Phoenix: { name: "Rebirth Glow", desc: "+10% healing", effect: { healing: 0.10 } },
+  Dragon: { name: "Dragon's Might", desc: "+8% all damage", effect: { damage: 0.08 } },
+  Turtle: { name: "Shell Guard", desc: "+10% defense", effect: { defense: 0.10 } },
+  Cat: { name: "Fortune Purr", desc: "+8% luck", effect: { luck: 0.08 } },
+  Owl: { name: "Sage Wisdom", desc: "+8% exp gain", effect: { expGain: 0.08 } },
+  Slime: { name: "Golden Ooze", desc: "+10% gold gain", effect: { goldGain: 0.10 } },
+  Fairy: { name: "Fairy Dust", desc: "+5% all stats", effect: { allStats: 0.05 } },
+  Serpent: { name: "Venom Aura", desc: "+6% crit damage", effect: { critDamage: 0.06 } },
+  Golem: { name: "Stone Fortitude", desc: "+12% HP", effect: { hp: 0.12 } },
+};
+
+const SET_BONUSES = [
+  { name: "Fire Fury", required: ["Phoenix", "Dragon"], bonus: { damage: 0.15, critChance: 0.05 }, desc: "+15% damage, +5% crit" },
+  { name: "Nature's Grace", required: ["Cat", "Owl"], bonus: { expGain: 0.15, luck: 0.05 }, desc: "+15% exp, +5% luck" },
+  { name: "Iron Wall", required: ["Turtle", "Golem"], bonus: { defense: 0.20, hp: 0.10 }, desc: "+20% defense, +10% HP" },
+  { name: "Shadow Dance", required: ["Wolf", "Serpent"], bonus: { critChance: 0.10, damage: 0.10 }, desc: "+10% crit, +10% damage" },
+  { name: "Mystic Harmony", required: ["Fairy", "Owl", "Phoenix"], bonus: { allStats: 0.08, healing: 0.15 }, desc: "+8% all, +15% healing" },
+  { name: "Beast Trio", required: ["Wolf", "Cat", "Serpent"], bonus: { luck: 0.12, goldGain: 0.12 }, desc: "+12% luck, +12% gold" },
+];
+
+// ── Pet Bond System ──
+const BOND_LEVELS = [
+  { level: 0, name: "Stranger", xpReq: 0, bonus: 0 },
+  { level: 1, name: "Acquainted", xpReq: 100, bonus: 0.02 },
+  { level: 2, name: "Friendly", xpReq: 300, bonus: 0.05 },
+  { level: 3, name: "Trusted", xpReq: 600, bonus: 0.08 },
+  { level: 4, name: "Bonded", xpReq: 1000, bonus: 0.12 },
+  { level: 5, name: "Soulbound", xpReq: 2000, bonus: 0.18 },
+];
+
+const FEED_BOND_GAIN = 15;
+const FEED_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+const COMBAT_BOND_GAIN = 2;
+const EXPEDITION_BOND_GAIN = 10;
+
+// ── Breeding System ──
+const BREEDING_COST = 1000; // base gold cost
+const BREEDING_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between breeds
+
+const MUTATION_TRAITS = [
+  { key: "double_strike", name: "Double Strike", desc: "Chance to attack twice", effects: { doubleAttack: 0.10 } },
+  { key: "gold_aura", name: "Gold Aura", desc: "+30% gold from all sources", effects: { goldGain: 0.30 } },
+  { key: "exp_overflow", name: "EXP Overflow", desc: "+25% exp to party members", effects: { partyExp: 0.25 } },
+  { key: "iron_skin", name: "Iron Skin", desc: "+25% defense", effects: { defense: 0.25 } },
+  { key: "lucky_star", name: "Lucky Star", desc: "+20% rare drop chance", effects: { luck: 0.20 } },
+  { key: "vampiric", name: "Vampiric", desc: "Heals 5% of damage dealt", effects: { lifesteal: 0.05 } },
+];
+
+const SECRET_COMBOS: Record<string, { species: string; name: string; rarity: string }> = {
+  "Dragon+Phoenix": { species: "Phoenix", name: "Infernal Phoenix", rarity: "legendary" },
+  "Wolf+Cat": { species: "Wolf", name: "Shadow Fox", rarity: "epic" },
+  "Golem+Turtle": { species: "Golem", name: "Mountain Titan", rarity: "legendary" },
+  "Fairy+Slime": { species: "Fairy", name: "Crystal Sprite", rarity: "epic" },
+  "Serpent+Dragon": { species: "Dragon", name: "Wyrm Lord", rarity: "mythic" },
+  "Owl+Fairy": { species: "Owl", name: "Starweaver", rarity: "legendary" },
+};
+
 router.post("/functions/fight", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
@@ -3136,9 +3232,16 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         }
         const newPassiveValue = getPetPassiveValue(petLevel, equippedPet.rarity);
         const newSkillValue = getPetSkillValue(petLevel, equippedPet.rarity);
+        // Award bond from combat
+        const newBond = (equippedPet.bond || 0) + COMBAT_BOND_GAIN;
+        let newBondLevel = equippedPet.bondLevel || 0;
+        while (newBondLevel < BOND_LEVELS.length - 1 && newBond >= BOND_LEVELS[newBondLevel + 1].xpReq) {
+          newBondLevel++;
+        }
         await db.update(petsTable).set({
           xp: petXp, level: petLevel,
           passiveValue: newPassiveValue, skillValue: newSkillValue,
+          bond: newBond, bondLevel: newBondLevel,
         }).where(eq(petsTable.id, equippedPet.id));
       } catch {}
     }
@@ -4014,7 +4117,16 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
     // === LIST PETS ===
     if (action === "list") {
       const pets = await db.select().from(petsTable).where(eq(petsTable.characterId, characterId));
-      sendSuccess(res, { pets });
+      sendSuccess(res, {
+        pets,
+        skillTrees: PET_SKILL_TREES,
+        bondLevels: BOND_LEVELS,
+        evolutionStages: PET_EVOLUTION_STAGES,
+        auras: PET_AURAS,
+        setBonuses: SET_BONUSES,
+        mutationTraits: MUTATION_TRAITS,
+        secretCombos: Object.keys(SECRET_COMBOS),
+      });
       return;
     }
 
@@ -4116,6 +4228,195 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       const newTraits = rollTraits(pet.rarity);
       const [updated] = await db.update(petsTable).set({ traits: newTraits }).where(eq(petsTable.id, petId)).returning();
       sendSuccess(res, { pet: updated, cost });
+      return;
+    }
+
+    // === EVOLVE PET ===
+    if (action === "evolve") {
+      if (!petId) { sendError(res, 400, "petId required"); return; }
+      const [pet] = await db.select().from(petsTable).where(
+        and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
+      );
+      if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      const currentEvo = pet.evolution || 0;
+      if (currentEvo >= 2) { sendError(res, 400, "Pet is already at max evolution"); return; }
+      const nextStage = PET_EVOLUTION_STAGES[currentEvo + 1];
+      if ((pet.level || 1) < nextStage.levelReq) {
+        sendError(res, 400, `Pet needs level ${nextStage.levelReq} to evolve (currently ${pet.level})`); return;
+      }
+      const goldCost = EVOLUTION_MATERIAL_COST[pet.rarity] || 1000;
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char || (char.gold || 0) < goldCost) { sendError(res, 400, `Need ${goldCost} gold to evolve`); return; }
+      await db.update(charactersTable).set({ gold: (char.gold || 0) - goldCost }).where(eq(charactersTable.id, characterId));
+      const newName = `${nextStage.prefix}${pet.species}`;
+      const newPassive = Math.floor(getPetPassiveValue(pet.level, pet.rarity) * nextStage.statMult);
+      const newSkill = Math.floor(getPetSkillValue(pet.level, pet.rarity) * nextStage.statMult);
+      const [updated] = await db.update(petsTable).set({
+        evolution: currentEvo + 1, name: newName,
+        passiveValue: newPassive, skillValue: newSkill,
+      }).where(eq(petsTable.id, petId)).returning();
+      sendSuccess(res, { pet: updated, goldCost, stage: nextStage.name });
+      return;
+    }
+
+    // === ALLOCATE SKILL POINT ===
+    if (action === "allocate_skill" || action === "allocateSkill") {
+      if (!petId) { sendError(res, 400, "petId required"); return; }
+      const { branch, skill } = req.body;
+      if (!branch || !skill) { sendError(res, 400, "branch and skill required"); return; }
+      const treeBranch = PET_SKILL_TREES[branch as keyof typeof PET_SKILL_TREES];
+      if (!treeBranch) { sendError(res, 400, "Invalid branch"); return; }
+      const skillDef = treeBranch[skill as keyof typeof treeBranch];
+      if (!skillDef) { sendError(res, 400, "Invalid skill"); return; }
+      const [pet] = await db.select().from(petsTable).where(
+        and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
+      );
+      if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      const totalSpent = Object.values((pet.skillTree as any) || {}).reduce((sum: number, b: any) =>
+        sum + Object.values(b || {}).reduce((s: number, v: any) => s + (typeof v === "number" ? v : 0), 0), 0) as number;
+      const available = (pet.level || 1) * SKILL_POINTS_PER_LEVEL - totalSpent;
+      if (available <= 0) { sendError(res, 400, "No skill points available"); return; }
+      const tree = { ...((pet.skillTree as any) || {}) };
+      if (!tree[branch]) tree[branch] = {};
+      const current = tree[branch][skill] || 0;
+      if (current >= skillDef.maxPoints) { sendError(res, 400, `${skillDef.name} is maxed out`); return; }
+      tree[branch][skill] = current + 1;
+      const [updated] = await db.update(petsTable).set({ skillTree: tree }).where(eq(petsTable.id, petId)).returning();
+      sendSuccess(res, { pet: updated, allocated: { branch, skill, newLevel: current + 1 } });
+      return;
+    }
+
+    // === RESET SKILL TREE ===
+    if (action === "reset_skills" || action === "resetSkills") {
+      if (!petId) { sendError(res, 400, "petId required"); return; }
+      const [pet] = await db.select().from(petsTable).where(
+        and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
+      );
+      if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char || (char.gold || 0) < SKILL_RESET_COST) { sendError(res, 400, `Need ${SKILL_RESET_COST} gold`); return; }
+      await db.update(charactersTable).set({ gold: (char.gold || 0) - SKILL_RESET_COST }).where(eq(charactersTable.id, characterId));
+      const [updated] = await db.update(petsTable).set({ skillTree: {} }).where(eq(petsTable.id, petId)).returning();
+      sendSuccess(res, { pet: updated, goldCost: SKILL_RESET_COST });
+      return;
+    }
+
+    // === FEED PET (bond gain) ===
+    if (action === "feed") {
+      if (!petId) { sendError(res, 400, "petId required"); return; }
+      const [pet] = await db.select().from(petsTable).where(
+        and(eq(petsTable.id, petId), eq(petsTable.characterId, characterId))
+      );
+      if (!pet) { sendError(res, 404, "Pet not found"); return; }
+      const now = new Date();
+      if (pet.lastFedAt && (now.getTime() - new Date(pet.lastFedAt).getTime()) < FEED_COOLDOWN_MS) {
+        const remaining = Math.ceil((FEED_COOLDOWN_MS - (now.getTime() - new Date(pet.lastFedAt).getTime())) / 60000);
+        sendError(res, 400, `Pet was fed recently. Try again in ${remaining} minutes`);
+        return;
+      }
+      const feedCost = 100 + (pet.bondLevel || 0) * 50;
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char || (char.gold || 0) < feedCost) { sendError(res, 400, `Need ${feedCost} gold to feed`); return; }
+      await db.update(charactersTable).set({ gold: (char.gold || 0) - feedCost }).where(eq(charactersTable.id, characterId));
+      let newBond = (pet.bond || 0) + FEED_BOND_GAIN;
+      let newBondLevel = pet.bondLevel || 0;
+      while (newBondLevel < BOND_LEVELS.length - 1 && newBond >= BOND_LEVELS[newBondLevel + 1].xpReq) {
+        newBondLevel++;
+      }
+      const [updated] = await db.update(petsTable).set({
+        bond: newBond, bondLevel: newBondLevel, lastFedAt: now,
+      }).where(eq(petsTable.id, petId)).returning();
+      sendSuccess(res, { pet: updated, bondGain: FEED_BOND_GAIN, goldCost: feedCost, bondLevelName: BOND_LEVELS[newBondLevel].name });
+      return;
+    }
+
+    // === GET AURAS / SYNERGIES ===
+    if (action === "get_auras" || action === "getAuras") {
+      const pets = await db.select().from(petsTable).where(eq(petsTable.characterId, characterId));
+      const ownedSpecies = [...new Set(pets.map(p => p.species))];
+      const activeAuras = ownedSpecies.filter(s => PET_AURAS[s]).map(s => ({
+        species: s, ...PET_AURAS[s],
+      }));
+      const activeSets = SET_BONUSES.filter(sb =>
+        sb.required.every(sp => ownedSpecies.includes(sp))
+      );
+      sendSuccess(res, { auras: activeAuras, setBonuses: activeSets, ownedSpecies });
+      return;
+    }
+
+    // === BREED PETS ===
+    if (action === "breed") {
+      const { pet1Id, pet2Id } = req.body;
+      if (!pet1Id || !pet2Id) { sendError(res, 400, "pet1Id and pet2Id required"); return; }
+      if (pet1Id === pet2Id) { sendError(res, 400, "Cannot breed a pet with itself"); return; }
+      const [p1] = await db.select().from(petsTable).where(and(eq(petsTable.id, pet1Id), eq(petsTable.characterId, characterId)));
+      const [p2] = await db.select().from(petsTable).where(and(eq(petsTable.id, pet2Id), eq(petsTable.characterId, characterId)));
+      if (!p1 || !p2) { sendError(res, 404, "Pet not found"); return; }
+      if (p1.equipped || p2.equipped) { sendError(res, 400, "Cannot breed equipped pets"); return; }
+
+      const goldCost = Math.floor(BREEDING_COST * (PET_RARITY_MULT[p1.rarity] || 1 + PET_RARITY_MULT[p2.rarity] || 1) / 2);
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (!char || (char.gold || 0) < goldCost) { sendError(res, 400, `Need ${goldCost} gold to breed`); return; }
+      await db.update(charactersTable).set({ gold: (char.gold || 0) - goldCost }).where(eq(charactersTable.id, characterId));
+
+      // Check for secret combo
+      const comboKey1 = `${p1.species}+${p2.species}`;
+      const comboKey2 = `${p2.species}+${p1.species}`;
+      const secret = SECRET_COMBOS[comboKey1] || SECRET_COMBOS[comboKey2];
+
+      let childSpecies: string;
+      let childName: string;
+      let childRarity: string;
+      let isMutation = false;
+      let mutationTrait: any = null;
+
+      if (secret && Math.random() < 0.25) {
+        // Secret combo triggered!
+        childSpecies = secret.species;
+        childName = secret.name;
+        childRarity = secret.rarity;
+      } else {
+        // Normal breeding: random species from parents
+        childSpecies = Math.random() < 0.5 ? p1.species : p2.species;
+        childName = childSpecies;
+        // Child rarity: usually same as lower parent, small chance of higher
+        const r1 = PET_RARITY_ORDER.indexOf(p1.rarity);
+        const r2 = PET_RARITY_ORDER.indexOf(p2.rarity);
+        const baseRarityIdx = Math.min(r1, r2);
+        const rarityBoost = Math.random() < 0.15 ? 1 : 0;
+        childRarity = PET_RARITY_ORDER[Math.min(baseRarityIdx + rarityBoost, PET_RARITY_ORDER.length - 1)];
+      }
+
+      // Mutation chance (10% base, higher with rarer parents)
+      const mutationChance = 0.10 + (PET_RARITY_ORDER.indexOf(p1.rarity) + PET_RARITY_ORDER.indexOf(p2.rarity)) * 0.02;
+      if (Math.random() < mutationChance) {
+        isMutation = true;
+        mutationTrait = MUTATION_TRAITS[Math.floor(Math.random() * MUTATION_TRAITS.length)];
+      }
+
+      const speciesData = PET_SPECIES.find(s => s.species === childSpecies) || PET_SPECIES[0];
+      const childLevel = Math.max(1, Math.floor(((p1.level || 1) + (p2.level || 1)) / 3));
+      const childTraits = rollTraits(childRarity);
+      if (mutationTrait) childTraits.push({ key: mutationTrait.key, name: mutationTrait.name, desc: mutationTrait.desc });
+
+      const [child] = await db.insert(petsTable).values({
+        characterId, name: childName, species: childSpecies, rarity: childRarity,
+        level: childLevel, xp: 0,
+        passiveType: speciesData.passiveType,
+        passiveValue: getPetPassiveValue(childLevel, childRarity),
+        skillType: speciesData.skillType,
+        skillValue: getPetSkillValue(childLevel, childRarity),
+        traits: childTraits,
+      }).returning();
+
+      sendSuccess(res, {
+        child,
+        parents: [{ id: p1.id, species: p1.species, rarity: p1.rarity }, { id: p2.id, species: p2.species, rarity: p2.rarity }],
+        isSecretCombo: !!secret && childName !== childSpecies,
+        isMutation,
+        mutationTrait: mutationTrait ? { name: mutationTrait.name, desc: mutationTrait.desc } : null,
+        goldCost,
+      });
       return;
     }
 
