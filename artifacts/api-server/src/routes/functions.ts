@@ -4218,6 +4218,16 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       if (candidates.length < 3) {
         sendError(res, 400, `Need 3 ${rarity} ${species} pets (have ${candidates.length})`); return;
       }
+      // Fuse success chance based on rarity
+      const fuseChance: Record<string, number> = { common: 0.95, uncommon: 0.85, rare: 0.70, epic: 0.55, legendary: 0.40, mythic: 0.25 };
+      const fuseProbability = fuseChance[rarity] || 0.80;
+      if (Math.random() > fuseProbability) {
+        // Failed - lose 1 of the 3 pets as penalty
+        const sacrificed = candidates[0];
+        await db.delete(petsTable).where(eq(petsTable.id, sacrificed.id));
+        sendSuccess(res, { success: false, failed: true, sacrificedPet: sacrificed, chance: Math.round(fuseProbability * 100) });
+        return;
+      }
       // Delete 3
       const toDelete = candidates.slice(0, 3);
       for (const p of toDelete) {
@@ -4308,6 +4318,13 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       if (!char || (char.gems || 0) < gemCost) { sendError(res, 400, `Need ${gemCost} gems to evolve`); return; }
       await db.update(charactersTable).set({ gems: (char.gems || 0) - gemCost }).where(eq(charactersTable.id, characterId));
+      // Evolve success chance based on rarity — gems always consumed
+      const evolveChance: Record<string, number> = { common: 0.95, uncommon: 0.90, rare: 0.80, epic: 0.65, legendary: 0.50, mythic: 0.35 };
+      const evolveProbability = evolveChance[pet.rarity] || 0.80;
+      if (Math.random() > evolveProbability) {
+        sendSuccess(res, { success: false, failed: true, pet, gemCost, chance: Math.round(evolveProbability * 100) });
+        return;
+      }
       const newName = `${nextStage.prefix}${pet.species}`;
       const newPassive = Math.floor(getPetPassiveValue(pet.level, pet.rarity) * nextStage.statMult);
       const newSkill = Math.floor(getPetSkillValue(pet.level, pet.rarity) * nextStage.statMult);
@@ -4415,6 +4432,18 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       const [p2] = await db.select().from(petsTable).where(and(eq(petsTable.id, pet2Id), eq(petsTable.characterId, characterId)));
       if (!p1 || !p2) { sendError(res, 404, "Pet not found"); return; }
       if (p1.equipped || p2.equipped) { sendError(res, 400, "Cannot breed equipped pets"); return; }
+      // Daily breed limit: 5 per day — count pets created today for this character
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todaysPets = await db.select().from(petsTable).where(
+        and(
+          eq(petsTable.characterId, characterId),
+          sql`${petsTable.createdAt} >= ${todayStart.toISOString()}`
+        )
+      );
+      if (todaysPets.length >= 5) {
+        sendError(res, 400, "Daily breed limit reached (5/day)"); return;
+      }
 
       const goldCost = 5000;
       const gemCost = 100;

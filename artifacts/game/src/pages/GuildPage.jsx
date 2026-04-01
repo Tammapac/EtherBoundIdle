@@ -321,6 +321,7 @@ export default function GuildPage({ character, onCharacterUpdate }) {
               <GuildBoss
                 guild={myGuild}
                 myMemberEntry={myMemberEntry}
+                character={character}
                 onAttack={() => attackBossMutation.mutate()}
                 onActivate={() => activateBossMutation.mutate()}
                 isAttacking={attackBossMutation.isPending}

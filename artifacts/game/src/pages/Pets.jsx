@@ -214,6 +214,47 @@ class PetsErrorBoundary extends React.Component {
   }
 }
 
+// ─── Confirm Modal ────────────────────────────────────────────────────────────
+
+function ConfirmModal({ modal, onClose }) {
+  if (!modal) return null;
+  const isDestructive = modal.variant === "destructive";
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 className={`font-bold text-base mb-2 ${isDestructive ? "text-red-300" : "text-white"}`}>
+          {modal.title}
+        </h3>
+        <p className="text-sm text-muted-foreground mb-5 whitespace-pre-line">{modal.message}</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-gray-600 text-sm text-muted-foreground hover:border-gray-400 hover:text-white transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { modal.onConfirm(); onClose(); }}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              isDestructive
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-cyan-600 hover:bg-cyan-700 text-white"
+            }`}
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function PetsInner({ character, onCharacterUpdate }) {
@@ -223,11 +264,15 @@ function PetsInner({ character, onCharacterUpdate }) {
   // Tab state
   const [activeTab, setActiveTab] = useState("pets");
 
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState(null); // { title, message, onConfirm, variant }
+
   // My Pets state
   const [selectedForFuse, setSelectedForFuse] = useState([]);
   const [fuseMode, setFuseMode] = useState(false);
   const [fuseSpeciesFilter, setFuseSpeciesFilter] = useState(null);
   const [fuseRarityFilter, setFuseRarityFilter] = useState(null);
+  const [rarityFilter, setRarityFilter] = useState("all");
 
   // Expeditions state
   const [selectedExpeditionPet, setSelectedExpeditionPet] = useState("");
@@ -319,6 +364,14 @@ function PetsInner({ character, onCharacterUpdate }) {
     mutationFn: ({ species, rarity }) => base44.functions.invoke("petAction", { characterId: character.id, action: "fuse", species, rarity }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
+      if (data?.failed) {
+        setSelectedForFuse([]);
+        setFuseMode(false);
+        setFuseSpeciesFilter(null);
+        setFuseRarityFilter(null);
+        toast({ title: "Fusion failed!", description: `Success chance was ${data.chance}%. 1 pet was lost as penalty.`, variant: "destructive", duration: 4000 });
+        return;
+      }
       setSelectedForFuse([]);
       setFuseMode(false);
       setFuseSpeciesFilter(null);
@@ -332,9 +385,9 @@ function PetsInner({ character, onCharacterUpdate }) {
 
   const rerollTraitsMutation = useMutation({
     mutationFn: (petId) => base44.functions.invoke("petAction", { characterId: character.id, action: "rerollTraits", petId }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
-      toast({ title: "Traits rerolled!", duration: 1500 });
+      toast({ title: "Traits rerolled!", description: `Spent ${data?.cost?.toLocaleString() || ''} gold`, duration: 2000 });
     },
     onError: (err) => toast({ title: "Reroll failed", description: err?.message, variant: "destructive" }),
   });
@@ -372,6 +425,10 @@ function PetsInner({ character, onCharacterUpdate }) {
       queryClient.invalidateQueries({ queryKey: ["pets"] });
       if (onCharacterUpdate) onCharacterUpdate();
       setEvolvingPetId(null);
+      if (data?.failed) {
+        toast({ title: "Evolution failed!", description: `Success chance was ${data.chance}%. ${data.gemCost} 💎 were consumed.`, variant: "destructive", duration: 4000 });
+        return;
+      }
       const p = data?.pet;
       const stageName = data?.stage || (p?.evolution === 1 ? "Adult" : "Elder");
       const desc = p ? `${p.species} is now ${stageName}! Passive: +${p.passiveValue}, Skill: ${p.skillValue}` : `Your pet is now ${stageName}!`;
@@ -728,14 +785,14 @@ function PetsInner({ character, onCharacterUpdate }) {
                   onClick={() => {
                     const prices = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
                     const price = prices[pet.rarity] || 100;
-                    if (confirm(`Sell ${pet.species} for ${price.toLocaleString()} gold?`)) sellMutation.mutate(pet.id);
+                    setConfirmModal({ title: "Sell Pet", message: `Sell ${pet.species} for ${price.toLocaleString()} gold?`, onConfirm: () => sellMutation.mutate(pet.id) });
                   }}
                   disabled={sellMutation.isPending}
                 >
                   Sell
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300" onClick={() => {
-                  if (confirm("Release this pet?")) releaseMutation.mutate(pet.id);
+                  setConfirmModal({ title: "Release Pet", message: `Release ${pet.species}? This cannot be undone.`, onConfirm: () => releaseMutation.mutate(pet.id), variant: "destructive" });
                 }}>
                   <Trash2 className="w-3 h-3" />
                 </Button>
@@ -794,7 +851,7 @@ function PetsInner({ character, onCharacterUpdate }) {
         style={{ borderColor: rarityColor }}
         onClick={() => {
           if (slotItem) {
-            if (confirm("Unequip this item?")) unequipItemMutation.mutate(slotItem.id);
+            setConfirmModal({ title: "Unequip Item", message: `Unequip ${slotItem.name}?`, onConfirm: () => unequipItemMutation.mutate(slotItem.id) });
           } else if (selectedInventoryItem && selectedInventoryItem.slot === slotKey) {
             equipItemMutation.mutate({ equipmentId: selectedInventoryItem.id, petId: pet.id });
           }
@@ -953,7 +1010,15 @@ function PetsInner({ character, onCharacterUpdate }) {
                 <Button
                   size="sm"
                   className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
-                  onClick={() => fuseMutation.mutate({ species: selectedForFuse[0].species, rarity: selectedForFuse[0].rarity })}
+                  onClick={() => {
+                    const sp = selectedForFuse[0];
+                    const fuseChances = { common: 95, uncommon: 85, rare: 70, epic: 55, legendary: 40, mythic: 25 };
+                    setConfirmModal({
+                      title: "Fuse Pets",
+                      message: `Fuse 3 ${sp.rarity} ${sp.species} into 1 ${RARITY_NEXT[sp.rarity] || "higher rarity"}?\nSuccess chance: ${fuseChances[sp.rarity] || 80}%\nOn failure, 1 pet is lost as penalty.`,
+                      onConfirm: () => fuseMutation.mutate({ species: sp.species, rarity: sp.rarity }),
+                    });
+                  }}
                   disabled={fuseMutation.isPending}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -987,9 +1052,31 @@ function PetsInner({ character, onCharacterUpdate }) {
               <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
                 {fuseMode ? "Select pets to fuse" : "Collection"}
               </p>
+              {/* Rarity filter tabs */}
+              {!fuseMode && (
+                <div className="flex gap-1.5 flex-wrap mb-3">
+                  {["all","common","uncommon","rare","epic","legendary","mythic"].map(r => (
+                    <button
+                      key={r}
+                      onClick={() => setRarityFilter(r)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-all capitalize ${
+                        rarityFilter === r
+                          ? r === "all" ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300" : (RARITY_COLORS[r] || "bg-cyan-500/20 border-cyan-500/40 text-cyan-300")
+                          : "bg-gray-800 border-gray-700 text-muted-foreground hover:border-gray-500"
+                      }`}
+                    >
+                      {r === "all" ? `All (${unequippedPets.length})` : `${r.charAt(0).toUpperCase() + r.slice(1)} (${unequippedPets.filter(p => p.rarity === r).length})`}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {[...unequippedPets]
-                  .filter(pet => !fuseSpeciesFilter || !fuseMode || (pet.species === fuseSpeciesFilter && pet.rarity === fuseRarityFilter))
+                  .filter(pet => {
+                    if (fuseMode && fuseSpeciesFilter) return pet.species === fuseSpeciesFilter && pet.rarity === fuseRarityFilter;
+                    if (!fuseMode && rarityFilter !== "all") return pet.rarity === rarityFilter;
+                    return true;
+                  })
                   .sort((a, b) => {
                     const evoA = a.evolution ?? a.evolutionStage ?? 0;
                     const evoB = b.evolution ?? b.evolutionStage ?? 0;
@@ -1069,7 +1156,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                                   variant="ghost"
                                   className="h-7 w-7 p-0 text-red-400 hover:text-red-300"
                                   title="Cancel expedition"
-                                  onClick={() => { if (confirm("Cancel this expedition? Rewards will be lost.")) cancelExpeditionMutation.mutate(exp.id); }}
+                                  onClick={() => { setConfirmModal({ title: "Cancel Expedition", message: "Cancel this expedition? Rewards will be lost.", onConfirm: () => cancelExpeditionMutation.mutate(exp.id), variant: "destructive" }); }}
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
                                 </Button>
@@ -1099,21 +1186,36 @@ function PetsInner({ character, onCharacterUpdate }) {
                   <p className="text-xs text-muted-foreground">All pets are currently on expeditions.</p>
                 ) : (
                   <div className="space-y-3">
-                    {/* Pet select */}
+                    {/* Pet select — mini card grid */}
                     <div>
-                      <label className="text-[10px] text-muted-foreground mb-1 block">Select Pet</label>
-                      <select
-                        value={selectedExpeditionPet}
-                        onChange={e => setSelectedExpeditionPet(e.target.value)}
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
-                      >
-                        <option value="">Choose a pet...</option>
-                        {availablePetsForExpedition.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {SPECIES_ICONS[p.species] || "🐾"} {p.species} (Lv.{p.level}, {p.rarity})
-                          </option>
-                        ))}
-                      </select>
+                      <label className="text-[10px] text-muted-foreground mb-2 block">Select Pet</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {availablePetsForExpedition.map(p => {
+                          const isSelected = selectedExpeditionPet === p.id;
+                          const badgeColor = RARITY_BADGE[p.rarity] || RARITY_BADGE.common;
+                          const visual = getEvolutionVisual(p);
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => setSelectedExpeditionPet(p.id)}
+                              className={`rounded-lg border p-2 cursor-pointer transition-all flex items-center gap-2 ${
+                                isSelected
+                                  ? "border-cyan-500/60 bg-cyan-500/10"
+                                  : "border-gray-600 bg-gray-700/50 hover:border-gray-500"
+                              }`}
+                            >
+                              <span className="text-lg flex-shrink-0">{visual}</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-semibold text-white truncate">{p.species}</p>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <Badge className={`text-[8px] px-1 py-0 ${badgeColor}`}>{p.rarity}</Badge>
+                                  <span className="text-[9px] text-muted-foreground">Lv.{p.level}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* Region select */}
@@ -1123,13 +1225,14 @@ function PetsInner({ character, onCharacterUpdate }) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {regions.map(region => {
                             const selectedPet = pets.find(p => p.id === selectedExpeditionPet);
-                            const hasElementMatch = selectedPet && region.elementSpecies?.includes(selectedPet.species);
+                            const ELEMENT_SPECIES_BONUS = { fire: ["Phoenix","Dragon"], nature: ["Cat","Owl"], ice: ["Turtle","Golem"], dark: ["Serpent","Wolf"], wind: ["Fairy","Phoenix"], void: ["Slime","Dragon"] };
+                            const hasElementMatch = selectedPet && (ELEMENT_SPECIES_BONUS[region.element] || []).includes(selectedPet.species);
                             return (
                               <div
-                                key={region.id || region.name}
-                                onClick={() => setSelectedRegion(region.id || region.name)}
+                                key={region.key || region.name}
+                                onClick={() => setSelectedRegion(region.key)}
                                 className={`rounded-lg border p-3 cursor-pointer transition-all ${
-                                  selectedRegion === (region.id || region.name)
+                                  selectedRegion === region.key
                                     ? "border-cyan-500/60 bg-cyan-500/10"
                                     : "border-gray-600 bg-gray-700/50 hover:border-gray-500"
                                 }`}
@@ -1163,15 +1266,15 @@ function PetsInner({ character, onCharacterUpdate }) {
                         <div className="flex gap-2 flex-wrap">
                           {durations.map(dur => (
                             <button
-                              key={dur.value || dur.label}
-                              onClick={() => setSelectedDuration(dur.value || dur.label)}
+                              key={dur.key || dur.name}
+                              onClick={() => setSelectedDuration(dur.key)}
                               className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
-                                selectedDuration === (dur.value || dur.label)
+                                selectedDuration === dur.key
                                   ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-300"
                                   : "border-gray-600 bg-gray-700/50 text-muted-foreground hover:border-gray-500"
                               }`}
                             >
-                              {dur.label}
+                              {dur.name} ({dur.seconds >= 3600 ? Math.round(dur.seconds/3600) + 'h' : Math.round(dur.seconds/60) + 'm'})
                             </button>
                           ))}
                         </div>
@@ -1203,6 +1306,13 @@ function PetsInner({ character, onCharacterUpdate }) {
          ══════════════════════════════════════════════════════ */}
       {activeTab === "equipment" && (
         <div className="space-y-5">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4">
+            <p className="text-[10px] text-muted-foreground">
+              <Package className="w-3 h-3 inline mr-1" />
+              Pet equipment drops from <span className="text-cyan-300">Expeditions</span> (longer = better drops) and <span className="text-amber-300">Boss fights</span>.
+              Salvage unwanted gear for gold.
+            </p>
+          </div>
           {equipmentLoading ? (
             <div className="text-center py-8 text-muted-foreground text-sm">Loading equipment...</div>
           ) : (
@@ -1273,7 +1383,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                         size="sm"
                         variant="ghost"
                         className="h-6 text-[10px] text-red-400 hover:text-red-300 gap-1"
-                        onClick={() => { if (confirm("Salvage for gold?")) salvageMutation.mutate(selectedInventoryItem.id); }}
+                        onClick={() => { setConfirmModal({ title: "Salvage Item", message: `Salvage ${selectedInventoryItem.name} for gold?`, onConfirm: () => salvageMutation.mutate(selectedInventoryItem.id) }); }}
                         disabled={salvageMutation.isPending}
                       >
                         <Trash2 className="w-3 h-3" /> Salvage
@@ -1400,10 +1510,11 @@ function PetsInner({ character, onCharacterUpdate }) {
                           disabled={!eligible || isEvolving}
                           onClick={() => {
                             if (!eligible) return;
-                            if (confirm(`Evolve ${pet.species} to ${nextStage?.name} for 500 gems?`)) {
-                              setEvolvingPetId(pet.id);
-                              evolveMutation.mutate(pet.id);
-                            }
+                            setConfirmModal({
+                              title: "Evolve Pet",
+                              message: `Evolve ${pet.species} to ${nextStage?.name}?\nCost: 500 💎\nSuccess chance: ${{ common: 95, uncommon: 90, rare: 80, epic: 65, legendary: 50, mythic: 35 }[pet.rarity] || 80}%`,
+                              onConfirm: () => { setEvolvingPetId(pet.id); evolveMutation.mutate(pet.id); },
+                            });
                           }}
                         >
                           <TrendingUp className="w-3 h-3" />
@@ -1488,9 +1599,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                       variant="outline"
                       className="gap-1.5 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
                       onClick={() => {
-                        if (confirm("Reset skill tree for 2,000 gold?")) {
-                          resetSkillsMutation.mutate(pet.id);
-                        }
+                        setConfirmModal({ title: "Reset Skill Tree", message: "Reset skill tree for 2,000 gold?", onConfirm: () => resetSkillsMutation.mutate(pet.id) });
                       }}
                       disabled={resetSkillsMutation.isPending}
                     >
@@ -1758,6 +1867,9 @@ function PetsInner({ character, onCharacterUpdate }) {
           </div>
         </div>
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal modal={confirmModal} onClose={() => setConfirmModal(null)} />
 
       {/* ══════════════════════════════════════════════════════
           TAB: AURAS & SYNERGIES

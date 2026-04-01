@@ -9,6 +9,10 @@ import { useQuery } from "@tanstack/react-query";
 import { TOWER_CONFIG, generateTowerFloorData } from "@/lib/gameData";
 import TowerCombat from "@/components/tower/TowerCombat";
 
+const PET_SPECIES_ICONS_TOT = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
+const PET_EVO_SUFFIX_TOT = ["", "⭐", "👑"];
+const RARITY_PET_COLORS_TOT = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
+
 const FLOOR_MILESTONES = [
   { floor: 100, label: "The Iron Colossus", color: "text-gray-300", borderColor: "border-gray-500/40" },
   { floor: 200, label: "Abyssal Warlord", color: "text-purple-400", borderColor: "border-purple-500/40" },
@@ -27,6 +31,15 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
   const [loading, setLoading] = useState(false);
   const [viewOffset, setViewOffset] = useState(0);
   const { toast } = useToast();
+
+  // Fetch equipped pet
+  const { data: petData } = useQuery({
+    queryKey: ["pets", character?.id],
+    queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "list" }),
+    enabled: !!character?.id,
+    staleTime: 60000,
+  });
+  const equippedPetTOT = (petData?.pets || []).find(p => p.equipped);
 
   // Fetch tower status
   const { data: towerStatus, refetch } = useQuery({
@@ -231,6 +244,26 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
             You have {(character?.gems || 0).toLocaleString()} gems
           </p>
         </div>
+        {/* Pet Companion Display */}
+        {equippedPetTOT && (() => {
+          const icon = PET_SPECIES_ICONS_TOT[equippedPetTOT.species] || "🐾";
+          const evoSuffix = PET_EVO_SUFFIX_TOT[equippedPetTOT.evolution || 0] || "";
+          const rarityColor = RARITY_PET_COLORS_TOT[equippedPetTOT.rarity] || "text-gray-400";
+          return (
+            <div className="flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-2 py-1.5 mt-1">
+              <span className="text-base leading-none">{icon}{evoSuffix}</span>
+              <div className="flex-1 min-w-0 text-left">
+                <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
+                  {equippedPetTOT.name || equippedPetTOT.species}
+                </p>
+                <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
+                  Lv.{equippedPetTOT.level} · {equippedPetTOT.skillType || "companion"}
+                </p>
+              </div>
+              <span className="text-[9px] text-muted-foreground flex-shrink-0">🐾 pet</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Floor Ladder */}

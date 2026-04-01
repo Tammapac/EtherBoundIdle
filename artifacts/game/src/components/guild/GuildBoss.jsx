@@ -3,8 +3,21 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skull, Swords, Trophy, Timer, Flame } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 
-export default function GuildBoss({ guild, myMemberEntry, onAttack, onActivate, isAttacking, canActivate, bossCooldown }) {
+const PET_SPECIES_ICONS = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
+const PET_EVO_SUFFIX = ["", "⭐", "👑"];
+const RARITY_PET_COLORS = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
+
+export default function GuildBoss({ guild, myMemberEntry, character, onAttack, onActivate, isAttacking, canActivate, bossCooldown }) {
+  const { data: petData } = useQuery({
+    queryKey: ["pets", character?.id],
+    queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "list" }),
+    enabled: !!character?.id,
+    staleTime: 60000,
+  });
+  const equippedPet = (petData?.pets || []).find(p => p.equipped);
   const boss = guild.boss_active;
   const hp = guild.boss_hp || 0;
   const maxHp = guild.boss_max_hp || 1;
@@ -68,6 +81,25 @@ export default function GuildBoss({ guild, myMemberEntry, onAttack, onActivate, 
               )}
               <span className="block mt-1 text-purple-400">Tokens awarded when boss is defeated!</span>
             </p>
+            {equippedPet && (() => {
+              const icon = PET_SPECIES_ICONS[equippedPet.species] || "🐾";
+              const evoSuffix = PET_EVO_SUFFIX[equippedPet.evolution || 0] || "";
+              const rarityColor = RARITY_PET_COLORS[equippedPet.rarity] || "text-gray-400";
+              return (
+                <div className="mt-2 flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-2 py-1.5">
+                  <span className="text-base leading-none">{icon}{evoSuffix}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
+                      {equippedPet.name || equippedPet.species}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
+                      Lv.{equippedPet.level} · {equippedPet.skillType || "companion"}
+                    </p>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground flex-shrink-0">🐾 pet</span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Leaderboard */}
