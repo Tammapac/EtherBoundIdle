@@ -28,6 +28,7 @@ import Dungeons from "./pages/Dungeons";
 import SkillTree from "./pages/SkillTree";
 import TowerOfTrials from "./pages/TowerOfTrials";
 import SeasonPass from "./pages/SeasonPass";
+import Pets from "./pages/Pets";
 import ChatWindow from "./components/game/ChatWindow";
 import DailyLoginModal from "./components/game/DailyLoginModal";
 import PartyPanel from "./components/game/PartyPanel";
@@ -134,6 +135,7 @@ const GameApp = () => {
             <Route path="/skilltree" element={<SkillTree character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/tower" element={<TowerOfTrials character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/seasonpass" element={<SeasonPass character={character} onCharacterUpdate={handleCharacterUpdate} />} />
+            <Route path="/pets" element={<Pets character={character} onCharacterUpdate={handleCharacterUpdate} />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/gameconfig" element={<GameConfig />} />
             <Route path="*" element={<PageNotFound />} />

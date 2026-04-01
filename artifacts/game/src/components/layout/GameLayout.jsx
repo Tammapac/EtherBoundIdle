@@ -4,7 +4,7 @@ import {
   Swords, Shield, Backpack, Map, Users, ShoppingBag,
   Trophy, ScrollText, Menu, X, Coins, Gem, MessageCircle,
   LogOut, RotateCcw, Leaf, ChevronDown, BarChart3, Wrench, Skull, Zap, Settings,
-  ArrowUp, Star
+  ArrowUp, Star, PawPrint
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -256,6 +256,14 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             >
               <Star className="w-6 h-6 text-purple-400 group-hover:text-purple-300 transition-colors" />
               <span className="text-[8px] font-bold text-purple-400/80 group-hover:text-purple-300 mt-0.5 tracking-wide">PASS</span>
+            </div>
+            <div
+              onClick={() => navigate("/pets")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-teal-600/20 border-2 border-cyan-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-cyan-400 hover:from-cyan-500/40 hover:to-teal-500/30 transition-all shadow-lg shadow-cyan-500/20 group"
+              title="Pet Companions"
+            >
+              <PawPrint className="w-6 h-6 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
+              <span className="text-[8px] font-bold text-cyan-400/80 group-hover:text-cyan-300 mt-0.5 tracking-wide">PETS</span>
             </div>
           </div>
           <Outlet />
