@@ -30,21 +30,7 @@ export default function SeasonPass({ character, onCharacterUpdate }) {
     retry: 1,
   });
 
-  // Generate missions only when needed (no active missions yet)
-  const missionsGenerated = React.useRef(false);
-  useEffect(() => {
-    if (!character?.id || missionsGenerated.current) return;
-    if (seasonData && (!seasonData.missions || seasonData.missions.length === 0)) {
-      missionsGenerated.current = true;
-      base44.functions.invoke("seasonPassAction", {
-        action: "generate_missions",
-        characterId: character.id,
-      }).then(() => refetch()).catch((err) => {
-        missionsGenerated.current = false;
-        console.error("Season Pass mission generation failed:", err);
-      });
-    }
-  }, [character?.id, seasonData]);
+  // Missions are now auto-generated server-side by get_status
 
   const pass = seasonData?.pass || { tier: 0, xp: 0, isPremium: false, claimedFree: [], claimedPremium: [] };
   const missions = seasonData?.missions || [];

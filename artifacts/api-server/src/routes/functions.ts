@@ -3639,9 +3639,49 @@ router.post("/functions/seasonPassAction", async (req: Request, res: Response) =
       }
       const currentMissions = activeMissions.filter(m => !m.expiresAt || new Date(m.expiresAt) >= now);
 
+      // Auto-generate missing dailies/weeklies independently
+      const currentDailies = currentMissions.filter(m => m.type === "daily");
+      const currentWeeklies = currentMissions.filter(m => m.type === "weekly");
+      const newMissions: any[] = [];
+
+      if (currentDailies.length < 3) {
+        const tomorrow = new Date(now);
+        tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+        tomorrow.setUTCHours(0, 0, 0, 0);
+        const usedKeys = new Set(currentDailies.map(m => m.missionKey));
+        const available = DAILY_MISSION_POOL.filter(m => !usedKeys.has(m.key));
+        const picks = pickRandom(available, 3 - currentDailies.length);
+        for (const p of picks) {
+          const [m] = await db.insert(seasonMissionsTable).values({
+            characterId, season, type: "daily", missionKey: p.key, title: p.title, description: p.description,
+            progress: 0, target: p.target, xpReward: p.xp, status: "active", expiresAt: tomorrow,
+          }).returning();
+          newMissions.push(m);
+        }
+      }
+
+      if (currentWeeklies.length < 3) {
+        const nextWeek = new Date(now);
+        nextWeek.setUTCDate(nextWeek.getUTCDate() + (7 - nextWeek.getUTCDay()));
+        nextWeek.setUTCHours(0, 0, 0, 0);
+        if (nextWeek <= now) nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
+        const usedKeys = new Set(currentWeeklies.map(m => m.missionKey));
+        const available = WEEKLY_MISSION_POOL.filter(m => !usedKeys.has(m.key));
+        const picks = pickRandom(available, 3 - currentWeeklies.length);
+        for (const p of picks) {
+          const [m] = await db.insert(seasonMissionsTable).values({
+            characterId, season, type: "weekly", missionKey: p.key, title: p.title, description: p.description,
+            progress: 0, target: p.target, xpReward: p.xp, status: "active", expiresAt: nextWeek,
+          }).returning();
+          newMissions.push(m);
+        }
+      }
+
+      const allMissions = [...currentMissions, ...newMissions];
+
       sendSuccess(res, {
         pass: { id: pass.id, tier: pass.tier, xp: pass.xp, isPremium: pass.isPremium, claimedFree: pass.claimedFree, claimedPremium: pass.claimedPremium },
-        missions: currentMissions.map(m => ({ id: m.id, type: m.type, title: m.title, description: m.description, progress: m.progress, target: m.target, xpReward: m.xpReward, status: m.status, expiresAt: m.expiresAt })),
+        missions: allMissions.map(m => ({ id: m.id, type: m.type, title: m.title, description: m.description, progress: m.progress, target: m.target, xpReward: m.xpReward, status: m.status, expiresAt: m.expiresAt })),
         config: { season, seasonName: SEASON_CONFIG.SEASON_NAME, maxTier: SEASON_CONFIG.MAX_TIER, xpPerTier: SEASON_CONFIG.XP_PER_TIER, premiumCost: SEASON_CONFIG.PREMIUM_COST_GEMS, seasonEnd: new Date(seasonEnd).toISOString() },
         rewards: SEASON_REWARDS,
       });
