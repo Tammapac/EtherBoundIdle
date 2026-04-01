@@ -8,7 +8,7 @@ import WelcomeBackModal from "@/components/game/WelcomeBackModal";
 import {
   Swords, Skull, Sparkles, Heart,
   Shield, Zap, ArrowUp,
-  ShieldCheck, Crown, Footprints, CircleDot, Gem, FlaskConical, Package, Play, Pause
+  ShieldCheck, Crown, Footprints, CircleDot, Gem, FlaskConical, Package, Play, Pause, Star
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -1136,6 +1136,14 @@ export default function Battle({ character, onCharacterUpdate }) {
         >
           <ArrowUp className="w-6 h-6 text-amber-400 group-hover:text-amber-300 transition-colors" />
           <span className="text-[8px] font-bold text-amber-400/80 group-hover:text-amber-300 mt-0.5 tracking-wide">TOWER</span>
+        </div>
+        <div
+          onClick={() => navigate("/seasonpass")}
+          className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-600/20 border-2 border-purple-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-purple-400 hover:from-purple-500/40 hover:to-pink-500/30 transition-all shadow-lg shadow-purple-500/20 group"
+          title="Battle Pass"
+        >
+          <Star className="w-6 h-6 text-purple-400 group-hover:text-purple-300 transition-colors" />
+          <span className="text-[8px] font-bold text-purple-400/80 group-hover:text-purple-300 mt-0.5 tracking-wide">PASS</span>
         </div>
       </div>
 
