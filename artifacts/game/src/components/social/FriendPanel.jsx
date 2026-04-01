@@ -183,8 +183,8 @@ export default function FriendPanel({ character, onWhisper }) {
   const handleSearch = async () => {
     if (!search.trim()) return;
     setSearching(true);
-    const results = await base44.entities.Character.filter({ name: search.trim() });
-    setSearchResults(results.filter(c => c.id !== character.id));
+    const results = await base44.functions.invoke("lookupPlayerByName", { name: search.trim() });
+    setSearchResults((results || []).filter(c => c.id !== character.id));
     setSearching(false);
   };
 

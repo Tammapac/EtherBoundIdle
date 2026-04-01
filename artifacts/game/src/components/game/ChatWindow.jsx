@@ -85,9 +85,9 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
   // --- Send whisper mutation ---
   const sendWhisperMutation = useMutation({
     mutationFn: async ({ recipientName, content }) => {
-      // Look up recipient by name
-      const chars = await base44.entities.Character.filter({ name: recipientName });
-      if (chars.length === 0) {
+      // Look up recipient by name (cross-player search)
+      const chars = await base44.functions.invoke("lookupPlayerByName", { name: recipientName });
+      if (!chars || chars.length === 0) {
         throw new Error(`Player "${recipientName}" not found.`);
       }
       const recipient = chars[0];

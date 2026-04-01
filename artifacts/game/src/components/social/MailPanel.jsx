@@ -32,9 +32,9 @@ export default function MailPanel({ character, onCharacterUpdate }) {
   const sendMutation = useMutation({
     mutationFn: async () => {
       if (!toName.trim() || !subject.trim()) return;
-      // Find recipient character
-      const chars = await base44.entities.Character.filter({ name: toName.trim() });
-      if (chars.length === 0) throw new Error("Player not found");
+      // Find recipient character (cross-player search)
+      const chars = await base44.functions.invoke("lookupPlayerByName", { name: toName.trim() });
+      if (!chars || chars.length === 0) throw new Error("Player not found");
       const recipient = chars[0];
       if (goldAttach > 0 && goldAttach > (character.gold || 0)) throw new Error("Not enough gold");
 

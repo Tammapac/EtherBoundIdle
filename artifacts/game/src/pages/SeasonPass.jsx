@@ -19,11 +19,15 @@ export default function SeasonPass({ character, onCharacterUpdate }) {
   const { data: seasonData, refetch } = useQuery({
     queryKey: ["seasonPass", character?.id],
     queryFn: async () => {
-      const res = await base44.functions.invoke("seasonPassAction", {
-        action: "get_status",
-        characterId: character.id,
-      });
-      return res;
+      try {
+        const res = await base44.functions.invoke("seasonPassAction", {
+          action: "get_status",
+          characterId: character.id,
+        });
+        return res;
+      } catch {
+        return null;
+      }
     },
     enabled: !!character?.id,
     refetchInterval: 30000,

@@ -75,8 +75,8 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
 
   const searchPlayer = async () => {
     if (!targetSearch.trim()) return;
-    const res = await base44.entities.Character.filter({ name: targetSearch.trim() });
-    setTargetResults(res.filter(c => c.id !== character.id));
+    const res = await base44.functions.invoke("lookupPlayerByName", { name: targetSearch.trim() });
+    setTargetResults((res || []).filter(c => c.id !== character.id));
   };
 
   const initiateTradeMutation = useMutation({
