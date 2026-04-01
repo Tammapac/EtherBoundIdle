@@ -364,6 +364,12 @@ export const petsTable = pgTable("pets", {
   skillValue: integer("skill_value").default(0),
   equipped: boolean("equipped").notNull().default(false),
   traits: jsonb("traits").default([]),
+  evolution: integer("evolution").notNull().default(0), // 0=Baby, 1=Adult, 2=Elder
+  skillPoints: integer("skill_points").notNull().default(0),
+  skillTree: jsonb("skill_tree").default({}), // { combat: { damage_boost: 2, crit_mastery: 1 }, resource: {}, utility: {} }
+  bond: integer("bond").notNull().default(0),
+  bondLevel: integer("bond_level").notNull().default(0),
+  lastFedAt: timestamp("last_fed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [

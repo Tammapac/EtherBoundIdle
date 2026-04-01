@@ -8,6 +8,7 @@ import {
   PawPrint, Star, Zap, Shield, Heart, Swords, ArrowUpCircle, Trash2, Sparkles,
   MapPin, Clock, ChevronRight, Package, Wrench, CircleDot, Flame, Droplets,
   Wind, Mountain, Leaf, Moon, Sun, RefreshCw, CheckCircle2, XCircle,
+  TrendingUp, GitBranch, Baby, Dna, Layers, Plus, RotateCcw, Crown,
 } from "lucide-react";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -83,6 +84,23 @@ const TRAIT_COLORS = [
 
 const PET_XP_PER_LEVEL = 200;
 
+// Evolution stage config
+const EVOLUTION_STAGES = [
+  { stage: 0, name: "Baby",  suffix: "",   levelReq: 0,  color: "text-gray-300",  badge: "bg-gray-500/20 text-gray-300" },
+  { stage: 1, name: "Adult", suffix: "⭐",  levelReq: 15, color: "text-amber-300", badge: "bg-amber-500/20 text-amber-300" },
+  { stage: 2, name: "Elder", suffix: "👑",  levelReq: 35, color: "text-purple-300", badge: "bg-purple-500/20 text-purple-300" },
+];
+
+// Bond level names and colors
+const BOND_LEVELS = [
+  { name: "Stranger",    color: "text-gray-400",   heartColor: "text-gray-500" },
+  { name: "Acquainted",  color: "text-blue-400",   heartColor: "text-blue-400" },
+  { name: "Friendly",    color: "text-green-400",  heartColor: "text-green-400" },
+  { name: "Trusted",     color: "text-cyan-400",   heartColor: "text-cyan-400" },
+  { name: "Bonded",      color: "text-pink-400",   heartColor: "text-pink-400" },
+  { name: "Soulbound",   color: "text-rose-300",   heartColor: "text-rose-300" },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatCountdown(ms) {
@@ -100,6 +118,28 @@ function getProgressPct(startedAt, completesAt) {
   const elapsed = now - startedAt;
   if (total <= 0) return 100;
   return Math.min(100, Math.max(0, (elapsed / total) * 100));
+}
+
+function getEvolutionInfo(pet) {
+  const stage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+  return EVOLUTION_STAGES[Math.min(stage, 2)];
+}
+
+function getEvolutionVisual(pet) {
+  const base = SPECIES_ICONS[pet.species] || "🐾";
+  const evo = getEvolutionInfo(pet);
+  return base + (evo.suffix ? evo.suffix : "");
+}
+
+function getBondInfo(pet) {
+  const level = pet.bondLevel ?? pet.bond_level ?? 0;
+  return BOND_LEVELS[Math.min(level, BOND_LEVELS.length - 1)] || BOND_LEVELS[0];
+}
+
+function getBondLevelName(pet) {
+  const n = pet.bondLevelName ?? pet.bond_level_name ?? null;
+  if (n) return n;
+  return getBondInfo(pet).name;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -171,6 +211,21 @@ export default function Pets({ character, onCharacterUpdate }) {
   const [selectedEquipPet, setSelectedEquipPet] = useState("");
   const [selectedInventoryItem, setSelectedInventoryItem] = useState(null);
 
+  // Evolution state
+  const [evolvingPetId, setEvolvingPetId] = useState(null);
+
+  // Skills state
+  const [selectedSkillPet, setSelectedSkillPet] = useState(null);
+
+  // Breeding state
+  const [breedSlot1, setBreedSlot1] = useState(null);
+  const [breedSlot2, setBreedSlot2] = useState(null);
+  const [breedResult, setBreedResult] = useState(null);
+  const [breedRevealed, setBreedRevealed] = useState(false);
+
+  // Auras state
+  const [auraData, setAuraData] = useState(null);
+
   // ── Pets query ──
   const { data: petData, isLoading: petsLoading } = useQuery({
     queryKey: ["pets", character?.id],
@@ -179,6 +234,7 @@ export default function Pets({ character, onCharacterUpdate }) {
   });
 
   const pets = petData?.pets || [];
+  const skillTrees = petData?.skillTrees || {};
   const equippedPet = pets.find(p => p.equipped);
   const unequippedPets = pets.filter(p => !p.equipped);
 
@@ -241,6 +297,21 @@ export default function Pets({ character, onCharacterUpdate }) {
     onError: (err) => toast({ title: "Reroll failed", description: err?.message, variant: "destructive" }),
   });
 
+  const feedMutation = useMutation({
+    mutationFn: (petId) => base44.functions.invoke("petAction", { characterId: character.id, action: "feed", petId }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      toast({
+        title: "Pet fed!",
+        description: data?.bondLevelName
+          ? `Bond improved! Now: ${data.bondLevelName} (+${data.bondGain ?? 1} bond)`
+          : `+${data.bondGain ?? 1} bond`,
+        duration: 2000,
+      });
+    },
+    onError: (err) => toast({ title: "Feed failed", description: err?.message, variant: "destructive" }),
+  });
+
   const [grantSpecies, setGrantSpecies] = useState("Wolf");
   const [grantRarity, setGrantRarity] = useState("rare");
   const grantPetMutation = useMutation({
@@ -250,6 +321,69 @@ export default function Pets({ character, onCharacterUpdate }) {
       toast({ title: "Pet granted!", description: `Got a ${data?.pet?.rarity} ${data?.pet?.species}!`, duration: 3000 });
     },
     onError: (err) => toast({ title: "Grant failed", description: err?.message, variant: "destructive" }),
+  });
+
+  // ── Evolution mutation ──
+  const evolveMutation = useMutation({
+    mutationFn: (petId) => base44.functions.invoke("petAction", { characterId: character.id, action: "evolve", petId }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      setEvolvingPetId(null);
+      const stageName = EVOLUTION_STAGES[data?.stage ?? 1]?.name || "Adult";
+      toast({ title: `Evolution complete!`, description: `Your pet is now ${stageName}!`, duration: 3000 });
+    },
+    onError: (err) => {
+      setEvolvingPetId(null);
+      toast({ title: "Evolution failed", description: err?.message, variant: "destructive" });
+    },
+  });
+
+  // ── Skill mutations ──
+  const allocateSkillMutation = useMutation({
+    mutationFn: ({ petId, branch, skill }) =>
+      base44.functions.invoke("petAction", { characterId: character.id, action: "allocateSkill", petId, branch, skill }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      toast({ title: "Skill point allocated!", duration: 1200 });
+    },
+    onError: (err) => toast({ title: "Allocation failed", description: err?.message, variant: "destructive" }),
+  });
+
+  const resetSkillsMutation = useMutation({
+    mutationFn: (petId) =>
+      base44.functions.invoke("petAction", { characterId: character.id, action: "resetSkills", petId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      toast({ title: "Skill tree reset!", description: "Refunded 2000 gold.", duration: 2000 });
+    },
+    onError: (err) => toast({ title: "Reset failed", description: err?.message, variant: "destructive" }),
+  });
+
+  // ── Breeding mutation ──
+  const breedMutation = useMutation({
+    mutationFn: ({ pet1Id, pet2Id }) =>
+      base44.functions.invoke("petAction", { characterId: character.id, action: "breed", pet1Id, pet2Id }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      setBreedResult(data);
+      setBreedRevealed(false);
+      setTimeout(() => setBreedRevealed(true), 300);
+      if (data?.isSecretCombo) {
+        toast({ title: "Secret Combo discovered!", description: "A rare combination!", duration: 4000 });
+      } else if (data?.isMutation) {
+        toast({ title: "Mutation occurred!", description: `Mutation trait: ${data.mutationTrait}`, duration: 4000 });
+      } else {
+        toast({ title: "Breeding successful!", description: "A new pet was born!", duration: 2500 });
+      }
+    },
+    onError: (err) => toast({ title: "Breeding failed", description: err?.message, variant: "destructive" }),
+  });
+
+  // ── Auras query (on tab open) ──
+  const { data: auraQueryData, isLoading: aurasLoading } = useQuery({
+    queryKey: ["petAuras", character?.id],
+    queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "getAuras" }),
+    enabled: !!character?.id && activeTab === "auras",
   });
 
   // ── Expedition mutations ──
@@ -368,6 +502,45 @@ export default function Pets({ character, onCharacterUpdate }) {
   // Equipped items for a given pet
   const getEquippedItemsForPet = (petId) => equippedItems.filter(e => e.equippedToPet === petId);
 
+  // ── Skill tree helpers ──
+  const getSkillTreeForPet = (pet) => {
+    if (!pet || !skillTrees) return null;
+    return skillTrees;
+  };
+
+  const getPetSkillAllocation = (pet) => {
+    return pet?.skill_tree || pet?.skillTree || {};
+  };
+
+  const getTotalAllocated = (allocation) => {
+    let total = 0;
+    Object.values(allocation).forEach(branch => {
+      if (typeof branch === "object") {
+        Object.values(branch).forEach(v => { total += (typeof v === "number" ? v : 0); });
+      }
+    });
+    return total;
+  };
+
+  const getAvailableSkillPoints = (pet) => {
+    const allocation = getPetSkillAllocation(pet);
+    const total = getTotalAllocated(allocation);
+    return Math.max(0, (pet?.level || 1) - total);
+  };
+
+  // ── Evolution helpers ──
+  const canEvolve = (pet) => {
+    const currentStage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+    if (currentStage >= 2) return false;
+    const nextStage = EVOLUTION_STAGES[currentStage + 1];
+    return nextStage && (pet.level || 1) >= nextStage.levelReq;
+  };
+
+  const getEvolveCost = (pet) => {
+    const stage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+    return stage === 0 ? 500 : 1500;
+  };
+
   // ── Render pet card ──
   const renderPetCard = (pet, isEquipped = false) => {
     const colors = RARITY_COLORS[pet.rarity] || RARITY_COLORS.common;
@@ -376,6 +549,14 @@ export default function Pets({ character, onCharacterUpdate }) {
     const isSelectedFuse = !!selectedForFuse.find(p => p.id === pet.id);
     const xpPercent = Math.min(100, ((pet.xp || 0) / PET_XP_PER_LEVEL) * 100);
     const traits = pet.traits || [];
+    const evoInfo = getEvolutionInfo(pet);
+    const bondName = getBondLevelName(pet);
+    const bondInfo = getBondInfo(pet);
+    const visual = getEvolutionVisual(pet);
+    const feedCooldown = pet.lastFedAt
+      ? Math.max(0, 3600000 - (Date.now() - new Date(pet.lastFedAt).getTime()))
+      : 0;
+    const canFeedNow = feedCooldown <= 0;
 
     return (
       <div
@@ -389,10 +570,13 @@ export default function Pets({ character, onCharacterUpdate }) {
       >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{SPECIES_ICONS[pet.species] || "🐾"}</span>
+            <span className="text-2xl">{visual}</span>
             <div>
               <p className="font-bold text-sm">{pet.species}</p>
-              <Badge className={`text-[9px] px-1.5 py-0 ${badgeColor}`}>{pet.rarity}</Badge>
+              <div className="flex gap-1 flex-wrap">
+                <Badge className={`text-[9px] px-1.5 py-0 ${badgeColor}`}>{pet.rarity}</Badge>
+                <Badge className={`text-[9px] px-1.5 py-0 ${evoInfo.badge}`}>{evoInfo.name}</Badge>
+              </div>
             </div>
           </div>
           <span className="text-xs font-mono text-muted-foreground">Lv.{pet.level}</span>
@@ -407,6 +591,13 @@ export default function Pets({ character, onCharacterUpdate }) {
           <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
             <div className="h-full bg-primary/60 rounded-full transition-all" style={{ width: `${xpPercent}%` }} />
           </div>
+        </div>
+
+        {/* Bond */}
+        <div className="flex items-center gap-1.5 text-[10px] mb-1">
+          <Heart className={`w-3 h-3 ${bondInfo.heartColor}`} />
+          <span className="text-muted-foreground">Bond:</span>
+          <span className={`font-bold ${bondInfo.color}`}>{bondName}</span>
         </div>
 
         {/* Passive */}
@@ -434,13 +625,35 @@ export default function Pets({ character, onCharacterUpdate }) {
         {!fuseMode && (
           <div className="flex gap-1.5 flex-wrap">
             {isEquipped ? (
-              <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px]" onClick={() => unequipMutation.mutate()}>
-                Unequip
-              </Button>
+              <>
+                <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px]" onClick={() => unequipMutation.mutate()}>
+                  Unequip
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 px-2 text-[10px] gap-1 ${canFeedNow ? "text-pink-400 border-pink-500/30 hover:bg-pink-500/10" : "text-muted-foreground border-gray-600"}`}
+                  title={canFeedNow ? "Feed pet (+bond)" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
+                  onClick={() => canFeedNow && feedMutation.mutate(pet.id)}
+                  disabled={!canFeedNow || feedMutation.isPending}
+                >
+                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed" : formatCountdown(feedCooldown)}
+                </Button>
+              </>
             ) : (
               <>
                 <Button size="sm" className="flex-1 h-7 text-[10px] bg-primary/80 hover:bg-primary" onClick={() => equipMutation.mutate(pet.id)}>
                   Equip
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-7 px-2 text-[10px] gap-1 ${canFeedNow ? "text-pink-400 border-pink-500/30 hover:bg-pink-500/10" : "text-muted-foreground border-gray-600"}`}
+                  title={canFeedNow ? "Feed pet (+bond)" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
+                  onClick={() => canFeedNow && feedMutation.mutate(pet.id)}
+                  disabled={!canFeedNow || feedMutation.isPending}
+                >
+                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed" : formatCountdown(feedCooldown)}
                 </Button>
                 <Button
                   size="sm"
@@ -553,26 +766,32 @@ export default function Pets({ character, onCharacterUpdate }) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {[
-          { key: "pets",        label: "My Pets",    icon: PawPrint },
-          { key: "expeditions", label: "Expeditions", icon: MapPin },
-          { key: "equipment",   label: "Equipment",   icon: Wrench },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setActiveTab(key)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${
-              activeTab === key
-                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                : "bg-gray-800 text-muted-foreground border border-gray-700 hover:border-gray-500"
-            }`}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
+      {/* Tabs — scrollable horizontally */}
+      <div className="overflow-x-auto pb-1">
+        <div className="flex gap-2 min-w-max">
+          {[
+            { key: "pets",        label: "My Pets",    icon: PawPrint },
+            { key: "expeditions", label: "Expeditions", icon: MapPin },
+            { key: "equipment",   label: "Equipment",   icon: Wrench },
+            { key: "evolution",   label: "Evolution",   icon: TrendingUp },
+            { key: "skills",      label: "Skills",      icon: GitBranch },
+            { key: "breeding",    label: "Breeding",    icon: Dna },
+            { key: "auras",       label: "Auras",       icon: Layers },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === key
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
+                  : "bg-gray-800 text-muted-foreground border border-gray-700 hover:border-gray-500"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════
@@ -992,6 +1211,582 @@ export default function Pets({ character, onCharacterUpdate }) {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          TAB: EVOLUTION
+         ══════════════════════════════════════════════════════ */}
+      {activeTab === "evolution" && (
+        <div className="space-y-4">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Pets evolve through 3 stages: <span className="text-gray-300 font-medium">Baby</span> → <span className="text-amber-300 font-medium">Adult ⭐ (Lv.15)</span> → <span className="text-purple-300 font-medium">Elder 👑 (Lv.35)</span>.
+              Evolving costs gold and permanently upgrades your pet's appearance and stats.
+            </p>
+          </div>
+
+          {pets.length === 0 ? (
+            <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-8 text-center">
+              <TrendingUp className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">No pets to evolve.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {pets.map(pet => {
+                const evoInfo = getEvolutionInfo(pet);
+                const eligible = canEvolve(pet);
+                const goldCost = getEvolveCost(pet);
+                const colors = RARITY_COLORS[pet.rarity] || RARITY_COLORS.common;
+                const visual = getEvolutionVisual(pet);
+                const isEvolving = evolvingPetId === pet.id && evolveMutation.isPending;
+                const currentStage = pet.evolutionStage ?? pet.evolution_stage ?? 0;
+                const nextStage = EVOLUTION_STAGES[currentStage + 1];
+
+                return (
+                  <div key={pet.id} className={`rounded-xl border-2 p-4 ${colors}`}>
+                    {/* Pet header */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-3xl">{visual}</span>
+                      <div className="flex-1">
+                        <p className="font-bold text-sm text-white">{pet.species}</p>
+                        <p className="text-[10px] text-muted-foreground capitalize">{pet.rarity} · Lv.{pet.level}</p>
+                      </div>
+                    </div>
+
+                    {/* Stage display */}
+                    <div className="flex items-center gap-2 mb-3">
+                      {EVOLUTION_STAGES.map((stage, idx) => (
+                        <React.Fragment key={stage.stage}>
+                          <div className={`flex flex-col items-center ${idx <= currentStage ? "" : "opacity-30"}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border-2 ${
+                              idx < currentStage
+                                ? "bg-green-500/20 border-green-500/60 text-green-400"
+                                : idx === currentStage
+                                  ? "bg-cyan-500/20 border-cyan-500/60 text-cyan-300"
+                                  : "bg-gray-700 border-gray-600 text-gray-500"
+                            }`}>
+                              {idx < currentStage ? "✓" : idx === 0 ? "🐣" : idx === 1 ? "⭐" : "👑"}
+                            </div>
+                            <span className={`text-[8px] mt-0.5 ${stage.color}`}>{stage.name}</span>
+                          </div>
+                          {idx < 2 && (
+                            <ChevronRight className={`w-3 h-3 flex-shrink-0 ${idx < currentStage ? "text-green-400" : "text-gray-600"}`} />
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+
+                    {/* Current stage badge */}
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold mb-3 ${evoInfo.badge}`}>
+                      {currentStage === 0 ? "🐣" : currentStage === 1 ? "⭐" : "👑"} {evoInfo.name}
+                    </div>
+
+                    {/* Evolve button or max stage */}
+                    {currentStage >= 2 ? (
+                      <div className="text-xs text-purple-300 font-semibold flex items-center gap-1.5">
+                        <Crown className="w-3.5 h-3.5" /> Max Stage Reached
+                      </div>
+                    ) : (
+                      <div>
+                        {nextStage && (
+                          <p className="text-[10px] text-muted-foreground mb-2">
+                            Next: <span className={`font-bold ${nextStage.color}`}>{nextStage.name}</span>
+                            {(pet.level || 1) < nextStage.levelReq && (
+                              <span className="text-red-400"> — Need Lv.{nextStage.levelReq} (currently Lv.{pet.level})</span>
+                            )}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          className={`w-full gap-1.5 text-xs ${
+                            eligible
+                              ? "bg-gradient-to-r from-amber-600 to-purple-600 hover:from-amber-700 hover:to-purple-700 text-white"
+                              : "opacity-50 cursor-not-allowed"
+                          }`}
+                          disabled={!eligible || isEvolving}
+                          onClick={() => {
+                            if (!eligible) return;
+                            if (confirm(`Evolve ${pet.species} to ${nextStage?.name} for ${goldCost.toLocaleString()} gold?`)) {
+                              setEvolvingPetId(pet.id);
+                              evolveMutation.mutate(pet.id);
+                            }
+                          }}
+                        >
+                          <TrendingUp className="w-3 h-3" />
+                          {isEvolving ? "Evolving..." : eligible ? `Evolve (${goldCost.toLocaleString()} gold)` : `Lv.${nextStage?.levelReq} required`}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          TAB: SKILLS
+         ══════════════════════════════════════════════════════ */}
+      {activeTab === "skills" && (
+        <div className="space-y-4">
+          {/* Pet selector */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Select Pet</p>
+            <div className="flex gap-2 flex-wrap">
+              {pets.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedSkillPet(p)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all ${
+                    selectedSkillPet?.id === p.id
+                      ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-300"
+                      : "border-gray-600 bg-gray-800 text-muted-foreground hover:border-gray-500"
+                  }`}
+                >
+                  <span>{getEvolutionVisual(p)}</span>
+                  <span>{p.species}</span>
+                  <span className="text-[10px] opacity-60">Lv.{p.level}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!selectedSkillPet ? (
+            <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-8 text-center">
+              <GitBranch className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">Select a pet to view its skill tree.</p>
+            </div>
+          ) : (() => {
+            // Re-find the pet from the latest data to keep points current
+            const pet = pets.find(p => p.id === selectedSkillPet.id) || selectedSkillPet;
+            const allocation = getPetSkillAllocation(pet);
+            const availablePoints = getAvailableSkillPoints(pet);
+            const tree = getSkillTreeForPet(pet);
+
+            const branchConfig = [
+              { key: "combat",   label: "Combat",   color: "rose",  headerClass: "bg-rose-500/20 border-rose-500/30 text-rose-300", btnClass: "bg-rose-600 hover:bg-rose-700 text-white" },
+              { key: "resource", label: "Resource", color: "amber", headerClass: "bg-amber-500/20 border-amber-500/30 text-amber-300", btnClass: "bg-amber-600 hover:bg-amber-700 text-white" },
+              { key: "utility",  label: "Utility",  color: "blue",  headerClass: "bg-blue-500/20 border-blue-500/30 text-blue-300",  btnClass: "bg-blue-600 hover:bg-blue-700 text-white" },
+            ];
+
+            return (
+              <div className="space-y-4">
+                {/* Header info */}
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{getEvolutionVisual(pet)}</span>
+                    <div>
+                      <p className="font-bold text-white">{pet.species}</p>
+                      <p className="text-[10px] text-muted-foreground capitalize">{pet.rarity} · Lv.{pet.level}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`px-3 py-1.5 rounded-lg text-sm font-semibold border ${
+                      availablePoints > 0
+                        ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-300"
+                        : "bg-gray-700 border-gray-600 text-muted-foreground"
+                    }`}>
+                      {availablePoints} skill point{availablePoints !== 1 ? "s" : ""} available
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                      onClick={() => {
+                        if (confirm("Reset skill tree for 2,000 gold?")) {
+                          resetSkillsMutation.mutate(pet.id);
+                        }
+                      }}
+                      disabled={resetSkillsMutation.isPending}
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset (2,000g)
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Skill branches */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {branchConfig.map(branch => {
+                    const branchData = tree?.[branch.key] || {};
+                    const branchAllocation = allocation?.[branch.key] || {};
+
+                    return (
+                      <div key={branch.key} className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden">
+                        {/* Branch header */}
+                        <div className={`px-3 py-2 border-b flex items-center gap-2 ${branch.headerClass}`}>
+                          <GitBranch className="w-3.5 h-3.5" />
+                          <span className="text-xs font-bold uppercase tracking-wide">{branch.label}</span>
+                        </div>
+
+                        {/* Skills list */}
+                        <div className="p-3 space-y-3">
+                          {Object.keys(branchData).length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-2">No skills in this branch.</p>
+                          ) : (
+                            Object.entries(branchData).map(([skillKey, skillData]) => {
+                              const current = branchAllocation[skillKey] || 0;
+                              const max = skillData.maxPoints || 5;
+                              const pct = max > 0 ? (current / max) * 100 : 0;
+                              const canAllocate = availablePoints > 0 && current < max;
+
+                              return (
+                                <div key={skillKey} className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[11px] font-semibold text-white">{skillData.name || skillKey}</p>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[10px] text-muted-foreground">{current}/{max}</span>
+                                      <button
+                                        className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold transition-all ${
+                                          canAllocate
+                                            ? `${branch.btnClass} hover:scale-110`
+                                            : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                                        }`}
+                                        disabled={!canAllocate || allocateSkillMutation.isPending}
+                                        onClick={() => allocateSkillMutation.mutate({ petId: pet.id, branch: branch.key, skill: skillKey })}
+                                        title={canAllocate ? `Allocate point to ${skillData.name || skillKey}` : current >= max ? "Max level reached" : "No skill points available"}
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {/* Progress bar */}
+                                  <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${
+                                        branch.color === "rose" ? "bg-rose-500" :
+                                        branch.color === "amber" ? "bg-amber-500" : "bg-blue-500"
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  {skillData.desc && (
+                                    <p className="text-[9px] text-muted-foreground leading-tight">{skillData.desc}</p>
+                                  )}
+                                  {skillData.effect && current > 0 && (
+                                    <p className="text-[9px] text-cyan-400">Active: {skillData.effect}</p>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          TAB: BREEDING
+         ══════════════════════════════════════════════════════ */}
+      {activeTab === "breeding" && (
+        <div className="space-y-5">
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Select two unequipped pets to breed. The child inherits traits from both parents.
+              Some combinations unlock <span className="text-amber-300 font-semibold">Secret Combos</span> or trigger
+              <span className="text-purple-300 font-semibold"> Mutations</span>!
+            </p>
+          </div>
+
+          {/* Slot selector */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { slot: breedSlot1, setSlot: setBreedSlot1, label: "Parent 1" },
+              { slot: breedSlot2, setSlot: setBreedSlot2, label: "Parent 2" },
+            ].map(({ slot, setSlot, label }, idx) => {
+              const otherSlot = idx === 0 ? breedSlot2 : breedSlot1;
+              const availablePets = unequippedPets.filter(p => !otherSlot || p.id !== otherSlot.id);
+
+              return (
+                <div key={idx} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">{label}</p>
+                  {slot ? (
+                    <div className={`rounded-xl border-2 p-3 mb-3 ${RARITY_COLORS[slot.rarity] || RARITY_COLORS.common}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{getEvolutionVisual(slot)}</span>
+                        <div className="flex-1">
+                          <p className="font-bold text-sm text-white">{slot.species}</p>
+                          <p className="text-[10px] text-muted-foreground capitalize">{slot.rarity} · Lv.{slot.level}</p>
+                        </div>
+                        <button
+                          onClick={() => setSlot(null)}
+                          className="text-gray-500 hover:text-gray-300 transition-colors"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-600 rounded-xl p-4 text-center mb-3">
+                      <Dna className="w-6 h-6 text-muted-foreground/40 mx-auto mb-1" />
+                      <p className="text-xs text-muted-foreground">No pet selected</p>
+                    </div>
+                  )}
+                  <select
+                    value={slot?.id || ""}
+                    onChange={e => {
+                      const pet = unequippedPets.find(p => p.id === e.target.value);
+                      setSlot(pet || null);
+                      setBreedResult(null);
+                    }}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
+                  >
+                    <option value="">Choose a pet...</option>
+                    {availablePets.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {SPECIES_ICONS[p.species] || "🐾"} {p.species} (Lv.{p.level}, {p.rarity})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Breed button + cost */}
+          {breedSlot1 && breedSlot2 && (
+            <div className="bg-pink-500/10 border border-pink-500/30 rounded-xl p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">{getEvolutionVisual(breedSlot1)}</span>
+                  <Heart className="w-5 h-5 text-pink-400" />
+                  <span className="text-xl">{getEvolutionVisual(breedSlot2)}</span>
+                  <span className="text-muted-foreground text-sm">=</span>
+                  <span className="text-xl">?</span>
+                </div>
+                <Button
+                  className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white gap-1.5"
+                  onClick={() => {
+                    setBreedResult(null);
+                    breedMutation.mutate({ pet1Id: breedSlot1.id, pet2Id: breedSlot2.id });
+                  }}
+                  disabled={breedMutation.isPending}
+                >
+                  <Heart className="w-4 h-4" />
+                  {breedMutation.isPending ? "Breeding..." : "Breed"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Breed result */}
+          {breedResult && (
+            <div className={`rounded-xl border-2 p-5 transition-all duration-500 ${
+              breedResult.isSecretCombo
+                ? "border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/20"
+                : breedResult.isMutation
+                  ? "border-purple-400 bg-purple-500/10 shadow-lg shadow-purple-500/20"
+                  : "border-green-500/40 bg-green-500/10"
+            } ${breedRevealed ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
+            style={{ transform: breedRevealed ? "scale(1)" : "scale(0.95)", transition: "all 0.4s ease" }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className={`w-5 h-5 ${
+                  breedResult.isSecretCombo ? "text-amber-400" :
+                  breedResult.isMutation ? "text-purple-400" : "text-green-400"
+                }`} />
+                <p className={`font-bold text-base ${
+                  breedResult.isSecretCombo ? "text-amber-300" :
+                  breedResult.isMutation ? "text-purple-300" : "text-green-300"
+                }`}>
+                  {breedResult.isSecretCombo ? "Secret Combo Discovered!" :
+                   breedResult.isMutation ? "Mutation!" : "New Pet Born!"}
+                </p>
+              </div>
+
+              {breedResult.isMutation && breedResult.mutationTrait && (
+                <div className="mb-3 px-3 py-2 bg-purple-500/20 border border-purple-500/40 rounded-lg">
+                  <p className="text-xs text-purple-300">
+                    <span className="font-bold">Mutation Trait:</span> {breedResult.mutationTrait}
+                  </p>
+                </div>
+              )}
+
+              {breedResult.child && (
+                <div className={`rounded-xl border-2 p-3 max-w-xs ${RARITY_COLORS[breedResult.child.rarity] || RARITY_COLORS.common}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-3xl">{getEvolutionVisual(breedResult.child)}</span>
+                    <div>
+                      <p className="font-bold text-white">{breedResult.child.species}</p>
+                      <Badge className={`text-[9px] px-1.5 py-0 ${RARITY_BADGE[breedResult.child.rarity] || RARITY_BADGE.common}`}>
+                        {breedResult.child.rarity}
+                      </Badge>
+                    </div>
+                  </div>
+                  {breedResult.child.traits?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {breedResult.child.traits.map((t, i) => <TraitPill key={i} trait={t} index={i} />)}
+                    </div>
+                  )}
+                  {breedResult.goldCost > 0 && (
+                    <p className="text-[10px] text-amber-400">Cost: {breedResult.goldCost.toLocaleString()} gold</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Secret combos hint list */}
+          {(petData?.secretCombos || []).length > 0 && (
+            <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+              <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
+                <Star className="w-3.5 h-3.5 text-amber-400" /> Known Secret Combos
+              </p>
+              <div className="space-y-2">
+                {(petData.secretCombos).map((combo, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className={combo.discovered ? "text-amber-300" : "text-gray-500"}>
+                      {combo.discovered
+                        ? `${SPECIES_ICONS[combo.parent1] || "???"} ${combo.parent1} + ${SPECIES_ICONS[combo.parent2] || "???"} ${combo.parent2} = ${SPECIES_ICONS[combo.result] || "???"} ${combo.result}`
+                        : "??? + ??? = ???"}
+                    </span>
+                    {combo.discovered && (
+                      <Badge className="bg-amber-500/20 text-amber-300 text-[8px] px-1">Discovered</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          TAB: AURAS & SYNERGIES
+         ══════════════════════════════════════════════════════ */}
+      {activeTab === "auras" && (
+        <div className="space-y-5">
+          {aurasLoading ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">Loading auras...</div>
+          ) : (() => {
+            const auras = auraQueryData?.auras || [];
+            const setBonuses = auraQueryData?.setBonuses || [];
+            const ownedSpecies = new Set(auraQueryData?.ownedSpecies || pets.map(p => p.species));
+
+            return (
+              <>
+                {/* Active Auras */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Active Auras
+                  </p>
+                  {auras.length === 0 ? (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 text-center">
+                      <Layers className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-muted-foreground text-sm">No active auras</p>
+                      <p className="text-muted-foreground/60 text-xs mt-1">Own pets of different species to unlock auras.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {auras.map((aura, i) => (
+                        <div key={i} className="bg-gray-800/50 border border-cyan-500/30 rounded-xl p-3 flex items-start gap-3">
+                          <span className="text-2xl flex-shrink-0">{SPECIES_ICONS[aura.species] || "🐾"}</span>
+                          <div>
+                            <p className="text-sm font-semibold text-white">{aura.name || `${aura.species} Aura`}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{aura.species}</p>
+                            {aura.effect && (
+                              <p className="text-[10px] text-cyan-300 mt-1">{aura.effect}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Set Bonuses */}
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 text-amber-400" /> Set Bonuses
+                  </p>
+                  {setBonuses.length === 0 ? (
+                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 text-center">
+                      <Star className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-muted-foreground text-sm">No set bonuses defined.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {setBonuses.map((set, i) => {
+                        const requiredSpecies = set.requiredSpecies || set.species || [];
+                        const isActive = Array.isArray(requiredSpecies) && requiredSpecies.every(s => ownedSpecies.has(s));
+
+                        return (
+                          <div key={i} className={`rounded-xl border-2 p-4 transition-all ${
+                            isActive
+                              ? "border-amber-500/50 bg-amber-500/10 shadow-md shadow-amber-500/10"
+                              : "border-gray-700 bg-gray-800/30 opacity-60"
+                          }`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className={`text-sm font-bold ${isActive ? "text-amber-300" : "text-muted-foreground"}`}>
+                                {set.name || `Set ${i + 1}`}
+                              </p>
+                              {isActive && (
+                                <Badge className="bg-amber-500/20 text-amber-300 text-[9px] px-2 border border-amber-500/30">
+                                  Active
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Required species icons */}
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              {requiredSpecies.map((species, j) => (
+                                <div key={j} className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border ${
+                                  ownedSpecies.has(species)
+                                    ? "border-green-500/40 bg-green-500/10 text-green-300"
+                                    : "border-gray-600 bg-gray-700/50 text-gray-500"
+                                }`}>
+                                  <span>{SPECIES_ICONS[species] || "🐾"}</span>
+                                  <span>{species}</span>
+                                  {ownedSpecies.has(species) && <CheckCircle2 className="w-2.5 h-2.5 text-green-400" />}
+                                </div>
+                              ))}
+                            </div>
+
+                            {set.bonus && (
+                              <p className={`text-xs ${isActive ? "text-cyan-300" : "text-muted-foreground"}`}>
+                                Bonus: {set.bonus}
+                              </p>
+                            )}
+                            {set.description && (
+                              <p className="text-[10px] text-muted-foreground mt-1">{set.description}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Owned species summary */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Your Species Collection</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(SPECIES_ICONS).map(([species, icon]) => {
+                      const owned = ownedSpecies.has(species);
+                      return (
+                        <div key={species} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-all ${
+                          owned
+                            ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+                            : "border-gray-700 bg-gray-800/50 text-gray-600"
+                        }`}>
+                          <span>{icon}</span>
+                          <span>{species}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
     </div>
