@@ -145,6 +145,15 @@ export default function SeasonPass({ character, onCharacterUpdate }) {
           Season Pass Error: {seasonError?.message || "Unknown error — check browser console (F12)"}
         </div>
       )}
+      {/* Debug info — temporary, will remove after fixing */}
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-300 font-mono whitespace-pre-wrap">
+        DEBUG: seasonData keys: {seasonData ? Object.keys(seasonData).join(", ") : "null"}{"\n"}
+        rewards count: {Object.keys(rewards).length}{"\n"}
+        missions count: {missions.length}{"\n"}
+        config: {JSON.stringify(config)}{"\n"}
+        pass: {JSON.stringify(pass)}{"\n"}
+        first reward: {JSON.stringify(rewards[1] || rewards["1"] || "none")}
+      </div>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
