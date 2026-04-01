@@ -148,7 +148,7 @@ function TraitPill({ trait, index }) {
   const color = TRAIT_COLORS[index % TRAIT_COLORS.length];
   return (
     <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${color}`}>
-      {trait}
+      {typeof trait === 'object' ? (trait.name || trait.key || JSON.stringify(trait)) : trait}
     </span>
   );
 }
@@ -1644,7 +1644,7 @@ function PetsInner({ character, onCharacterUpdate }) {
               {breedResult.isMutation && breedResult.mutationTrait && (
                 <div className="mb-3 px-3 py-2 bg-purple-500/20 border border-purple-500/40 rounded-lg">
                   <p className="text-xs text-purple-300">
-                    <span className="font-bold">Mutation Trait:</span> {breedResult.mutationTrait}
+                    <span className="font-bold">Mutation Trait:</span> {typeof breedResult.mutationTrait === 'object' ? (breedResult.mutationTrait.name || breedResult.mutationTrait.key) : breedResult.mutationTrait}
                   </p>
                 </div>
               )}
