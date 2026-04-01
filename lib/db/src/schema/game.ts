@@ -363,10 +363,44 @@ export const petsTable = pgTable("pets", {
   skillType: varchar("skill_type"),
   skillValue: integer("skill_value").default(0),
   equipped: boolean("equipped").notNull().default(false),
+  traits: jsonb("traits").default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => [
   index("idx_pets_character").on(table.characterId),
+]);
+
+export const petExpeditionsTable = pgTable("pet_expeditions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id").notNull(),
+  petId: uuid("pet_id").notNull(),
+  region: varchar("region").notNull(),
+  duration: integer("duration").notNull(), // seconds
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  completesAt: timestamp("completes_at", { withTimezone: true }).notNull(),
+  status: varchar("status").notNull().default("active"), // active, completed, claimed
+  rewards: jsonb("rewards"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_pet_expeditions_character").on(table.characterId),
+  index("idx_pet_expeditions_pet").on(table.petId),
+]);
+
+export const petEquipmentTable = pgTable("pet_equipment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  characterId: varchar("character_id").notNull(),
+  petId: uuid("pet_id"), // null = in inventory, not equipped to pet
+  slot: varchar("slot").notNull(), // collar, claws, charm
+  name: varchar("name").notNull(),
+  rarity: varchar("rarity").notNull().default("common"),
+  statType: varchar("stat_type").notNull(),
+  statValue: integer("stat_value").notNull().default(0),
+  secondaryStat: varchar("secondary_stat"),
+  secondaryValue: integer("secondary_value").default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("idx_pet_equipment_character").on(table.characterId),
+  index("idx_pet_equipment_pet").on(table.petId),
 ]);
 
 export const userRolesTable = pgTable("user_roles", {

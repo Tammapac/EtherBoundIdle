@@ -21,6 +21,8 @@ import {
   gemLabsTable,
   privateMessagesTable,
   petsTable,
+  petExpeditionsTable,
+  petEquipmentTable,
 } from "@workspace/db";
 import { eq, and, desc, asc, lt, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/authMiddleware";
@@ -49,6 +51,8 @@ const tableMap: Record<string, any> = {
   GemLab: gemLabsTable,
   PrivateMessage: privateMessagesTable,
   Pet: petsTable,
+  PetExpedition: petExpeditionsTable,
+  PetEquipment: petEquipmentTable,
 };
 
 const fieldMappings: Record<string, Record<string, string>> = {
@@ -231,11 +235,27 @@ const fieldMappings: Record<string, Record<string, string>> = {
     created_at: "createdAt",
     updated_at: "updatedAt",
   },
+  PetExpedition: {
+    character_id: "characterId",
+    pet_id: "petId",
+    started_at: "startedAt",
+    completes_at: "completesAt",
+    created_at: "createdAt",
+  },
+  PetEquipment: {
+    character_id: "characterId",
+    pet_id: "petId",
+    stat_type: "statType",
+    stat_value: "statValue",
+    secondary_stat: "secondaryStat",
+    secondary_value: "secondaryValue",
+    created_at: "createdAt",
+  },
 };
 
 const timestampFields = new Set([
   "createdAt", "updatedAt", "lastIdleClaim", "lastDailyLogin",
-  "expiresAt", "lastSeen", "bossExpiresAt",
+  "expiresAt", "lastSeen", "bossExpiresAt", "startedAt", "completesAt",
 ]);
 
 function getTableColumns(entityName: string): Set<string> | null {
