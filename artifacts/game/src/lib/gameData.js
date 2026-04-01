@@ -874,11 +874,11 @@ export const TOWER_CONFIG = {
 
 // ── SEASON PASS CONFIG ─────────────────────────────────────────────────
 export const SEASON_PASS_CONFIG = {
-  CURRENT_SEASON: 1,
-  SEASON_NAME: "Season 1: Dawn of Trials",
-  MAX_TIER: 50,
-  XP_PER_TIER: 1000,
-  PREMIUM_COST_GEMS: 2000,
+  season: 1,
+  seasonName: "Season 1: Dawn of Trials",
+  maxTier: 50,
+  xpPerTier: 1000,
+  premiumCost: 2000,
 };
 
 // Tower enemy name pools by floor tier
