@@ -72,7 +72,17 @@ const STAT_INLINE_SUFFIX = {
   attack_speed: "x",
 };
 
-export default function ItemTooltip({ item, characterLevel, compareItem = null, characterClass = null, equippedItems = [], character = null }) {
+const RUNE_STAT_LABELS = {
+  attack_pct: "ATK%", crit_chance: "Crit%", crit_dmg_pct: "Crit DMG%",
+  boss_dmg_pct: "Boss DMG%", attack_speed: "ATK Speed%", lifesteal: "Lifesteal%",
+  defense_pct: "DEF%", block_chance: "Block%", evasion: "Evasion%",
+  hp_flat: "HP", mp_flat: "MP", hp_regen: "HP Regen", mp_regen: "MP Regen",
+  exp_pct: "EXP%", gold_pct: "Gold%", drop_chance: "Drop%",
+  fire_dmg: "Fire%", ice_dmg: "Ice%", lightning_dmg: "Lightning%",
+  poison_dmg: "Poison%", blood_dmg: "Blood%", sand_dmg: "Sand%",
+};
+
+export default function ItemTooltip({ item, characterLevel, compareItem = null, characterClass = null, equippedItems = [], character = null, socketedRunes = [] }) {
   if (!item) return null;
 
   const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
@@ -272,6 +282,44 @@ export default function ItemTooltip({ item, characterLevel, compareItem = null, 
           ))}
         </div>
       )}
+
+      {/* Socketed Runes */}
+      {(() => {
+        const extraData = item.extraData || item.extra_data || {};
+        const maxSlots = extraData.rune_slots || 0;
+        const itemRunes = socketedRunes.filter(r => (r.itemId || r.item_id) === item.id);
+        if (maxSlots === 0 && itemRunes.length === 0) return null;
+        return (
+          <div className="border border-purple-500/30 bg-purple-500/5 rounded-lg p-2 space-y-1.5">
+            <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide">
+              Rune Slots ({itemRunes.length}/{maxSlots})
+            </p>
+            {itemRunes.map((rune, i) => {
+              const rarityConf = RARITY_CONFIG[rune.rarity] || RARITY_CONFIG.common;
+              return (
+                <div key={rune.id || i} className="flex items-start gap-2 text-xs">
+                  <span className="flex-shrink-0 mt-0.5">🔮</span>
+                  <div>
+                    <span className={`font-semibold ${rarityConf.color}`}>{rune.name}</span>
+                    <span className="text-muted-foreground"> Lv.{rune.level || 1}</span>
+                    <p className="text-muted-foreground">
+                      {RUNE_STAT_LABELS[rune.mainStat || rune.main_stat] || rune.mainStat || rune.main_stat} +{rune.mainValue || rune.main_value}
+                      {(rune.subStats || rune.sub_stats || []).map((s, j) => (
+                        <span key={j}> · {RUNE_STAT_LABELS[s.stat] || s.stat} +{s.value}</span>
+                      ))}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            {Array.from({ length: maxSlots - itemRunes.length }).map((_, i) => (
+              <div key={`empty-${i}`} className="flex items-center gap-2 text-xs text-muted-foreground/40">
+                <span>○</span> <span>Empty Slot</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Unique Effect Summary */}
       {(uniqueDef?.uniqueEffect || item.uniqueEffect) && (

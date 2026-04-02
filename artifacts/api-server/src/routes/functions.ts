@@ -3266,7 +3266,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
 
     // Dust drops from combat (boss/elite = guaranteed, normal = small chance)
     try {
-      const dustDropChance = serverIsBoss ? 0.80 : serverIsElite ? 0.50 : 0.12;
+      const dustDropChance = serverIsBoss ? 0.40 : serverIsElite ? 0.20 : 0.05;
       if (Math.random() < dustDropChance) {
         const charExtra = (updated.extraData as any) || {};
         const cLvl = updated.level || 1;
@@ -3409,7 +3409,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
 
       // 4a. Rune drop chance (boss/elite = higher chance)
       try {
-        const runeDropChance = serverIsBoss ? 0.35 : serverIsElite ? 0.15 : 0.04;
+        const runeDropChance = serverIsBoss ? 0.08 : serverIsElite ? 0.03 : 0.005;
         if (Math.random() < runeDropChance) {
           const rarity = rollRuneRarity(char.level || 1, charLuck + petLuckBonus);
           const runeData = generateRune(char.level || 1, rarity);
@@ -5000,7 +5000,7 @@ const RUNE_DUST_TYPE: Record<number, string> = {
   5: "void_dust", 6: "void_dust",
 };
 const RUNE_DUST_COST: Record<number, number> = {
-  1: 3, 2: 5, 3: 8, 4: 12, 5: 20, 6: 30,
+  1: 10, 2: 20, 3: 35, 4: 50, 5: 75, 6: 100,
 };
 // Success rates decrease with level — failure drops 1 level (min 1)
 const RUNE_UPGRADE_RATE: Record<number, number> = {

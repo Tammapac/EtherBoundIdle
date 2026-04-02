@@ -31,7 +31,7 @@ const SLOT_ORDER = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amu
 
 // ─── Hover Tooltip ──────────────────────────────────────────────────────────
 
-function HoverTooltip({ item, character, equipped, triggerRef }) {
+function HoverTooltip({ item, character, equipped, triggerRef, allRunes = [] }) {
   if (!item || !triggerRef?.current) return null;
   const rect = triggerRef.current.getBoundingClientRect();
   const tooltipW = 264;
@@ -57,6 +57,7 @@ function HoverTooltip({ item, character, equipped, triggerRef }) {
           compareItem={!item.equipped ? equipped.find(i => i.type === item.type && i.id !== item.id) : null}
           equippedItems={equipped}
           character={character}
+          socketedRunes={allRunes}
         />
       </div>
     </div>
@@ -65,7 +66,7 @@ function HoverTooltip({ item, character, equipped, triggerRef }) {
 
 // ─── Item Card ──────────────────────────────────────────────────────────────
 
-function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew, onMarkSeen }) {
+function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew, onMarkSeen, allRunes = [] }) {
   const [hovered, setHovered] = useState(false);
   const ref = useRef(null);
   const Icon = getItemIcon(item);
@@ -147,7 +148,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         )}
       </motion.button>
       {hovered && (
-        <HoverTooltip item={item} character={character} equipped={equipped} triggerRef={ref} />
+        <HoverTooltip item={item} character={character} equipped={equipped} triggerRef={ref} allRunes={allRunes} />
       )}
     </>
   );
@@ -221,10 +222,10 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
 
 // ─── Stats Panel ────────────────────────────────────────────────────────────
 
-function CharacterStatsPanel({ character, equippedItems }) {
+function CharacterStatsPanel({ character, equippedItems, equippedRunes = [] }) {
   if (!character) return null;
   const setStats = aggregateSetStats(equippedItems);
-  const { total, derived } = calculateFinalStats(character, equippedItems, setStats);
+  const { total, derived } = calculateFinalStats(character, equippedItems, setStats, equippedRunes);
 
   const baseStats = [
     { icon: Swords, label: "STR", value: total.strength, color: "text-red-400" },
@@ -342,6 +343,16 @@ export default function Inventory({ character, onCharacterUpdate }) {
     queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
     enabled: !!character?.id,
   });
+
+  // Fetch runes for stat calculations + tooltip display
+  const { data: runeData } = useQuery({
+    queryKey: ["runes", character?.id],
+    queryFn: () => base44.functions.invoke("runes", { characterId: character.id, action: "list" }),
+    enabled: !!character?.id,
+    refetchInterval: 1000, // Auto-refresh every second for live stat updates
+  });
+  const allRunes = runeData?.runes || [];
+  const equippedRunes = useMemo(() => allRunes.filter(r => r.itemId || r.item_id), [allRunes]);
 
   const applyEquipmentStats = async (newEquip, updatedItems) => {
     const nowEquipped = updatedItems.filter(i => Object.values(newEquip).includes(i.id));
@@ -525,7 +536,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
 
         {/* Stats Panel */}
         <div className="flex-1 min-w-0">
-          <CharacterStatsPanel character={character} equippedItems={equipped} />
+          <CharacterStatsPanel character={character} equippedItems={equipped} equippedRunes={equippedRunes} />
         </div>
       </div>
 
@@ -574,6 +585,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
                 canEquip={canEquip}
                 isNew={!seenItems.has(item.id)}
                 onMarkSeen={markSeen}
+                allRunes={allRunes}
               />
             );
           })}
@@ -618,6 +630,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
                       compareItem={!selectedItem.equipped ? equippedInSlot : null}
                       equippedItems={equipped}
                       character={character}
+                      socketedRunes={allRunes}
                     />
                     {equippedInSlot && !selectedItem.equipped && (
                       <div className="mt-3 pt-3 border-t border-border">

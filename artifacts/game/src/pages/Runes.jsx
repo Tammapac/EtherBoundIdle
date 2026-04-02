@@ -56,7 +56,7 @@ const DUST_INFO = {
 };
 
 const DUST_FOR_LEVEL = { 1: "magic_dust", 2: "magic_dust", 3: "heavens_dust", 4: "heavens_dust", 5: "void_dust", 6: "void_dust" };
-const DUST_COST = { 1: 3, 2: 5, 3: 8, 4: 12, 5: 20, 6: 30 };
+const DUST_COST = { 1: 10, 2: 20, 3: 35, 4: 50, 5: 75, 6: 100 };
 const UPGRADE_RATE = { 1: 90, 2: 75, 3: 60, 4: 45, 5: 30, 6: 20 };
 
 const ITEM_TYPE_LABELS = {
