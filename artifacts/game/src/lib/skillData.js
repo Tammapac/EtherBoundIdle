@@ -989,15 +989,25 @@ export const SKILL_SYNERGIES = {
 };
 
 // Helper to get active synergies for a character
-export function getActiveSynergies(charClass, learnedSkills = []) {
+// Synergies only activate when required skills are equipped in hotbar
+export function getActiveSynergies(charClass, learnedSkills = [], equippedSkills = null) {
   const synergies = SKILL_SYNERGIES[charClass] || [];
   const learned = new Set(learnedSkills);
-  return synergies.filter(syn => syn.requires.every(id => learned.has(id)));
+  // If equippedSkills provided, synergies require skills to be in hotbar
+  const equipped = equippedSkills ? new Set(equippedSkills) : null;
+  return synergies.filter(syn => {
+    // All required skills must be learned
+    if (!syn.requires.every(id => learned.has(id))) return false;
+    // AND all required skills must be equipped/in hotbar
+    if (equipped && !syn.requires.every(id => equipped.has(id))) return false;
+    return true;
+  });
 }
 
 // Helper to get total synergy bonuses
-export function getSynergyBonuses(charClass, learnedSkills = []) {
-  const active = getActiveSynergies(charClass, learnedSkills);
+// equippedSkills: array of skill IDs currently in hotbar
+export function getSynergyBonuses(charClass, learnedSkills = [], equippedSkills = null) {
+  const active = getActiveSynergies(charClass, learnedSkills, equippedSkills);
   const bonuses = {};
   for (const syn of active) {
     for (const [stat, val] of Object.entries(syn.bonuses)) {

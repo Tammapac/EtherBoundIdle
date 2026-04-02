@@ -47,9 +47,10 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   const toggleTier = (tier) => setOpenTiers(prev => ({ ...prev, [tier]: !prev[tier] }));
   const tierNums = [1, 2, 3, 4, 5, 6];
 
-  // Synergies
+  // Synergies — only active when required skills are in hotbar
+  const equippedSkills = character?.hotbar_skills || [];
   const allSynergies = SKILL_SYNERGIES[charClass] || [];
-  const activeSynergies = getActiveSynergies(charClass, learnedSkills);
+  const activeSynergies = getActiveSynergies(charClass, learnedSkills, equippedSkills);
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-3">

@@ -3334,6 +3334,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     }
 
     let lootItem = null;
+    let droppedRune: any = null;
     try {
       const charLuck = char.luck || 0;
       const enemyKeyStr = req.body.enemyKey || "";
@@ -3407,7 +3408,6 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       }
 
       // 4a. Rune drop chance (boss/elite = higher chance)
-      let droppedRune: any = null;
       try {
         const runeDropChance = serverIsBoss ? 0.35 : serverIsElite ? 0.15 : 0.04;
         if (Math.random() < runeDropChance) {

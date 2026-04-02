@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +9,7 @@ import {
   Backpack, Swords, ShieldCheck, Crown, Footprints, CircleDot,
   Gem, Coins, ArrowUpRight, FlaskConical, Package, Hand,
   Heart, Zap, Shield, Crosshair, Wind, Flame,
-  Droplet, Snowflake, Skull
+  Droplet, Snowflake, Skull, User, Sparkles, Star, Egg
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { getItemIcon } from "@/lib/itemIcons";
@@ -22,18 +22,14 @@ import { getUniqueItemDef } from "@/lib/uniqueItems";
 import SetCollectionPanel from "@/components/game/SetCollectionPanel";
 
 const TYPE_ICONS = {
-  weapon: Swords,
-  armor: ShieldCheck,
-  helmet: Crown,
-  gloves: Hand,
-  boots: Footprints,
-  ring: CircleDot,
-  amulet: Gem,
-  consumable: FlaskConical,
-  material: Package,
+  weapon: Swords, armor: ShieldCheck, helmet: Crown, gloves: Hand,
+  boots: Footprints, ring: CircleDot, amulet: Gem,
+  consumable: FlaskConical, material: Package,
 };
 
 const SLOT_ORDER = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+
+// ─── Hover Tooltip ──────────────────────────────────────────────────────────
 
 function HoverTooltip({ item, character, equipped, triggerRef }) {
   if (!item || !triggerRef?.current) return null;
@@ -52,10 +48,7 @@ function HoverTooltip({ item, character, equipped, triggerRef }) {
   top = Math.max(margin, Math.min(top, window.innerHeight - tooltipH - margin));
 
   return (
-    <div
-      className="fixed z-[100] pointer-events-none"
-      style={{ top, left, maxHeight: "80vh" }}
-    >
+    <div className="fixed z-[100] pointer-events-none" style={{ top, left, maxHeight: "80vh" }}>
       <div className="bg-card border border-border rounded-lg p-3 w-64 shadow-xl overflow-y-auto max-h-[80vh]">
         <ItemTooltip
           item={item}
@@ -70,6 +63,8 @@ function HoverTooltip({ item, character, equipped, triggerRef }) {
   );
 }
 
+// ─── Item Card ──────────────────────────────────────────────────────────────
+
 function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew, onMarkSeen }) {
   const [hovered, setHovered] = useState(false);
   const ref = useRef(null);
@@ -80,6 +75,8 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
   const itemLevel = item.item_level;
   const isSetItem = item.rarity === "set";
   const isUnique = !!item.is_unique || !!getUniqueItemDef(item.name) || (item.proc_effects && item.proc_effects.length > 0);
+  const extraData = item.extraData || item.extra_data || {};
+  const runeSlots = extraData.rune_slots || 0;
 
   return (
     <>
@@ -132,11 +129,14 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
           </div>
         </div>
         <div className="flex flex-wrap gap-1 mt-1">
-          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>
-            {rarity.label}
-          </Badge>
+          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>{rarity.label}</Badge>
           {item.equipped && <Badge className="text-xs bg-primary/20 text-primary">Equipped</Badge>}
           {isSetItem && <Badge className="text-xs bg-cyan-500/20 text-cyan-300 border-cyan-500/30">Set</Badge>}
+          {runeSlots > 0 && (
+            <Badge className="text-xs bg-purple-500/15 text-purple-400 border-purple-500/30 gap-0.5">
+              <Gem className="w-2.5 h-2.5" /> {runeSlots}
+            </Badge>
+          )}
           {!levelOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Req. {item.level_req}</Badge>}
           {levelOk && !classOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Wrong Class</Badge>}
         </div>
@@ -153,9 +153,76 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
   );
 }
 
+// ─── Character Silhouette Equipment Panel ───────────────────────────────────
+
+function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
+  const getSlot = (slot) => equipped.find(i => i.type === slot);
+
+  const renderSlot = (slot, position) => {
+    const item = getSlot(slot);
+    const Icon = item ? getItemIcon(item) : (TYPE_ICONS[slot] || Backpack);
+    const rarity = item ? RARITY_CONFIG[item.rarity] : null;
+    const extraData = item ? (item.extraData || item.extra_data || {}) : {};
+    const runeSlots = extraData.rune_slots || 0;
+
+    return (
+      <button
+        key={slot}
+        onClick={() => item && onSelectItem(item)}
+        className={`absolute ${position} w-[60px] h-[60px] rounded-lg border-2 flex flex-col items-center justify-center transition-all hover:scale-105 ${
+          item
+            ? `${rarity?.border} ${rarity?.bg} cursor-pointer`
+            : "border-dashed border-gray-600 bg-gray-900/50"
+        }`}
+        title={item ? item.name : SLOT_LABELS[slot]}
+      >
+        <Icon className={`w-5 h-5 ${item ? rarity?.color : "text-gray-600"}`} />
+        <span className={`text-[8px] mt-0.5 truncate max-w-[54px] ${item ? rarity?.color : "text-gray-600"}`}>
+          {item ? (item.name.length > 8 ? item.name.slice(0, 8) + ".." : item.name) : SLOT_LABELS[slot]}
+        </span>
+        {item && (item.upgrade_level || 0) > 0 && (
+          <span className="absolute -top-1 -right-1 text-[8px] font-bold text-green-400 bg-gray-900 border border-green-500/40 rounded px-0.5">
+            +{item.upgrade_level}
+          </span>
+        )}
+        {item && runeSlots > 0 && (
+          <span className="absolute -bottom-1 -right-1 text-[8px] font-bold text-purple-400 bg-gray-900 border border-purple-500/40 rounded-full w-3.5 h-3.5 flex items-center justify-center">
+            {runeSlots}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <div className="relative w-[240px] h-[320px] mx-auto flex-shrink-0">
+      {/* Character silhouette center */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[80px] h-[200px] rounded-full bg-gradient-to-b from-gray-700/20 to-gray-800/20 border border-gray-700/30 flex items-center justify-center">
+        <User className="w-12 h-12 text-gray-600/40" />
+      </div>
+
+      {/* Helmet — top center */}
+      {renderSlot("helmet", "top-0 left-1/2 -translate-x-1/2")}
+      {/* Amulet — below helmet, slightly right */}
+      {renderSlot("amulet", "top-[65px] left-1/2 translate-x-[5px]")}
+      {/* Weapon — left of body */}
+      {renderSlot("weapon", "top-[80px] left-0")}
+      {/* Armor — center body */}
+      {renderSlot("armor", "top-[130px] left-1/2 -translate-x-1/2")}
+      {/* Gloves — left lower */}
+      {renderSlot("gloves", "top-[195px] left-0")}
+      {/* Ring — right of body */}
+      {renderSlot("ring", "top-[195px] right-0")}
+      {/* Boots — bottom center */}
+      {renderSlot("boots", "bottom-0 left-1/2 -translate-x-1/2")}
+    </div>
+  );
+}
+
+// ─── Stats Panel ────────────────────────────────────────────────────────────
+
 function CharacterStatsPanel({ character, equippedItems }) {
   if (!character) return null;
-
   const setStats = aggregateSetStats(equippedItems);
   const { total, derived } = calculateFinalStats(character, equippedItems, setStats);
 
@@ -196,39 +263,39 @@ function CharacterStatsPanel({ character, equippedItems }) {
   ].filter(s => parseInt(s.value) > 0);
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-1">
-      <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Base Stats</h3>
+    <div className="bg-card border border-border rounded-xl p-3 space-y-1 text-[11px]">
+      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Base Stats</h3>
       {baseStats.map(({ icon: Icon, label, value, color }) => (
         <div key={label} className="flex items-center justify-between py-0.5">
           <div className="flex items-center gap-1.5">
             <Icon className={`w-3 h-3 ${color}`} />
-            <span className="text-xs text-muted-foreground">{label}</span>
+            <span className="text-muted-foreground">{label}</span>
           </div>
-          <span className={`text-xs font-mono font-semibold ${color}`}>{value}</span>
+          <span className={`font-mono font-semibold ${color}`}>{value}</span>
         </div>
       ))}
-      <div className="border-t border-border my-1.5" />
-      <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Combat Stats</h3>
+      <div className="border-t border-border my-1" />
+      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Combat Stats</h3>
       {stats.filter(s => !s.hide).map(({ icon: Icon, label, value, color }) => (
         <div key={label} className="flex items-center justify-between py-0.5">
           <div className="flex items-center gap-1.5">
             <Icon className={`w-3 h-3 ${color}`} />
-            <span className="text-xs text-muted-foreground">{label}</span>
+            <span className="text-muted-foreground">{label}</span>
           </div>
-          <span className={`text-xs font-mono font-semibold ${color}`}>{value}</span>
+          <span className={`font-mono font-semibold ${color}`}>{value}</span>
         </div>
       ))}
       {elementalStats.length > 0 && (
         <>
-          <div className="border-t border-border my-1.5" />
-          <h3 className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Elemental Bonuses</h3>
+          <div className="border-t border-border my-1" />
+          <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Elemental</h3>
           {elementalStats.map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="flex items-center justify-between py-0.5">
               <div className="flex items-center gap-1.5">
                 <Icon className={`w-3 h-3 ${color}`} />
-                <span className="text-xs text-muted-foreground">{label}</span>
+                <span className="text-muted-foreground">{label}</span>
               </div>
-              <span className={`text-xs font-mono font-semibold ${color}`}>{value}</span>
+              <span className={`font-mono font-semibold ${color}`}>{value}</span>
             </div>
           ))}
         </>
@@ -236,6 +303,8 @@ function CharacterStatsPanel({ character, equippedItems }) {
     </div>
   );
 }
+
+// ─── Main Inventory ─────────────────────────────────────────────────────────
 
 export default function Inventory({ character, onCharacterUpdate }) {
   const [filter, setFilter] = useState("all");
@@ -292,10 +361,8 @@ export default function Inventory({ character, onCharacterUpdate }) {
         toast({ title: reason, variant: "destructive", duration: 2000 });
         return;
       }
-
       const currentEquipId = character.equipment?.[slot];
       const dupes = items.filter(i => i.type === slot && i.equipped && i.id !== item.id);
-      // Unequip old items (catch errors for deleted/missing items)
       const unequipPromises = [];
       if (currentEquipId && items.some(i => i.id === currentEquipId)) {
         unequipPromises.push(base44.entities.Item.update(currentEquipId, { equipped: false }).catch(() => {}));
@@ -306,21 +373,16 @@ export default function Inventory({ character, onCharacterUpdate }) {
         }
       }
       await Promise.all(unequipPromises);
-      // Equip the new item (this must succeed)
       await base44.entities.Item.update(item.id, { equipped: true });
-
       const newEquip = { ...(character.equipment || {}), [slot]: item.id };
-      const updatedItems = items
-        .map(i => {
-          if (i.id === item.id) return { ...i, equipped: true };
-          if (i.type === slot && i.equipped) return { ...i, equipped: false };
-          return i;
-        });
+      const updatedItems = items.map(i => {
+        if (i.id === item.id) return { ...i, equipped: true };
+        if (i.type === slot && i.equipped) return { ...i, equipped: false };
+        return i;
+      });
       await applyEquipmentStats(newEquip, updatedItems);
-      // Optimistically update the items cache so UI reflects immediately
       queryClient.setQueryData(["items", character?.id], updatedItems);
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      // Update selected item to show equipped state
       setSelectedItem({ ...item, equipped: true });
     },
   });
@@ -357,7 +419,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
 
   const sellAllMutation = useMutation({
     mutationFn: async () => {
-      const unequipped = items.filter(i => !i.equipped);
+      const unequipped = items.filter(i => !i.equipped && SLOT_ORDER.includes(i.type));
       if (unequipped.length === 0) return;
       await Promise.all(unequipped.map(item => base44.functions.invoke('sellItem', { itemId: item.id })));
       queryClient.invalidateQueries({ queryKey: ["items"] });
@@ -365,7 +427,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
     },
   });
 
-  const equipped = React.useMemo(() => {
+  const equipped = useMemo(() => {
     const equipMap = character.equipment || {};
     const authoritative = [];
     const seen = new Set();
@@ -389,10 +451,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
     return authoritative;
   }, [items, character.equipment]);
 
-  const getSlotEquipped = (slot) => {
-    return equipped.find(i => i.type === slot);
-  };
-
+  // Separate items by category
   const consumableStacks = items
     .filter(i => i.type === "consumable")
     .reduce((acc, item) => {
@@ -404,21 +463,41 @@ export default function Inventory({ character, onCharacterUpdate }) {
     }, {});
   const stackedConsumables = Object.values(consumableStacks);
 
-  const rawFiltered = filter === "all" ? items : items.filter(i => i.type === filter);
-  const filtered = (filter === "consumable"
-    ? stackedConsumables
-    : filter === "all"
-      ? [...items.filter(i => i.type !== "consumable"), ...stackedConsumables]
-      : rawFiltered
-  ).sort((a, b) => (RARITY_CONFIG[b.rarity]?.order ?? -1) - (RARITY_CONFIG[a.rarity]?.order ?? -1));
+  // Special items: materials, stones, tammablocks, tower shards, pet eggs
+  const specialItems = items.filter(i =>
+    i.type === "material" || i.type === "pet_egg" || i.type === "stone" ||
+    i.name?.toLowerCase().includes("tammablocks") ||
+    i.name?.toLowerCase().includes("tower shard") ||
+    i.name?.toLowerCase().includes("celestial stone") ||
+    i.name?.toLowerCase().includes("egg")
+  );
+
+  const getFilteredItems = () => {
+    if (filter === "sets") return null; // handled separately
+    if (filter === "special") return specialItems;
+    if (filter === "consumable") return stackedConsumables;
+
+    const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+    let result;
+    if (filter === "all") {
+      result = [...items.filter(i => gearTypes.includes(i.type) && i.type !== "consumable"), ...stackedConsumables];
+    } else {
+      result = items.filter(i => i.type === filter);
+    }
+    return result.sort((a, b) => (RARITY_CONFIG[b.rarity]?.order ?? -1) - (RARITY_CONFIG[a.rarity]?.order ?? -1));
+  };
+
+  const filtered = getFilteredItems();
+  const sellableCount = items.filter(i => !i.equipped && SLOT_ORDER.includes(i.type)).length;
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
           <Backpack className="w-5 h-5 text-primary" /> Inventory
         </h2>
-        {items.filter(i => !i.equipped).length > 0 && (
+        {sellableCount > 0 && (
           <Button
             variant="destructive"
             size="sm"
@@ -427,116 +506,88 @@ export default function Inventory({ character, onCharacterUpdate }) {
             className="gap-1.5"
           >
             <Coins className="w-3.5 h-3.5" />
-            Sell All ({items.filter(i => !i.equipped).length} · {items.filter(i => !i.equipped).reduce((s, i) => s + (i.sell_price || 5), 0)}g)
+            Sell All ({sellableCount} · {items.filter(i => !i.equipped && SLOT_ORDER.includes(i.type)).reduce((s, i) => s + (i.sell_price || 5), 0)}g)
           </Button>
         )}
       </div>
 
-      <div className="flex gap-4">
-        <div className="flex-1 min-w-0 space-y-4">
-          <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="text-xs font-semibold text-muted-foreground mb-3">EQUIPMENT</h3>
-            <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
-              {SLOT_ORDER.map(slot => {
-                const item = getSlotEquipped(slot);
-                const Icon = item ? getItemIcon(item) : (TYPE_ICONS[slot] || Backpack);
-                const rarity = item ? RARITY_CONFIG[item.rarity] : null;
-                return (
-                  <button
-                    key={slot}
-                    onClick={() => item && setSelectedItem(item)}
-                    className={`p-3 rounded-lg border-2 text-center transition-all relative ${
-                      item
-                        ? `${rarity?.border} ${rarity?.bg}`
-                        : "border-dashed border-border bg-muted/30"
-                    }`}
-                  >
-                    <div className="relative inline-block mb-1">
-                      <Icon className={`w-5 h-5 ${item ? rarity?.color : "text-muted-foreground"}`} />
-                      {item?.item_level && (
-                        <span className={`absolute -bottom-1 -right-2 text-[8px] font-bold leading-none px-0.5 rounded ${rarity?.color} bg-background border border-current`}>
-                          {item.item_level}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs truncate">{item ? item.name : SLOT_LABELS[slot]}</p>
-                    {item && (
-                      <div className="flex items-center justify-center gap-0.5 mt-0.5">
-                        {(item.upgrade_level || 0) > 0 && (
-                          <span className="text-[8px] font-bold text-green-400">+{item.upgrade_level}</span>
-                        )}
-                        {(item.star_level || 0) > 0 && (
-                          <span className="text-[8px] text-yellow-400">★{item.star_level}</span>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <Tabs value={filter} onValueChange={setFilter}>
-            <TabsList className="bg-muted flex flex-wrap h-auto gap-1 p-1">
-              <TabsTrigger value="all" className="flex items-center gap-1 text-xs"><Backpack className="w-3 h-3" />All</TabsTrigger>
-              <TabsTrigger value="weapon" className="flex items-center gap-1 text-xs"><Swords className="w-3 h-3" />Weapons</TabsTrigger>
-              <TabsTrigger value="armor" className="flex items-center gap-1 text-xs"><ShieldCheck className="w-3 h-3" />Armor</TabsTrigger>
-              <TabsTrigger value="helmet" className="flex items-center gap-1 text-xs"><Crown className="w-3 h-3" />Helmets</TabsTrigger>
-              <TabsTrigger value="gloves" className="flex items-center gap-1 text-xs"><Hand className="w-3 h-3" />Gloves</TabsTrigger>
-              <TabsTrigger value="boots" className="flex items-center gap-1 text-xs"><Footprints className="w-3 h-3" />Boots</TabsTrigger>
-              <TabsTrigger value="ring" className="flex items-center gap-1 text-xs"><CircleDot className="w-3 h-3" />Rings</TabsTrigger>
-              <TabsTrigger value="amulet" className="flex items-center gap-1 text-xs"><Gem className="w-3 h-3" />Amulets</TabsTrigger>
-              <TabsTrigger value="consumable" className="flex items-center gap-1 text-xs"><FlaskConical className="w-3 h-3" />Consumables</TabsTrigger>
-              <TabsTrigger value="sets" className="flex items-center gap-1 text-xs"><Shield className="w-3 h-3 text-yellow-400" />Sets</TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {filter === "sets" ? (
-            <div className="bg-card border border-border rounded-xl p-4">
-              <SetCollectionPanel
-                equippedItems={equipped}
-                allItems={items}
-                characterClass={character?.class}
-              />
-            </div>
-          ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {isLoading && Array(4).fill(0).map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-3 animate-pulse h-24" />
-            ))}
-            {filtered.map(item => {
-              const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
-              const { valid: canEquip } = validateEquip(character, item);
-              return (
-                <ItemCard
-                  key={item.stackIds ? item.name : item.id}
-                  item={item}
-                  character={character}
-                  equipped={equipped}
-                  onSelect={setSelectedItem}
-                  rarity={rarity}
-                  canEquip={canEquip}
-                  isNew={!seenItems.has(item.id)}
-                  onMarkSeen={markSeen}
-                />
-              );
-            })}
-            {!isLoading && filtered.length === 0 && (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                No items found.
-              </div>
-            )}
-          </div>
-          )}
+      {/* Top: Character Silhouette + Stats */}
+      <div className="flex gap-4 flex-col md:flex-row">
+        {/* Character Equipment Silhouette */}
+        <div className="bg-card border border-border rounded-xl p-4 flex-shrink-0">
+          <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider text-center">Equipment</h3>
+          <CharacterEquipmentPanel
+            character={character}
+            equipped={equipped}
+            onSelectItem={setSelectedItem}
+          />
         </div>
 
-        <div className="hidden md:block w-52 flex-shrink-0">
-          <div className="sticky top-4">
-            <CharacterStatsPanel character={character} equippedItems={equipped} />
-          </div>
+        {/* Stats Panel */}
+        <div className="flex-1 min-w-0">
+          <CharacterStatsPanel character={character} equippedItems={equipped} />
         </div>
       </div>
 
+      {/* Tabs */}
+      <Tabs value={filter} onValueChange={setFilter}>
+        <TabsList className="bg-muted flex flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="all" className="flex items-center gap-1 text-xs"><Backpack className="w-3 h-3" />All Gear</TabsTrigger>
+          <TabsTrigger value="weapon" className="flex items-center gap-1 text-xs"><Swords className="w-3 h-3" />Weapons</TabsTrigger>
+          <TabsTrigger value="armor" className="flex items-center gap-1 text-xs"><ShieldCheck className="w-3 h-3" />Armor</TabsTrigger>
+          <TabsTrigger value="helmet" className="flex items-center gap-1 text-xs"><Crown className="w-3 h-3" />Helmets</TabsTrigger>
+          <TabsTrigger value="gloves" className="flex items-center gap-1 text-xs"><Hand className="w-3 h-3" />Gloves</TabsTrigger>
+          <TabsTrigger value="boots" className="flex items-center gap-1 text-xs"><Footprints className="w-3 h-3" />Boots</TabsTrigger>
+          <TabsTrigger value="ring" className="flex items-center gap-1 text-xs"><CircleDot className="w-3 h-3" />Rings</TabsTrigger>
+          <TabsTrigger value="amulet" className="flex items-center gap-1 text-xs"><Gem className="w-3 h-3" />Amulets</TabsTrigger>
+          <TabsTrigger value="consumable" className="flex items-center gap-1 text-xs"><FlaskConical className="w-3 h-3" />Consumables</TabsTrigger>
+          <TabsTrigger value="special" className="flex items-center gap-1 text-xs"><Sparkles className="w-3 h-3" />Special</TabsTrigger>
+          <TabsTrigger value="sets" className="flex items-center gap-1 text-xs"><Shield className="w-3 h-3 text-yellow-400" />Sets</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* Item Grid */}
+      {filter === "sets" ? (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <SetCollectionPanel
+            equippedItems={equipped}
+            allItems={items}
+            characterClass={character?.class}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {isLoading && Array(4).fill(0).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-lg p-3 animate-pulse h-24" />
+          ))}
+          {filtered && filtered.map(item => {
+            const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
+            const { valid: canEquip } = validateEquip(character, item);
+            return (
+              <ItemCard
+                key={item.stackIds ? item.name : item.id}
+                item={item}
+                character={character}
+                equipped={equipped}
+                onSelect={setSelectedItem}
+                rarity={rarity}
+                canEquip={canEquip}
+                isNew={!seenItems.has(item.id)}
+                onMarkSeen={markSeen}
+              />
+            );
+          })}
+          {!isLoading && filtered && filtered.length === 0 && (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              {filter === "special"
+                ? "No special items. Tammablocks, Tower Shards, Pet Eggs, and Celestial Stones appear here."
+                : "No items found."}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Item Detail Modal */}
       <AnimatePresence>
         {selectedItem && (
           <motion.div
