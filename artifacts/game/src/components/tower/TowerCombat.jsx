@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Swords, Zap, LogOut, ArrowUp, Skull, Coins, Star, Gem, Trophy, Package } from "lucide-react";
+import { Swords, Zap, LogOut, ArrowUp, Skull, Coins, Star, Gem, Trophy, Package, Play, Pause } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 
 function HpBar({ current, max, color = "bg-red-500", label, height = "h-2.5" }) {
@@ -27,7 +27,13 @@ export default function TowerCombat({ session: initialSession, character, onLeav
   const [loading, setLoading] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState(0);
   const [showRewardPopup, setShowRewardPopup] = useState(false);
+  const [autoFight, setAutoFight] = useState(false);
+  const [autoTimer, setAutoTimer] = useState(0);
+  const autoFightRef = useRef(false);
   const logRef = useRef(null);
+
+  // Keep ref in sync with state for use in intervals
+  useEffect(() => { autoFightRef.current = autoFight; }, [autoFight]);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -90,6 +96,41 @@ export default function TowerCombat({ session: initialSession, character, onLeav
     });
     onLeave();
   };
+
+  // Auto-fight: attack every 1.5s during combat
+  useEffect(() => {
+    if (!autoFight || loading) return;
+    if (session.status === "combat" && session.member?.hp > 0) {
+      const timer = setTimeout(() => {
+        if (autoFightRef.current) doAction("attack");
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFight, session, loading]);
+
+  // Auto-advance: go to next floor 3s after clearing
+  useEffect(() => {
+    if (!autoFight || loading) return;
+    if (session.status === "floor_clear") {
+      setAutoTimer(3);
+      const countdown = setInterval(() => {
+        setAutoTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(countdown);
+            if (autoFightRef.current) doNextFloor();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(countdown);
+    }
+  }, [session.status, autoFight]);
+
+  // Stop auto-fight on defeat
+  useEffect(() => {
+    if (session.status === "defeat") setAutoFight(false);
+  }, [session.status]);
 
   const me = session.member;
   const enemies = session.enemies || [];
@@ -156,9 +197,20 @@ export default function TowerCombat({ session: initialSession, character, onLeav
             </div>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={doLeave} className="gap-1 text-muted-foreground hover:text-destructive">
-          <LogOut className="w-3.5 h-3.5" /> Leave
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={autoFight ? "default" : "outline"}
+            size="sm"
+            onClick={() => setAutoFight(!autoFight)}
+            className={`gap-1.5 text-xs ${autoFight ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "text-muted-foreground hover:text-emerald-400 border-emerald-500/30"}`}
+          >
+            {autoFight ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+            {autoFight ? "Auto ON" : "Auto OFF"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => { setAutoFight(false); doLeave(); }} className="gap-1 text-muted-foreground hover:text-destructive">
+            <LogOut className="w-3.5 h-3.5" /> Leave
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-4 p-4">
@@ -415,7 +467,7 @@ export default function TowerCombat({ session: initialSession, character, onLeav
                     className="flex-1 gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold"
                     size="lg"
                   >
-                    <ArrowUp className="w-4 h-4" /> Next Floor
+                    <ArrowUp className="w-4 h-4" /> {autoFight && autoTimer > 0 ? `Next Floor (${autoTimer}s)` : "Next Floor"}
                   </Button>
                   <Button
                     onClick={doLeave}

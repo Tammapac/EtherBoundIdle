@@ -156,8 +156,8 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
     const st2 = equippedPetForStats.skillTree || {};
     const expPts = st2.resource?.exp_seeker || 0;
     const goldPts = st2.resource?.gold_finder || 0;
-    if (expPts > 0) derived.expGainPct += Math.round(0.05 * expPts * 100);
-    if (goldPts > 0) derived.goldGainPct += Math.round(0.06 * goldPts * 100);
+    if (expPts > 0) derived.expGainPct += Math.round(0.02 * expPts * 100);
+    if (goldPts > 0) derived.goldGainPct += Math.round(0.02 * goldPts * 100);
   }
 
   return (
@@ -372,22 +372,22 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
                 // Pet skill tree bonuses
                 const PET_SKILL_TREES = {
                   combat: {
-                    damage_boost: { name: "Damage Boost", effect: { damage: 0.05 } },
-                    crit_mastery: { name: "Crit Mastery", effect: { critChance: 0.03 } },
-                    lethal_strikes: { name: "Boss Damage", effect: { bossDamage: 0.08 } },
-                    berserker: { name: "Attack Speed", effect: { attackSpeed: 0.04 } },
+                    damage_boost: { name: "Damage Boost", effect: { damage: 0.02 } },
+                    crit_mastery: { name: "Crit Mastery", effect: { critChance: 0.01 } },
+                    lethal_strikes: { name: "Boss Damage", effect: { bossDamage: 0.03 } },
+                    berserker: { name: "Attack Speed", effect: { attackSpeed: 0.02 } },
                   },
                   resource: {
-                    gold_finder: { name: "Gold Gain", effect: { goldGain: 0.06 } },
-                    exp_seeker: { name: "EXP Gain", effect: { expGain: 0.05 } },
-                    lucky_looter: { name: "Drop Rate", effect: { luck: 0.04 } },
-                    treasure_sense: { name: "Expedition Loot", effect: { expeditionLoot: 0.10 } },
+                    gold_finder: { name: "Gold Gain", effect: { goldGain: 0.02 } },
+                    exp_seeker: { name: "EXP Gain", effect: { expGain: 0.02 } },
+                    lucky_looter: { name: "Drop Rate", effect: { luck: 0.02 } },
+                    treasure_sense: { name: "Expedition Loot", effect: { expeditionLoot: 0.03 } },
                   },
                   utility: {
-                    quick_learner: { name: "Pet XP Gain", effect: { petXpGain: 0.08 } },
-                    bond_master: { name: "Bond Gain", effect: { bondGain: 0.10 } },
-                    expedition_pro: { name: "Expedition Speed", effect: { expeditionSpeed: 0.10 } },
-                    aura_amplifier: { name: "Aura Strength", effect: { auraStrength: 0.05 } },
+                    quick_learner: { name: "Pet XP Gain", effect: { petXpGain: 0.03 } },
+                    bond_master: { name: "Bond Gain", effect: { bondGain: 0.03 } },
+                    expedition_pro: { name: "Expedition Speed", effect: { expeditionSpeed: 0.03 } },
+                    aura_amplifier: { name: "Aura Strength", effect: { auraStrength: 0.02 } },
                   },
                 };
                 const EFFECT_ICONS = { damage: Swords, critChance: Target, bossDamage: Flame, attackSpeed: Clock, goldGain: Coins, expGain: Star, luck: Clover, expeditionLoot: Sparkles, petXpGain: TrendingUp, bondGain: Heart, expeditionSpeed: Wind, auraStrength: Sparkles };

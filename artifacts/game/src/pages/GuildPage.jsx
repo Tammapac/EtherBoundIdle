@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Users, Shield, Plus, LogIn, Search } from "lucide-react";
+import { Users, Shield, Plus, LogIn, Search, Trophy, Swords, Coins, Star } from "lucide-react";
 
 import GuildHeader from "@/components/guild/GuildHeader";
 import GuildMembers from "@/components/guild/GuildMembers";
@@ -44,6 +44,7 @@ export default function GuildPage({ character, onCharacterUpdate }) {
   const [guildTag, setGuildTag] = useState("");
   const [guildDesc, setGuildDesc] = useState("");
   const [search, setSearch] = useState("");
+  const [bossVictoryModal, setBossVictoryModal] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: guilds = [] } = useQuery({
@@ -231,12 +232,14 @@ export default function GuildPage({ character, onCharacterUpdate }) {
           updates.exp_to_next = Math.floor((myGuild.exp_to_next || 1000) * 1.5);
           updates.max_members = (myGuild.max_members || 20) + 5;
         }
-        // Show defeat notification with rewards
+        // Show victory popup with rewards
         setTimeout(() => {
-          toast({
-            title: "Boss Defeated!",
-            description: `${myGuild.boss_name || "Guild Boss"} has been slain! +${tokenReward.toLocaleString()} Guild Tokens, +500 Guild EXP. Next raid: Lv.${(myGuild.boss_kills || 0) + 2}`,
-            duration: 6000,
+          setBossVictoryModal({
+            bossName: myGuild.boss_name || "Guild Boss",
+            tokens: tokenReward,
+            guildExp: 500,
+            damage: dmg,
+            nextLevel: (myGuild.boss_kills || 0) + 2,
           });
         }, 300);
       }
@@ -288,6 +291,94 @@ export default function GuildPage({ character, onCharacterUpdate }) {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
+      {/* Boss Victory Modal */}
+      <AnimatePresence>
+        {bossVictoryModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm"
+            onClick={() => setBossVictoryModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.3, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", damping: 12, stiffness: 200 }}
+              className="bg-gradient-to-b from-amber-950/90 to-gray-950 border-2 border-amber-500/50 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl shadow-amber-500/20 text-center relative overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="absolute inset-0 opacity-10 bg-gradient-to-b from-amber-500 to-transparent" />
+              <div className="relative z-10">
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.2, type: "spring", damping: 10 }}
+                  className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-amber-500/20 border-2 border-amber-500/40"
+                >
+                  <Trophy className="w-10 h-10 text-amber-400" />
+                </motion.div>
+                <motion.h2
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="font-orbitron font-bold text-2xl text-amber-300 mb-1"
+                >
+                  VICTORY!
+                </motion.h2>
+                <motion.p
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.35 }}
+                  className="text-sm text-amber-200/70 mb-5"
+                >
+                  {bossVictoryModal.bossName} has been slain!
+                </motion.p>
+                <motion.div
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  className="space-y-2 mb-6"
+                >
+                  <div className="flex items-center justify-between bg-black/30 rounded-lg px-4 py-2.5">
+                    <span className="flex items-center gap-2 text-sm text-gray-300"><Swords className="w-4 h-4 text-red-400" /> Your Damage</span>
+                    <span className="font-bold text-red-400 font-mono">{bossVictoryModal.damage.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-black/30 rounded-lg px-4 py-2.5">
+                    <span className="flex items-center gap-2 text-sm text-gray-300"><Coins className="w-4 h-4 text-amber-400" /> Guild Tokens</span>
+                    <span className="font-bold text-amber-400 font-mono">+{bossVictoryModal.tokens.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-black/30 rounded-lg px-4 py-2.5">
+                    <span className="flex items-center gap-2 text-sm text-gray-300"><Star className="w-4 h-4 text-cyan-400" /> Guild EXP</span>
+                    <span className="font-bold text-cyan-400 font-mono">+{bossVictoryModal.guildExp}</span>
+                  </div>
+                </motion.div>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-xs text-gray-500 mb-4"
+                >
+                  Next raid: Level {bossVictoryModal.nextLevel}
+                </motion.p>
+                <motion.button
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.55 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setBossVictoryModal(null)}
+                  className="px-8 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 transition-all"
+                >
+                  Continue
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
         <Users className="w-5 h-5 text-primary" /> Guilds
       </h2>
