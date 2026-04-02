@@ -59,8 +59,9 @@ const DERIVED_SECTIONS = [
     title: "Utility",
     color: "text-yellow-400",
     stats: [
-      { key: "goldGainPct",    label: "Gold Bonus",     icon: Coins,        fmt: v => v.toFixed(0),           suffix: "%",   color: "text-yellow-400", hideIfZero: true },
-      { key: "expGainPct",     label: "EXP Bonus",      icon: Star,         fmt: v => v.toFixed(0),           suffix: "%",   color: "text-purple-400", hideIfZero: true },
+      { key: "goldGainPct",    label: "Gold Bonus",     icon: Coins,        fmt: v => v.toFixed(0),           suffix: "%",   color: "text-yellow-400" },
+      { key: "expGainPct",     label: "EXP Bonus",      icon: Star,         fmt: v => v.toFixed(0),           suffix: "%",   color: "text-purple-400" },
+      { key: "lootBonus",      label: "Loot Bonus",     icon: Sparkles,     fmt: v => v.toFixed(0),           suffix: "%",   color: "text-green-400" },
     ]
   },
 ];
@@ -142,6 +143,7 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
     previewChar[k] = (character[k] || 10) + v;
   }
   const { base, equipBonus, total, derived } = calculateFinalStats(previewChar, equippedItems);
+  derived.lootBonus = Math.min(50, Math.round((total.luck || 0) * 0.5));
 
   return (
     <AnimatePresence>
@@ -358,7 +360,7 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
               return (
                 <div className="bg-muted/30 rounded-xl p-4">
                   <h4 className="text-xs font-semibold text-cyan-400 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" /> Combat Bonuses
+                    <Sparkles className="w-3.5 h-3.5" /> Pet & Guild Bonuses
                   </h4>
                   <div className="grid grid-cols-2 gap-1.5">
                     {bonuses.map((b, i) => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,18 @@ export default function DungeonCombat({ session: initialSession, character, onLe
   const [loading, setLoading] = useState(false);
   const [profileTarget, setProfileTarget] = useState(null);
   const logRef = useRef(null);
+
+  const PET_SPECIES_ICONS_DC = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
+  const PET_EVO_SUFFIX_DC = ["", "⭐", "👑"];
+  const RARITY_PET_COLORS_DC = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
+
+  const { data: petDataDC } = useQuery({
+    queryKey: ["pets", character?.id],
+    queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "list" }),
+    enabled: !!character?.id,
+    staleTime: 60000,
+  });
+  const equippedPetDC = (petDataDC?.pets || []).find(p => p.equipped);
 
   // Poll dungeon session for updates via dungeonAction (consistent data shape)
   useEffect(() => {
@@ -248,6 +261,25 @@ export default function DungeonCombat({ session: initialSession, character, onLe
                         max={m.max_hp}
                         color={hpPct > 0.5 ? "bg-green-500" : hpPct > 0.25 ? "bg-yellow-500" : "bg-red-500"}
                       />
+                      {m.character_id === character.id && equippedPetDC && (() => {
+                        const icon = PET_SPECIES_ICONS_DC[equippedPetDC.species] || "🐾";
+                        const evoSuffix = PET_EVO_SUFFIX_DC[equippedPetDC.evolution || 0] || "";
+                        const rarityColor = RARITY_PET_COLORS_DC[equippedPetDC.rarity] || "text-gray-400";
+                        const xpPct = Math.min(100, ((equippedPetDC.xp || 0) / 500) * 100);
+                        return (
+                          <div className="mt-1 flex items-center gap-1.5 bg-muted/20 border border-border/50 rounded-lg px-2 py-1">
+                            <span className="text-sm leading-none">{icon}{evoSuffix}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[9px] font-semibold leading-none truncate ${rarityColor}`}>
+                                {equippedPetDC.name || equippedPetDC.species} Lv.{equippedPetDC.level}
+                              </p>
+                              <div className="h-0.5 bg-gray-700 rounded-full mt-0.5 overflow-hidden">
+                                <div className="h-full bg-cyan-500/60 rounded-full" style={{ width: `${xpPct}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <User className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                   </div>

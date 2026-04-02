@@ -3767,6 +3767,12 @@ router.post("/functions/seasonPassAction", async (req: Request, res: Response) =
 
       // Auto-generate missing dailies/weeklies independently
       const currentDailies = currentMissions.filter(m => m.type === "daily");
+      // For weekly generation check: count claimed weeklies that haven't expired too (prevents mid-week replacement)
+      const allWeekliesThisPeriod = missions.filter(m =>
+        m.type === "weekly" &&
+        (m.status === "active" || m.status === "completed" || m.status === "claimed") &&
+        (!m.expiresAt || new Date(m.expiresAt) >= now)
+      );
       const currentWeeklies = currentMissions.filter(m => m.type === "weekly");
       const newMissions: any[] = [];
 
@@ -3786,7 +3792,7 @@ router.post("/functions/seasonPassAction", async (req: Request, res: Response) =
         }
       }
 
-      if (currentWeeklies.length < 3) {
+      if (allWeekliesThisPeriod.length < 3) {
         const nextWeek = new Date(now);
         nextWeek.setUTCDate(nextWeek.getUTCDate() + (7 - nextWeek.getUTCDay()));
         nextWeek.setUTCHours(0, 0, 0, 0);
