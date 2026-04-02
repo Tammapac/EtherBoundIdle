@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -228,39 +229,73 @@ class PetsErrorBoundary extends React.Component {
 function ResultModal({ modal, onClose }) {
   if (!modal) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className={`bg-gray-900 border-2 rounded-xl p-7 max-w-sm w-full mx-4 shadow-2xl text-center ${
-          modal.success ? "border-green-500/60 shadow-green-500/20" : "border-red-500/60 shadow-red-500/20"
-        }`}
-        onClick={e => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
       >
-        <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${
-          modal.success ? "bg-green-500/20" : "bg-red-500/20"
-        }`}>
-          {modal.success
-            ? <CheckCircle2 className="w-8 h-8 text-green-400" />
-            : <XCircle className="w-8 h-8 text-red-400" />}
-        </div>
-        <h3 className={`font-bold text-lg mb-2 ${modal.success ? "text-green-300" : "text-red-300"}`}>
-          {modal.title}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-6 whitespace-pre-line">{modal.message}</p>
-        <button
-          onClick={onClose}
-          className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${
-            modal.success
-              ? "bg-green-600 hover:bg-green-700 text-white"
-              : "bg-red-600 hover:bg-red-700 text-white"
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0, y: 40 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.8, opacity: 0, y: 20 }}
+          transition={{ type: "spring", damping: 15, stiffness: 300 }}
+          className={`bg-gradient-to-b from-gray-900 to-gray-950 border-2 rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center relative overflow-hidden ${
+            modal.success ? "border-emerald-500/50 shadow-emerald-500/20" : "border-red-500/50 shadow-red-500/20"
           }`}
+          onClick={e => e.stopPropagation()}
         >
-          OK
-        </button>
-      </div>
-    </div>
+          <div className={`absolute inset-0 opacity-10 ${modal.success ? "bg-gradient-to-b from-emerald-500 to-transparent" : "bg-gradient-to-b from-red-500 to-transparent"}`} />
+          <div className="relative z-10">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.15, type: "spring", damping: 12 }}
+              className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border-2 ${
+                modal.success ? "bg-emerald-500/20 border-emerald-500/40" : "bg-red-500/20 border-red-500/40"
+              }`}
+            >
+              {modal.success
+                ? <CheckCircle2 className="w-9 h-9 text-emerald-400" />
+                : <XCircle className="w-9 h-9 text-red-400" />}
+            </motion.div>
+            <motion.h3
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className={`font-orbitron font-bold text-lg mb-3 ${modal.success ? "text-emerald-300" : "text-red-300"}`}
+            >
+              {modal.title}
+            </motion.h3>
+            <motion.p
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.25 }}
+              className="text-sm text-gray-300 mb-6 whitespace-pre-line leading-relaxed"
+            >
+              {modal.message}
+            </motion.p>
+            <motion.button
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onClose}
+              className={`px-8 py-2.5 rounded-lg text-sm font-bold tracking-wide uppercase transition-all ${
+                modal.success
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30"
+                  : "bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30"
+              }`}
+            >
+              Continue
+            </motion.button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -270,38 +305,56 @@ function ConfirmModal({ modal, onClose }) {
   if (!modal) return null;
   const isDestructive = modal.variant === "destructive";
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl"
-        onClick={e => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
       >
-        <h3 className={`font-bold text-base mb-2 ${isDestructive ? "text-red-300" : "text-white"}`}>
-          {modal.title}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-5 whitespace-pre-line">{modal.message}</p>
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-gray-600 text-sm text-muted-foreground hover:border-gray-400 hover:text-white transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => { modal.onConfirm(); onClose(); }}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              isDestructive
-                ? "bg-red-600 hover:bg-red-700 text-white"
-                : "bg-cyan-600 hover:bg-cyan-700 text-white"
-            }`}
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0, y: 30 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          transition={{ type: "spring", damping: 20, stiffness: 300 }}
+          className={`bg-gradient-to-b from-gray-900 to-gray-950 border rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl relative overflow-hidden ${
+            isDestructive ? "border-red-500/30" : "border-cyan-500/30"
+          }`}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className={`absolute inset-0 opacity-5 ${isDestructive ? "bg-gradient-to-b from-red-500 to-transparent" : "bg-gradient-to-b from-cyan-500 to-transparent"}`} />
+          <div className="relative z-10">
+            <h3 className={`font-orbitron font-bold text-base mb-2 ${isDestructive ? "text-red-300" : "text-cyan-300"}`}>
+              {modal.title}
+            </h3>
+            <p className="text-sm text-gray-300 mb-5 whitespace-pre-line leading-relaxed">{modal.message}</p>
+            <div className="flex gap-3 justify-end">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg border border-gray-600 text-sm text-gray-400 hover:border-gray-400 hover:text-white transition-all"
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => { modal.onConfirm(); onClose(); }}
+                className={`px-5 py-2 rounded-lg text-sm font-bold tracking-wide uppercase transition-all ${
+                  isDestructive
+                    ? "bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20"
+                    : "bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/20"
+                }`}
+              >
+                Confirm
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -391,8 +444,8 @@ function PetsInner({ character, onCharacterUpdate }) {
   });
 
   const allEquipment = equipmentData?.equipment || [];
-  const inventoryItems = allEquipment.filter(e => !e.equippedToPet);
-  const equippedItems = allEquipment.filter(e => e.equippedToPet);
+  const inventoryItems = allEquipment.filter(e => !e.petId);
+  const equippedItems = allEquipment.filter(e => e.petId);
 
   // ── Pet mutations ──
   const equipMutation = useMutation({
@@ -690,7 +743,7 @@ function PetsInner({ character, onCharacterUpdate }) {
   }, [pets, expeditions]);
 
   // Equipped items for a given pet
-  const getEquippedItemsForPet = (petId) => equippedItems.filter(e => e.equippedToPet === petId);
+  const getEquippedItemsForPet = (petId) => equippedItems.filter(e => e.petId === petId);
 
   // ── Skill tree helpers ──
   const getSkillTreeForPet = (pet) => {
@@ -1092,10 +1145,10 @@ function PetsInner({ character, onCharacterUpdate }) {
                   className={`bg-amber-600 hover:bg-amber-700 text-white gap-1.5 transition-all ${fuseAnimating ? "animate-pulse scale-105 ring-2 ring-amber-400/60" : ""}`}
                   onClick={() => {
                     const sp = selectedForFuse[0];
-                    const fuseChances = { common: 95, uncommon: 85, rare: 70, epic: 55, legendary: 40, mythic: 25 };
-                    const chance = fuseChances[sp.rarity] || 80;
-                    const fuseCosts = { common: 500, uncommon: 1500, rare: 5000, epic: 15000, legendary: 50000, mythic: 150000 };
-                    const fuseCost = fuseCosts[sp.rarity] || 5000;
+                    const fuseChances = { common: 80, uncommon: 65, rare: 50, epic: 35, legendary: 20, mythic: 10 };
+                    const chance = fuseChances[sp.rarity] || 50;
+                    const fuseCosts = { common: 2000, uncommon: 8000, rare: 25000, epic: 75000, legendary: 200000, mythic: 500000 };
+                    const fuseCost = fuseCosts[sp.rarity] || 25000;
                     setConfirmModal({
                       title: "Confirm Fusion",
                       message: `Fuse 3x ${sp.rarity} ${sp.species} → 1 ${RARITY_NEXT[sp.rarity] || 'higher'} ${sp.species}\n\nCost: ${fuseCost.toLocaleString()} gold\nSuccess chance: ${chance}%\nOn failure: all 3 pets are lost (gold still consumed)`,
@@ -1593,17 +1646,17 @@ function PetsInner({ character, onCharacterUpdate }) {
                           disabled={!eligible || isEvolving}
                           onClick={() => {
                             if (!eligible) return;
-                            const evolveGemCosts = { common: 200, uncommon: 350, rare: 500, epic: 800, legendary: 1500, mythic: 3000 };
-                            const evolveCost = evolveGemCosts[pet.rarity] || 500;
+                            const evolveGemCosts = { common: 1000, uncommon: 3000, rare: 8000, epic: 20000, legendary: 50000, mythic: 100000 };
+                            const evolveCost = evolveGemCosts[pet.rarity] || 8000;
                             setConfirmModal({
                               title: "Evolve Pet",
-                              message: `Evolve ${pet.species} to ${nextStage?.name}?\nCost: ${evolveCost} 💎\nSuccess chance: ${{ common: 95, uncommon: 90, rare: 80, epic: 65, legendary: 50, mythic: 35 }[pet.rarity] || 80}%`,
+                              message: `Evolve ${pet.species} to ${nextStage?.name}?\nCost: ${evolveCost.toLocaleString()} 💎\nSuccess chance: ${{ common: 75, uncommon: 60, rare: 45, epic: 30, legendary: 20, mythic: 10 }[pet.rarity] || 45}%`,
                               onConfirm: () => { setEvolvingPetId(pet.id); evolveMutation.mutate(pet.id); },
                             });
                           }}
                         >
                           <TrendingUp className={`w-3 h-3 ${evolveAnimating === pet.id ? "animate-spin" : ""}`} />
-                          {isEvolving ? "Evolving..." : eligible ? `Evolve (${({ common: 200, uncommon: 350, rare: 500, epic: 800, legendary: 1500, mythic: 3000 }[pet.rarity] || 500)} 💎)` : `Lv.${nextStage?.levelReq} required`}
+                          {isEvolving ? "Evolving..." : eligible ? `Evolve (${({ common: 1000, uncommon: 3000, rare: 8000, epic: 20000, legendary: 50000, mythic: 100000 }[pet.rarity] || 8000).toLocaleString()} 💎)` : `Lv.${nextStage?.levelReq} required`}
                         </Button>
                       </div>
                     )}
@@ -1743,9 +1796,14 @@ function PetsInner({ character, onCharacterUpdate }) {
                                   {skillData.desc && (
                                     <p className="text-[9px] text-muted-foreground leading-tight">{skillData.desc}</p>
                                   )}
-                                  {skillData.effect && current > 0 && (
-                                    <p className="text-[9px] text-cyan-400">Active: {Object.entries(skillData.effect).map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1').trim()} +${Math.round(v * current * 100)}%`).join(", ")}</p>
-                                  )}
+                                  {skillData.effect && typeof skillData.effect === "object" && current > 0 && (() => {
+                                    const parts = [];
+                                    for (const [k, v] of Object.entries(skillData.effect)) {
+                                      const label = k.replace(/([A-Z])/g, ' $1').trim();
+                                      parts.push(label + " +" + Math.round(Number(v) * current * 100) + "%");
+                                    }
+                                    return <p className="text-[9px] text-cyan-400">Active: {parts.join(", ")}</p>;
+                                  })()}
                                 </div>
                               );
                             })

@@ -3017,28 +3017,28 @@ const PET_EVOLUTION_STAGES = [
 ];
 
 const EVOLUTION_MATERIAL_COST: Record<string, number> = {
-  common: 500, uncommon: 1000, rare: 2500, epic: 5000, legendary: 10000, mythic: 25000,
+  common: 1000, uncommon: 3000, rare: 8000, epic: 20000, legendary: 50000, mythic: 100000,
 };
 
 // ── Pet Skill Tree ──
 const PET_SKILL_TREES = {
   combat: {
-    damage_boost: { name: "Damage Boost", desc: "+5% damage per point", maxPoints: 5, effect: { damage: 0.05 } },
-    crit_mastery: { name: "Crit Mastery", desc: "+3% crit chance per point", maxPoints: 5, effect: { critChance: 0.03 } },
-    lethal_strikes: { name: "Lethal Strikes", desc: "+8% boss damage per point", maxPoints: 3, effect: { bossDamage: 0.08 } },
-    berserker: { name: "Berserker", desc: "+4% attack speed per point", maxPoints: 3, effect: { attackSpeed: 0.04 } },
+    damage_boost: { name: "Damage Boost", desc: "+2% damage per point", maxPoints: 5, effect: { damage: 0.02 } },
+    crit_mastery: { name: "Crit Mastery", desc: "+1% crit chance per point", maxPoints: 5, effect: { critChance: 0.01 } },
+    lethal_strikes: { name: "Lethal Strikes", desc: "+3% boss damage per point", maxPoints: 5, effect: { bossDamage: 0.03 } },
+    berserker: { name: "Berserker", desc: "+2% attack speed per point", maxPoints: 5, effect: { attackSpeed: 0.02 } },
   },
   resource: {
-    gold_finder: { name: "Gold Finder", desc: "+6% gold gain per point", maxPoints: 5, effect: { goldGain: 0.06 } },
-    exp_seeker: { name: "EXP Seeker", desc: "+5% exp gain per point", maxPoints: 5, effect: { expGain: 0.05 } },
-    lucky_looter: { name: "Lucky Looter", desc: "+4% drop rate per point", maxPoints: 3, effect: { luck: 0.04 } },
-    treasure_sense: { name: "Treasure Sense", desc: "+10% expedition loot per point", maxPoints: 3, effect: { expeditionLoot: 0.10 } },
+    gold_finder: { name: "Gold Finder", desc: "+2% gold gain per point", maxPoints: 5, effect: { goldGain: 0.02 } },
+    exp_seeker: { name: "EXP Seeker", desc: "+2% exp gain per point", maxPoints: 5, effect: { expGain: 0.02 } },
+    lucky_looter: { name: "Lucky Looter", desc: "+2% drop rate per point", maxPoints: 5, effect: { luck: 0.02 } },
+    treasure_sense: { name: "Treasure Sense", desc: "+3% expedition loot per point", maxPoints: 5, effect: { expeditionLoot: 0.03 } },
   },
   utility: {
-    quick_learner: { name: "Quick Learner", desc: "+8% pet XP gain per point", maxPoints: 5, effect: { petXpGain: 0.08 } },
-    bond_master: { name: "Bond Master", desc: "+10% bond gain per point", maxPoints: 5, effect: { bondGain: 0.10 } },
-    expedition_pro: { name: "Expedition Pro", desc: "+10% expedition speed per point", maxPoints: 3, effect: { expeditionSpeed: 0.10 } },
-    aura_amplifier: { name: "Aura Amplifier", desc: "+5% aura strength per point", maxPoints: 3, effect: { auraStrength: 0.05 } },
+    quick_learner: { name: "Quick Learner", desc: "+3% pet XP gain per point", maxPoints: 5, effect: { petXpGain: 0.03 } },
+    bond_master: { name: "Bond Master", desc: "+3% bond gain per point", maxPoints: 5, effect: { bondGain: 0.03 } },
+    expedition_pro: { name: "Expedition Pro", desc: "+3% expedition speed per point", maxPoints: 5, effect: { expeditionSpeed: 0.03 } },
+    aura_amplifier: { name: "Aura Amplifier", desc: "+2% aura strength per point", maxPoints: 5, effect: { auraStrength: 0.02 } },
   },
 };
 
@@ -3047,16 +3047,16 @@ const SKILL_RESET_COST = 2000; // Gold cost to reset skill tree
 
 // ── Pet Aura/Synergy System ──
 const PET_AURAS: Record<string, { name: string; desc: string; effect: Record<string, number> }> = {
-  Wolf: { name: "Pack Howl", desc: "+5% party damage", effect: { partyDamage: 0.05 } },
-  Phoenix: { name: "Rebirth Glow", desc: "+10% healing", effect: { healing: 0.10 } },
-  Dragon: { name: "Dragon's Might", desc: "+8% all damage", effect: { damage: 0.08 } },
-  Turtle: { name: "Shell Guard", desc: "+10% defense", effect: { defense: 0.10 } },
-  Cat: { name: "Fortune Purr", desc: "+8% luck", effect: { luck: 0.08 } },
-  Owl: { name: "Sage Wisdom", desc: "+8% exp gain", effect: { expGain: 0.08 } },
-  Slime: { name: "Golden Ooze", desc: "+10% gold gain", effect: { goldGain: 0.10 } },
-  Fairy: { name: "Fairy Dust", desc: "+5% all stats", effect: { allStats: 0.05 } },
-  Serpent: { name: "Venom Aura", desc: "+6% crit damage", effect: { critDamage: 0.06 } },
-  Golem: { name: "Stone Fortitude", desc: "+12% HP", effect: { hp: 0.12 } },
+  Wolf: { name: "Pack Howl", desc: "+2% party damage", effect: { partyDamage: 0.02 } },
+  Phoenix: { name: "Rebirth Glow", desc: "+3% healing", effect: { healing: 0.03 } },
+  Dragon: { name: "Dragon's Might", desc: "+3% all damage", effect: { damage: 0.03 } },
+  Turtle: { name: "Shell Guard", desc: "+3% defense", effect: { defense: 0.03 } },
+  Cat: { name: "Fortune Purr", desc: "+3% luck", effect: { luck: 0.03 } },
+  Owl: { name: "Sage Wisdom", desc: "+3% exp gain", effect: { expGain: 0.03 } },
+  Slime: { name: "Golden Ooze", desc: "+3% gold gain", effect: { goldGain: 0.03 } },
+  Fairy: { name: "Fairy Dust", desc: "+1% all stats", effect: { allStats: 0.01 } },
+  Serpent: { name: "Venom Aura", desc: "+2% crit damage", effect: { critDamage: 0.02 } },
+  Golem: { name: "Stone Fortitude", desc: "+4% HP", effect: { hp: 0.04 } },
 };
 
 const SET_BONUSES = [
@@ -3071,21 +3071,21 @@ const SET_BONUSES = [
 // ── Pet Bond System ──
 const BOND_LEVELS = [
   { level: 0, name: "Stranger", xpReq: 0, bonus: 0 },
-  { level: 1, name: "Acquainted", xpReq: 100, bonus: 0.02 },
-  { level: 2, name: "Friendly", xpReq: 300, bonus: 0.05 },
-  { level: 3, name: "Trusted", xpReq: 600, bonus: 0.08 },
-  { level: 4, name: "Bonded", xpReq: 1000, bonus: 0.12 },
-  { level: 5, name: "Soulbound", xpReq: 2000, bonus: 0.18 },
+  { level: 1, name: "Acquainted", xpReq: 200, bonus: 0.01 },
+  { level: 2, name: "Friendly", xpReq: 600, bonus: 0.02 },
+  { level: 3, name: "Trusted", xpReq: 1500, bonus: 0.04 },
+  { level: 4, name: "Bonded", xpReq: 3000, bonus: 0.06 },
+  { level: 5, name: "Soulbound", xpReq: 6000, bonus: 0.10 },
 ];
 
-const FEED_BOND_GAIN = 15;
-const FEED_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
-const COMBAT_BOND_GAIN = 2;
-const EXPEDITION_BOND_GAIN = 10;
+const FEED_BOND_GAIN = 5;
+const FEED_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours between feeds
+const COMBAT_BOND_GAIN = 1;
+const EXPEDITION_BOND_GAIN = 3;
 
 // ── Breeding System ──
-const BREEDING_COST = 1000; // base gold cost
-const BREEDING_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour between breeds
+const BREEDING_COST = 5000; // base gold cost
+const BREEDING_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours between breeds
 
 const MUTATION_TRAITS = [
   { key: "double_strike", name: "Double Strike", desc: "Chance to attack twice", effects: { doubleAttack: 0.10 } },
@@ -4052,7 +4052,7 @@ const PET_SPECIES = [
 ];
 
 const PET_RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
-const PET_RARITY_MULT: Record<string, number> = { common: 1, uncommon: 1.5, rare: 2.2, epic: 3, legendary: 4.5, mythic: 7 };
+const PET_RARITY_MULT: Record<string, number> = { common: 1, uncommon: 1.3, rare: 1.6, epic: 2.0, legendary: 2.5, mythic: 3.2 };
 const PET_XP_PER_LEVEL = 500;
 const PET_MAX_LEVEL = 50;
 
@@ -4196,12 +4196,13 @@ function generatePetEquipment(slot: string, rarity: string, level: number): any 
 }
 
 function getPetPassiveValue(level: number, rarity: string): number {
-  const base = 2 + Math.floor(level * 0.8);
+  // Balanced: mythic lvl 50 = (1 + 10) * 3.2 = ~35%
+  const base = 1 + Math.floor(level * 0.2);
   return Math.floor(base * (PET_RARITY_MULT[rarity] || 1));
 }
 
 function getPetSkillValue(level: number, rarity: string): number {
-  const base = 3 + Math.floor(level * 0.5);
+  const base = 2 + Math.floor(level * 0.3);
   return Math.floor(base * (PET_RARITY_MULT[rarity] || 1));
 }
 
@@ -4275,13 +4276,13 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       if (candidates.length < 3) {
         sendError(res, 400, `Need 3 ${rarity} ${species} pets (have ${candidates.length})`); return;
       }
-      const fuseCosts: Record<string, number> = { common: 500, uncommon: 1500, rare: 5000, epic: 15000, legendary: 50000, mythic: 150000 };
+      const fuseCosts: Record<string, number> = { common: 2000, uncommon: 8000, rare: 25000, epic: 75000, legendary: 200000, mythic: 500000 };
       const fuseCost = fuseCosts[rarity] || 5000;
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       if (!char || (char.gold || 0) < fuseCost) { sendError(res, 400, `Need ${fuseCost.toLocaleString()} gold to fuse ${rarity} pets`); return; }
       await db.update(charactersTable).set({ gold: (char.gold || 0) - fuseCost }).where(eq(charactersTable.id, characterId));
       // Fuse success chance based on rarity
-      const fuseChance: Record<string, number> = { common: 0.95, uncommon: 0.85, rare: 0.70, epic: 0.55, legendary: 0.40, mythic: 0.25 };
+      const fuseChance: Record<string, number> = { common: 0.80, uncommon: 0.65, rare: 0.50, epic: 0.35, legendary: 0.20, mythic: 0.10 };
       const fuseProbability = fuseChance[rarity] || 0.80;
       if (Math.random() > fuseProbability) {
         // Failed - lose all 3 pets
@@ -4384,7 +4385,7 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       if (!char || (char.gems || 0) < gemCost) { sendError(res, 400, `Need ${gemCost} gems to evolve`); return; }
       await db.update(charactersTable).set({ gems: (char.gems || 0) - gemCost }).where(eq(charactersTable.id, characterId));
       // Evolve success chance based on rarity — gems always consumed
-      const evolveChance: Record<string, number> = { common: 0.95, uncommon: 0.90, rare: 0.80, epic: 0.65, legendary: 0.50, mythic: 0.35 };
+      const evolveChance: Record<string, number> = { common: 0.75, uncommon: 0.60, rare: 0.45, epic: 0.30, legendary: 0.20, mythic: 0.10 };
       const evolveProbability = evolveChance[pet.rarity] || 0.80;
       if (Math.random() > evolveProbability) {
         sendSuccess(res, { success: false, failed: true, pet, gemCost, chance: Math.round(evolveProbability * 100) });
@@ -4497,7 +4498,17 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       const [p2] = await db.select().from(petsTable).where(and(eq(petsTable.id, pet2Id), eq(petsTable.characterId, characterId)));
       if (!p1 || !p2) { sendError(res, 404, "Pet not found"); return; }
       if (p1.equipped || p2.equipped) { sendError(res, 400, "Cannot breed equipped pets"); return; }
-      // Daily breed limit: 5 per day — count pets created today for this character
+      // Breed cooldown check (4 hours between breeds)
+      const [charForBreed] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const breedExtra = (charForBreed?.extraData as any) || {};
+      const lastBreedAt = breedExtra.last_breed_at ? new Date(breedExtra.last_breed_at).getTime() : 0;
+      const breedCooldownRemaining = BREEDING_COOLDOWN_MS - (Date.now() - lastBreedAt);
+      if (breedCooldownRemaining > 0) {
+        const hoursLeft = Math.ceil(breedCooldownRemaining / (60 * 60 * 1000));
+        const minsLeft = Math.ceil(breedCooldownRemaining / (60 * 1000));
+        sendError(res, 400, `Breed on cooldown. ${minsLeft < 60 ? minsLeft + " min" : hoursLeft + "h"} remaining.`); return;
+      }
+      // Daily breed limit: 3 per day
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todaysPets = await db.select().from(petsTable).where(
@@ -4506,8 +4517,8 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
           sql`${petsTable.createdAt} >= ${todayStart.toISOString()}`
         )
       );
-      if (todaysPets.length >= 5) {
-        sendError(res, 400, "Daily breed limit reached (5/day)"); return;
+      if (todaysPets.length >= 3) {
+        sendError(res, 400, "Daily breed limit reached (3/day)"); return;
       }
 
       const goldCost = 5000;
@@ -4566,6 +4577,10 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         traits: childTraits,
       }).returning();
 
+      // Save breed timestamp for cooldown
+      const existingExtra = (charForBreed?.extraData as any) || {};
+      await db.update(charactersTable).set({ extraData: { ...existingExtra, last_breed_at: new Date().toISOString() } }).where(eq(charactersTable.id, characterId));
+
       sendSuccess(res, {
         child,
         parents: [{ id: p1.id, species: p1.species, rarity: p1.rarity }, { id: p2.id, species: p2.species, rarity: p2.rarity }],
@@ -4574,6 +4589,7 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         mutationTrait: mutationTrait ? { name: mutationTrait.name, desc: mutationTrait.desc } : null,
         goldCost,
         gemCost,
+        nextBreedAt: new Date(Date.now() + BREEDING_COOLDOWN_MS).toISOString(),
       });
       return;
     }
