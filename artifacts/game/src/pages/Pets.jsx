@@ -863,6 +863,35 @@ function PetsInner({ character, onCharacterUpdate }) {
           </div>
         )}
 
+        {/* Mini Equipment Slots */}
+        {(() => {
+          const petItems = getEquippedItemsForPet(pet.id);
+          return (
+            <div className="flex gap-1.5 mb-2">
+              {["collar", "claws", "charm"].map(slot => {
+                const item = petItems.find(e => e.slot === slot);
+                const SlotIcon = SLOT_ICONS[slot] || Package;
+                const borderColor = item ? (RARITY_BORDER_HEX[item.rarity] || "#9ca3af") : "#374151";
+                return (
+                  <div
+                    key={slot}
+                    className="flex-1 rounded-md border p-1 flex items-center gap-1 bg-gray-900/50 min-h-[28px]"
+                    style={{ borderColor }}
+                    title={item ? `${item.name} (${item.rarity} ${slot})${item.statType ? ` — +${item.statValue} ${item.statType}` : ""}` : `${slot} (empty)`}
+                  >
+                    <SlotIcon className="w-3 h-3 shrink-0" style={{ color: borderColor }} />
+                    {item ? (
+                      <span className="text-[8px] text-white truncate leading-tight">{item.name}</span>
+                    ) : (
+                      <span className="text-[8px] text-gray-600 capitalize">{slot}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {/* Actions */}
         {!fuseMode && (
           <div className="flex gap-1.5 flex-wrap">
