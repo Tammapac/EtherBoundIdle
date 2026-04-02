@@ -132,12 +132,14 @@ const RUNE_STAT_TO_BASE = {
 export function calculateRuneBonus(equippedRunes = []) {
   const bonus = {};
   for (const rune of equippedRunes) {
-    if (!rune || !rune.itemId) continue; // only count runes socketed into equipment
-    // Main stat
-    const mainKey = RUNE_STAT_TO_BASE[rune.mainStat];
-    if (mainKey) bonus[mainKey] = (bonus[mainKey] || 0) + (rune.mainValue || 0);
+    if (!rune || !(rune.itemId || rune.item_id)) continue; // only count runes socketed into equipment
+    // Main stat (handle both camelCase and snake_case from API)
+    const mainStat = rune.mainStat || rune.main_stat;
+    const mainValue = rune.mainValue || rune.main_value || 0;
+    const mainKey = RUNE_STAT_TO_BASE[mainStat];
+    if (mainKey) bonus[mainKey] = (bonus[mainKey] || 0) + mainValue;
     // Sub-stats
-    const subs = rune.subStats || [];
+    const subs = rune.subStats || rune.sub_stats || [];
     for (const sub of subs) {
       const subKey = RUNE_STAT_TO_BASE[sub.stat];
       if (subKey) bonus[subKey] = (bonus[subKey] || 0) + (sub.value || 0);
