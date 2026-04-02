@@ -631,7 +631,7 @@ export default function Battle({ character, onCharacterUpdate }) {
         partySize: partySize,
       });
 
-      const { rewards, character: updatedChar, levelsGained, loot, partyBonuses, petInfo, petSkillResult } = result;
+      const { rewards, character: updatedChar, levelsGained, loot, droppedRune, partyBonuses, petInfo, petSkillResult } = result;
       if (petInfo) setLastPetInfo(petInfo);
       if (petSkillResult) {
         const petIcon = petInfo?.species ? ({"Wolf":"🐺","Phoenix":"🔥","Dragon":"🐉","Turtle":"🐢","Cat":"🐱","Owl":"🦉","Slime":"🫧","Fairy":"🧚","Serpent":"🐍","Golem":"🪨"}[petInfo.species] || "🐾") : "🐾";
@@ -650,6 +650,12 @@ export default function Battle({ character, onCharacterUpdate }) {
         const lootEmoji = loot.rarity === "shiny" ? "🌟" : loot.rarity === "mythic" ? "💎" : loot.rarity === "legendary" ? "🏆" : "✨";
         addLog(`${isRareDrop ? `${lootEmoji}${lootEmoji} ` : ""}${lootEmoji} ${isRareDrop ? "[" + loot.rarity.toUpperCase() + "] " : ""}${loot.name}${isRareDrop ? " DROP!" : ` (${loot.rarity})`}`);
         queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      }
+
+      if (droppedRune) {
+        const runeEmoji = droppedRune.rarity === "mythic" ? "💎" : droppedRune.rarity === "legendary" ? "🏆" : droppedRune.rarity === "epic" ? "💜" : "🔮";
+        addLog(`${runeEmoji} Rune Drop: ${droppedRune.name} (${droppedRune.rarity}) — ${droppedRune.mainStat || droppedRune.main_stat} +${droppedRune.mainValue || droppedRune.main_value}`);
+        queryClient.invalidateQueries({ queryKey: ["runes", character.id] });
       }
 
       if (partyBonuses && (partyBonuses.expPct > 0 || partyBonuses.goldPct > 0)) {
