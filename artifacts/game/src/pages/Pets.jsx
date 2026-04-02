@@ -441,7 +441,7 @@ function PetsInner({ character, onCharacterUpdate }) {
   const { data: equipmentData, isLoading: equipmentLoading } = useQuery({
     queryKey: ["petEquipment", character?.id],
     queryFn: () => base44.functions.invoke("petEquipment", { characterId: character.id, action: "list" }),
-    enabled: !!character?.id && activeTab === "equipment",
+    enabled: !!character?.id && (activeTab === "equipment" || activeTab === "pets"),
   });
 
   const allEquipment = equipmentData?.equipment || [];
