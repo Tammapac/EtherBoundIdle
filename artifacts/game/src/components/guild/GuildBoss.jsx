@@ -82,21 +82,35 @@ export default function GuildBoss({ guild, myMemberEntry, character, onAttack, o
               <span className="block mt-1 text-purple-400">Tokens awarded when boss is defeated!</span>
             </p>
             {equippedPet && (() => {
+              const SKILL_LABELS_GB = { heal: "Heal", shield: "Shield", extra_attack: "Extra Atk" };
               const icon = PET_SPECIES_ICONS[equippedPet.species] || "🐾";
               const evoSuffix = PET_EVO_SUFFIX[equippedPet.evolution || 0] || "";
               const rarityColor = RARITY_PET_COLORS[equippedPet.rarity] || "text-gray-400";
+              const xpPct = Math.min(100, ((equippedPet.xp || 0) / 500) * 100);
+              const traitNames = (equippedPet.traits || []).map(t => typeof t === 'object' ? `${t.name}: ${t.desc}` : t).join('\n');
               return (
-                <div className="mt-2 flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-2 py-1.5">
-                  <span className="text-base leading-none">{icon}{evoSuffix}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
-                      {equippedPet.name || equippedPet.species}
-                    </p>
-                    <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
-                      Lv.{equippedPet.level} · {equippedPet.skillType || "companion"}
-                    </p>
+                <div
+                  className="mt-2 bg-muted/20 border border-border/50 rounded-lg px-2.5 py-2 cursor-help"
+                  title={traitNames ? `Traits:\n${traitNames}` : 'No traits'}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg leading-none">{icon}{evoSuffix}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
+                          {equippedPet.name || equippedPet.species}
+                        </p>
+                        <span className="text-[9px] text-muted-foreground ml-1">Lv.{equippedPet.level}</span>
+                      </div>
+                      <p className="text-[8px] text-muted-foreground leading-none mt-0.5">
+                        {SKILL_LABELS_GB[equippedPet.skillType] || equippedPet.skillType || "companion"} · {equippedPet.rarity}
+                      </p>
+                      {/* XP Bar */}
+                      <div className="h-1 bg-gray-700 rounded-full mt-1 overflow-hidden">
+                        <div className="h-full bg-cyan-500/60 rounded-full transition-all" style={{ width: `${xpPct}%` }} />
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-[9px] text-muted-foreground flex-shrink-0">🐾 pet</span>
                 </div>
               );
             })()}

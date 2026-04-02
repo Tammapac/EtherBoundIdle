@@ -1227,22 +1227,36 @@ export default function Battle({ character, onCharacterUpdate }) {
           {lastPetInfo && (() => {
             const PET_SPECIES_ICONS = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
             const PET_EVO_SUFFIX = ["", "⭐", "👑"];
+            const RARITY_PET_COLORS = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
+            const SKILL_LABELS = { heal: "Heal", shield: "Shield", extra_attack: "Extra Atk" };
             const icon = PET_SPECIES_ICONS[lastPetInfo.species] || "🐾";
             const evoSuffix = PET_EVO_SUFFIX[lastPetInfo.evolution || 0] || "";
-            const RARITY_PET_COLORS = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
             const rarityColor = RARITY_PET_COLORS[lastPetInfo.rarity] || "text-gray-400";
+            const xpPct = Math.min(100, ((lastPetInfo.xp || 0) / 500) * 100);
+            const traitNames = (lastPetInfo.traits || []).map(t => typeof t === 'object' ? `${t.name}: ${t.desc}` : t).join('\n');
             return (
-              <div className="mt-2 flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-2 py-1.5">
-                <span className="text-base leading-none">{icon}{evoSuffix}</span>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
-                    {lastPetInfo.name || lastPetInfo.species}
-                  </p>
-                  <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
-                    Lv.{lastPetInfo.level} · {lastPetInfo.skillType || "companion"}
-                  </p>
+              <div
+                className="mt-2 bg-muted/20 border border-border/50 rounded-lg px-2.5 py-2 cursor-help"
+                title={traitNames ? `Traits:\n${traitNames}` : 'No traits'}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg leading-none">{icon}{evoSuffix}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
+                        {lastPetInfo.name || lastPetInfo.species}
+                      </p>
+                      <span className="text-[9px] text-muted-foreground ml-1">Lv.{lastPetInfo.level}</span>
+                    </div>
+                    <p className="text-[8px] text-muted-foreground leading-none mt-0.5">
+                      {SKILL_LABELS[lastPetInfo.skillType] || lastPetInfo.skillType || "companion"} · {lastPetInfo.rarity}
+                    </p>
+                    {/* XP Bar */}
+                    <div className="h-1 bg-gray-700 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-cyan-500/60 rounded-full transition-all" style={{ width: `${xpPct}%` }} />
+                    </div>
+                  </div>
                 </div>
-                <span className="text-[9px] text-muted-foreground flex-shrink-0">🐾 pet</span>
               </div>
             );
           })()}

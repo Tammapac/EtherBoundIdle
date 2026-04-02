@@ -146,12 +146,18 @@ function getBondLevelName(pet) {
 
 function TraitPill({ trait, index }) {
   const color = TRAIT_COLORS[index % TRAIT_COLORS.length];
+  const name = typeof trait === 'object' ? (trait.name || trait.key || '') : trait;
+  const desc = typeof trait === 'object' ? (trait.desc || '') : '';
   return (
-    <span
-      className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full border font-medium cursor-help ${color}`}
-      title={typeof trait === 'object' ? (trait.desc || trait.name || '') : ''}
-    >
-      {typeof trait === 'object' ? (trait.name || trait.key || JSON.stringify(trait)) : trait}
+    <span className="relative group inline-block">
+      <span className={`inline-block text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full border font-medium cursor-help ${color}`}>
+        {name}
+      </span>
+      {desc && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-50 bg-gray-900 border border-gray-600 rounded-lg px-3 py-2 text-xs sm:text-sm text-white whitespace-nowrap shadow-xl pointer-events-none">
+          {desc}
+        </span>
+      )}
     </span>
   );
 }
@@ -429,10 +435,22 @@ function PetsInner({ character, onCharacterUpdate }) {
       setFuseSpeciesFilter(null);
       setFuseRarityFilter(null);
       const p = data?.pet;
-      const desc = p ? `${p.rarity} ${p.species} — Lv.${p.level}, Passive: +${p.passiveValue}, Skill: ${p.skillValue}` : "New pet created!";
+      const desc = p
+        ? `New Pet: ${(SPECIES_ICONS[p.species] || '🐾')} ${p.species}\nRarity: ${p.rarity}\nLevel: ${p.level}\nPassive: ${PASSIVE_LABELS[p.passiveType] || p.passiveType} +${p.passiveValue}\nSkill: ${SKILL_LABELS[p.skillType] || p.skillType} (${p.skillValue})\nTraits: ${(p.traits || []).map(t => typeof t === 'object' ? t.name : t).join(', ') || 'None'}`
+        : "New pet created!";
       setResultModal({ title: "Fusion Successful!", message: desc, success: true });
     },
     onError: (err) => toast({ title: "Fusion failed", description: err?.message, variant: "destructive" }),
+  });
+
+  const sellAllMutation = useMutation({
+    mutationFn: (rarity) => base44.functions.invoke("petAction", { characterId: character.id, action: "sellAll", rarity }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["pets"] });
+      if (onCharacterUpdate) onCharacterUpdate();
+      toast({ title: "Sold all!", description: `Sold ${data?.soldCount || 0} ${data?.rarity || ''} pets for ${data?.goldGain?.toLocaleString() || 0} gold`, duration: 3000 });
+    },
+    onError: (err) => toast({ title: "Sell all failed", description: err?.message, variant: "destructive" }),
   });
 
   const rerollTraitsMutation = useMutation({
@@ -1064,9 +1082,10 @@ function PetsInner({ character, onCharacterUpdate }) {
                   onClick={() => {
                     const sp = selectedForFuse[0];
                     const fuseChances = { common: 95, uncommon: 85, rare: 70, epic: 55, legendary: 40, mythic: 25 };
+                    const chance = fuseChances[sp.rarity] || 80;
                     setConfirmModal({
-                      title: "Fuse Pets",
-                      message: `Fuse 3 ${sp.rarity} ${sp.species} into 1 ${RARITY_NEXT[sp.rarity] || "higher rarity"}?\nSuccess chance: ${fuseChances[sp.rarity] || 80}%\nOn failure, 1 pet is lost as penalty.`,
+                      title: "Confirm Fusion",
+                      message: `Fuse 3x ${sp.rarity} ${sp.species} → 1 ${RARITY_NEXT[sp.rarity] || 'higher'} ${sp.species}\n\nSuccess chance: ${chance}%\nOn failure: 1 pet is lost`,
                       onConfirm: () => fuseMutation.mutate({ species: sp.species, rarity: sp.rarity }),
                     });
                   }}
@@ -1115,7 +1134,7 @@ function PetsInner({ character, onCharacterUpdate }) {
               </p>
               {/* Rarity filter tabs */}
               {!fuseMode && (
-                <div className="flex gap-1.5 flex-wrap mb-3">
+                <div className="flex gap-1.5 flex-wrap mb-3 items-center">
                   {["all","common","uncommon","rare","epic","legendary","mythic"].map(r => (
                     <button
                       key={r}
@@ -1129,6 +1148,26 @@ function PetsInner({ character, onCharacterUpdate }) {
                       {r === "all" ? `All (${unequippedPets.length})` : `${r.charAt(0).toUpperCase() + r.slice(1)} (${unequippedPets.filter(p => p.rarity === r).length})`}
                     </button>
                   ))}
+                  {rarityFilter !== "all" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 gap-1"
+                      onClick={() => {
+                        const count = unequippedPets.filter(p => p.rarity === rarityFilter).length;
+                        const prices = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
+                        const total = count * (prices[rarityFilter] || 100);
+                        setConfirmModal({
+                          title: `Sell All ${rarityFilter} Pets`,
+                          message: `Sell ${count} unequipped ${rarityFilter} pets for ${total.toLocaleString()} gold?\n\nThis cannot be undone!`,
+                          onConfirm: () => sellAllMutation.mutate(rarityFilter),
+                        });
+                      }}
+                      disabled={sellAllMutation.isPending || unequippedPets.filter(p => p.rarity === rarityFilter).length === 0}
+                    >
+                      <Trash2 className="w-3 h-3" /> Sell All {rarityFilter}
+                    </Button>
+                  )}
                 </div>
               )}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">

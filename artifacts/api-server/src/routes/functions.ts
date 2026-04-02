@@ -3426,7 +3426,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         newLevel,
         newExp,
         newGold,
-        petInfo: equippedPet ? { id: equippedPet.id, species: equippedPet.species, name: equippedPet.name, level: equippedPet.level, xp: equippedPet.xp, rarity: equippedPet.rarity, skillType: equippedPet.skillType, skillValue: equippedPet.skillValue, evolution: equippedPet.evolution || 0 } : null,
+        petInfo: equippedPet ? { id: equippedPet.id, species: equippedPet.species, name: equippedPet.name, level: equippedPet.level, xp: equippedPet.xp, rarity: equippedPet.rarity, skillType: equippedPet.skillType, skillValue: equippedPet.skillValue, evolution: equippedPet.evolution || 0, traits: equippedPet.traits || [] } : null,
         petSkillResult,
       });
   } catch (err: any) {
@@ -4530,6 +4530,35 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         goldCost,
         gemCost,
       });
+      return;
+    }
+
+    // === SELL ALL PETS BY RARITY ===
+    if (action === "sell_all" || action === "sellAll") {
+      const { rarity: targetRarity } = req.body;
+      if (!targetRarity) { sendError(res, 400, "rarity required"); return; }
+      const sellPrices: Record<string, number> = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
+      const price = sellPrices[targetRarity] || 100;
+
+      // Find all unequipped pets of this rarity
+      const petsToSell = await db.select().from(petsTable).where(
+        and(eq(petsTable.characterId, characterId), eq(petsTable.rarity, targetRarity), eq(petsTable.equipped, false))
+      );
+
+      if (petsToSell.length === 0) { sendError(res, 400, `No unequipped ${targetRarity} pets to sell`); return; }
+
+      const totalGold = petsToSell.length * price;
+
+      // Delete all
+      for (const p of petsToSell) {
+        await db.delete(petsTable).where(eq(petsTable.id, p.id));
+      }
+
+      // Add gold
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      await db.update(charactersTable).set({ gold: (char?.gold || 0) + totalGold }).where(eq(charactersTable.id, characterId));
+
+      sendSuccess(res, { soldCount: petsToSell.length, goldGain: totalGold, rarity: targetRarity });
       return;
     }
 

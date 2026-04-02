@@ -246,21 +246,35 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
         </div>
         {/* Pet Companion Display */}
         {equippedPetTOT && (() => {
+          const SKILL_LABELS_TOT = { heal: "Heal", shield: "Shield", extra_attack: "Extra Atk" };
           const icon = PET_SPECIES_ICONS_TOT[equippedPetTOT.species] || "🐾";
           const evoSuffix = PET_EVO_SUFFIX_TOT[equippedPetTOT.evolution || 0] || "";
           const rarityColor = RARITY_PET_COLORS_TOT[equippedPetTOT.rarity] || "text-gray-400";
+          const xpPct = Math.min(100, ((equippedPetTOT.xp || 0) / 500) * 100);
+          const traitNames = (equippedPetTOT.traits || []).map(t => typeof t === 'object' ? `${t.name}: ${t.desc}` : t).join('\n');
           return (
-            <div className="flex items-center gap-2 bg-muted/20 border border-border/50 rounded-lg px-2 py-1.5 mt-1">
-              <span className="text-base leading-none">{icon}{evoSuffix}</span>
-              <div className="flex-1 min-w-0 text-left">
-                <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
-                  {equippedPetTOT.name || equippedPetTOT.species}
-                </p>
-                <p className="text-[9px] text-muted-foreground leading-none mt-0.5">
-                  Lv.{equippedPetTOT.level} · {equippedPetTOT.skillType || "companion"}
-                </p>
+            <div
+              className="bg-muted/20 border border-border/50 rounded-lg px-2.5 py-2 mt-1 cursor-help"
+              title={traitNames ? `Traits:\n${traitNames}` : 'No traits'}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg leading-none">{icon}{evoSuffix}</span>
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center justify-between">
+                    <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
+                      {equippedPetTOT.name || equippedPetTOT.species}
+                    </p>
+                    <span className="text-[9px] text-muted-foreground ml-1">Lv.{equippedPetTOT.level}</span>
+                  </div>
+                  <p className="text-[8px] text-muted-foreground leading-none mt-0.5">
+                    {SKILL_LABELS_TOT[equippedPetTOT.skillType] || equippedPetTOT.skillType || "companion"} · {equippedPetTOT.rarity}
+                  </p>
+                  {/* XP Bar */}
+                  <div className="h-1 bg-gray-700 rounded-full mt-1 overflow-hidden">
+                    <div className="h-full bg-cyan-500/60 rounded-full transition-all" style={{ width: `${xpPct}%` }} />
+                  </div>
+                </div>
               </div>
-              <span className="text-[9px] text-muted-foreground flex-shrink-0">🐾 pet</span>
             </div>
           );
         })()}
