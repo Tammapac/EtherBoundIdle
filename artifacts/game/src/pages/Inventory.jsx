@@ -154,12 +154,12 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
   );
 }
 
-// ─── Character Silhouette Equipment Panel ───────────────────────────────────
+// ─── Compact Equipment Grid ─────────────────────────────────────────────────
 
 function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
   const getSlot = (slot) => equipped.find(i => i.type === slot);
 
-  const renderSlot = (slot, position) => {
+  const renderSlot = (slot) => {
     const item = getSlot(slot);
     const Icon = item ? getItemIcon(item) : (TYPE_ICONS[slot] || Backpack);
     const rarity = item ? RARITY_CONFIG[item.rarity] : null;
@@ -170,52 +170,34 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
       <button
         key={slot}
         onClick={() => item && onSelectItem(item)}
-        className={`absolute ${position} w-[60px] h-[60px] rounded-lg border-2 flex flex-col items-center justify-center transition-all hover:scale-105 ${
+        className={`relative w-full h-[52px] rounded-lg border flex items-center gap-2 px-2 transition-all hover:brightness-110 ${
           item
             ? `${rarity?.border} ${rarity?.bg} cursor-pointer`
-            : "border-dashed border-gray-600 bg-gray-900/50"
+            : "border-dashed border-gray-600/50 bg-gray-900/30"
         }`}
         title={item ? item.name : SLOT_LABELS[slot]}
       >
-        <Icon className={`w-5 h-5 ${item ? rarity?.color : "text-gray-600"}`} />
-        <span className={`text-[8px] mt-0.5 truncate max-w-[54px] ${item ? rarity?.color : "text-gray-600"}`}>
-          {item ? (item.name.length > 8 ? item.name.slice(0, 8) + ".." : item.name) : SLOT_LABELS[slot]}
-        </span>
-        {item && (item.upgrade_level || 0) > 0 && (
-          <span className="absolute -top-1 -right-1 text-[8px] font-bold text-green-400 bg-gray-900 border border-green-500/40 rounded px-0.5">
-            +{item.upgrade_level}
+        <Icon className={`w-5 h-5 flex-shrink-0 ${item ? rarity?.color : "text-gray-600"}`} />
+        <div className="flex-1 min-w-0 text-left">
+          <span className={`text-[10px] font-semibold truncate block leading-tight ${item ? rarity?.color : "text-gray-600"}`}>
+            {item ? item.name : SLOT_LABELS[slot]}
           </span>
-        )}
-        {item && runeSlots > 0 && (
-          <span className="absolute -bottom-1 -right-1 text-[8px] font-bold text-purple-400 bg-gray-900 border border-purple-500/40 rounded-full w-3.5 h-3.5 flex items-center justify-center">
-            {runeSlots}
-          </span>
-        )}
+          {item && (
+            <span className="text-[9px] text-muted-foreground leading-none">
+              {(item.upgrade_level || 0) > 0 && <span className="text-green-400 mr-1">+{item.upgrade_level}</span>}
+              {runeSlots > 0 && <span className="text-purple-400">◈{runeSlots}</span>}
+            </span>
+          )}
+        </div>
       </button>
     );
   };
 
   return (
-    <div className="relative w-[240px] h-[320px] mx-auto flex-shrink-0">
-      {/* Character silhouette center */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[80px] h-[200px] rounded-full bg-gradient-to-b from-gray-700/20 to-gray-800/20 border border-gray-700/30 flex items-center justify-center">
-        <User className="w-12 h-12 text-gray-600/40" />
-      </div>
-
-      {/* Helmet — top center */}
-      {renderSlot("helmet", "top-0 left-1/2 -translate-x-1/2")}
-      {/* Amulet — below helmet, slightly right */}
-      {renderSlot("amulet", "top-[65px] left-1/2 translate-x-[5px]")}
-      {/* Weapon — left of body */}
-      {renderSlot("weapon", "top-[80px] left-0")}
-      {/* Armor — center body */}
-      {renderSlot("armor", "top-[130px] left-1/2 -translate-x-1/2")}
-      {/* Gloves — left lower */}
-      {renderSlot("gloves", "top-[195px] left-0")}
-      {/* Ring — right of body */}
-      {renderSlot("ring", "top-[195px] right-0")}
-      {/* Boots — bottom center */}
-      {renderSlot("boots", "bottom-0 left-1/2 -translate-x-1/2")}
+    <div className="grid grid-cols-2 gap-1.5 w-full">
+      {SLOT_ORDER.map(slot => (
+        <div key={slot}>{renderSlot(slot)}</div>
+      ))}
     </div>
   );
 }
@@ -263,42 +245,42 @@ function CharacterStatsPanel({ character, equippedItems, equippedRunes = [] }) {
     { icon: Wind, label: "Sand", value: `${derived.sandDmg || 0}%`, color: "text-amber-500" },
   ].filter(s => parseInt(s.value) > 0);
 
+  const StatRow = ({ icon: Icon, label, value, color }) => (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1">
+        <Icon className={`w-3 h-3 ${color}`} />
+        <span className="text-muted-foreground">{label}</span>
+      </div>
+      <span className={`font-mono font-semibold ${color}`}>{value}</span>
+    </div>
+  );
+
   return (
-    <div className="bg-card border border-border rounded-xl p-3 space-y-1 text-[11px]">
-      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Base Stats</h3>
-      {baseStats.map(({ icon: Icon, label, value, color }) => (
-        <div key={label} className="flex items-center justify-between py-0.5">
-          <div className="flex items-center gap-1.5">
+    <div className="bg-card border border-border rounded-xl p-3 text-[11px] max-h-[280px] overflow-y-auto">
+      {/* Base stats in a row */}
+      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Base Stats</h3>
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2">
+        {baseStats.map(({ icon: Icon, label, value, color }) => (
+          <div key={label} className="flex items-center gap-1">
             <Icon className={`w-3 h-3 ${color}`} />
             <span className="text-muted-foreground">{label}</span>
+            <span className={`font-mono font-semibold ${color}`}>{value}</span>
           </div>
-          <span className={`font-mono font-semibold ${color}`}>{value}</span>
-        </div>
-      ))}
-      <div className="border-t border-border my-1" />
+        ))}
+      </div>
+      <div className="border-t border-border my-1.5" />
+      {/* Combat stats in 2 columns */}
       <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Combat Stats</h3>
-      {stats.filter(s => !s.hide).map(({ icon: Icon, label, value, color }) => (
-        <div key={label} className="flex items-center justify-between py-0.5">
-          <div className="flex items-center gap-1.5">
-            <Icon className={`w-3 h-3 ${color}`} />
-            <span className="text-muted-foreground">{label}</span>
-          </div>
-          <span className={`font-mono font-semibold ${color}`}>{value}</span>
-        </div>
-      ))}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {stats.filter(s => !s.hide).map(s => <StatRow key={s.label} {...s} />)}
+      </div>
       {elementalStats.length > 0 && (
         <>
-          <div className="border-t border-border my-1" />
+          <div className="border-t border-border my-1.5" />
           <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Elemental</h3>
-          {elementalStats.map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="flex items-center justify-between py-0.5">
-              <div className="flex items-center gap-1.5">
-                <Icon className={`w-3 h-3 ${color}`} />
-                <span className="text-muted-foreground">{label}</span>
-              </div>
-              <span className={`font-mono font-semibold ${color}`}>{value}</span>
-            </div>
-          ))}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+            {elementalStats.map(s => <StatRow key={s.label} {...s} />)}
+          </div>
         </>
       )}
     </div>
@@ -522,11 +504,11 @@ export default function Inventory({ character, onCharacterUpdate }) {
         )}
       </div>
 
-      {/* Top: Character Silhouette + Stats */}
-      <div className="flex gap-4 flex-col md:flex-row">
-        {/* Character Equipment Silhouette */}
-        <div className="bg-card border border-border rounded-xl p-4 flex-shrink-0">
-          <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider text-center">Equipment</h3>
+      {/* Top: Equipment Grid + Stats (compact side-by-side) */}
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-3">
+        {/* Equipment Grid */}
+        <div className="bg-card border border-border rounded-xl p-3">
+          <h3 className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Equipment</h3>
           <CharacterEquipmentPanel
             character={character}
             equipped={equipped}
@@ -534,10 +516,8 @@ export default function Inventory({ character, onCharacterUpdate }) {
           />
         </div>
 
-        {/* Stats Panel */}
-        <div className="flex-1 min-w-0">
-          <CharacterStatsPanel character={character} equippedItems={equipped} equippedRunes={equippedRunes} />
-        </div>
+        {/* Stats Panel (scrollable) */}
+        <CharacterStatsPanel character={character} equippedItems={equipped} equippedRunes={equippedRunes} />
       </div>
 
       {/* Tabs */}
