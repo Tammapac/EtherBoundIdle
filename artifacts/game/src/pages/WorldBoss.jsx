@@ -448,19 +448,22 @@ export default function WorldBoss({ character }) {
           </div>
           <div>
             <h1 className="font-orbitron text-2xl font-bold tracking-wide">World Bosses</h1>
-            <p className="text-sm text-muted-foreground">Server-wide bosses spawn every 4 hours. Deal damage to earn rewards!</p>
+            <p className="text-sm text-muted-foreground">One boss spawns every 4 hours, rotating through the zones. Deal damage to earn rewards!</p>
           </div>
         </div>
       </div>
 
-      {/* Boss Grid */}
+      {/* Boss List — one active, others show rotation schedule */}
       <div className="space-y-3">
         {bosses.map((boss) => {
           const theme = ZONE_THEMES[boss.zone] || ZONE_THEMES.verdant_forest;
           const isActive = boss.status === "active";
           const isDefeated = boss.status === "defeated";
-          const isWaiting = boss.status === "waiting";
+          const isExpired = boss.status === "expired";
+          const isInactive = boss.status === "inactive";
+          const isCurrent = boss.isCurrentBoss;
           const locked = !boss.meetsLevel;
+          const canClick = isCurrent && !locked && (isActive || isDefeated);
           const hpPercent = boss.bossMaxHp > 0 ? (boss.bossHp / boss.bossMaxHp) * 100 : 100;
 
           return (
@@ -468,34 +471,37 @@ export default function WorldBoss({ character }) {
               key={boss.zone}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`bg-gradient-to-r ${theme.bg} border ${theme.border} rounded-xl p-4 ${
-                locked ? "opacity-50" : "cursor-pointer hover:brightness-110"
+              className={`bg-gradient-to-r ${theme.bg} border ${isCurrent ? `${theme.border} border-2` : "border-border/30"} rounded-xl p-4 ${
+                isInactive ? "opacity-40" : locked ? "opacity-50" : canClick ? "cursor-pointer hover:brightness-110" : ""
               } transition-all`}
               onClick={() => {
+                if (isInactive) { toast({ title: `Next in ${formatTime(boss.nextActiveAt)}` }); return; }
                 if (locked) { toast({ title: `Level ${boss.minLevel} required`, variant: "destructive" }); return; }
                 if (isExpired) { toast({ title: "Boss has expired, next one spawns soon" }); return; }
+                if (!isCurrent) return;
                 setSelectedBoss(boss);
               }}
             >
               <div className="flex items-center gap-4">
                 {/* Boss icon */}
-                <div className={`w-14 h-14 rounded-xl bg-black/30 border ${theme.border} flex items-center justify-center flex-shrink-0`}>
+                <div className={`w-14 h-14 rounded-xl bg-black/30 border ${isCurrent ? theme.border : "border-border/30"} flex items-center justify-center flex-shrink-0`}>
                   {locked ? <Lock className="w-6 h-6 text-muted-foreground" /> : <span className="text-3xl">{boss.bossIcon}</span>}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className={`font-orbitron font-bold ${theme.text}`}>{boss.bossName}</h3>
-                    {isActive && <Badge className="bg-green-500/20 text-green-400 border-green-500/40 text-[10px]">ACTIVE</Badge>}
-                    {isDefeated && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[10px]">DEFEATED</Badge>}
-                    {isWaiting && <Badge variant="outline" className="text-[10px] text-muted-foreground">SPAWNING...</Badge>}
+                    <h3 className={`font-orbitron font-bold ${isCurrent ? theme.text : "text-muted-foreground"}`}>{boss.bossName}</h3>
+                    {isCurrent && isActive && <Badge className="bg-green-500/20 text-green-400 border-green-500/40 text-[10px] animate-pulse">NOW ACTIVE</Badge>}
+                    {isCurrent && isDefeated && <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[10px]">DEFEATED</Badge>}
+                    {isCurrent && isExpired && <Badge className="bg-red-500/20 text-red-400 border-red-500/40 text-[10px]">EXPIRED</Badge>}
+                    {isInactive && <Badge variant="outline" className="text-[10px] text-muted-foreground">Next in {formatTime(boss.nextActiveAt)}</Badge>}
                     {locked && <Badge variant="outline" className="text-[10px] text-red-400 border-red-500/30">Lv.{boss.minLevel}+</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground">{theme.label} · Lv.{boss.minLevel}+ · {boss.bossElement}</p>
 
-                  {/* HP Bar */}
-                  {(isActive || isDefeated) && (
+                  {/* HP Bar — only for current boss */}
+                  {isCurrent && (isActive || isDefeated) && (
                     <div className="mt-1.5">
                       <div className="flex justify-between text-[10px] mb-0.5">
                         <span className={theme.text}>{formatHp(Math.max(0, boss.bossHp))}</span>
@@ -515,15 +521,15 @@ export default function WorldBoss({ character }) {
                     {boss.myDamage > 0 && (
                       <span className="flex items-center gap-0.5 text-amber-400"><Swords className="w-3 h-3" /> {formatHp(boss.myDamage)}</span>
                     )}
-                    {isActive && boss.timeRemaining > 0 && (
+                    {isCurrent && isActive && boss.timeRemaining > 0 && (
                       <span className="flex items-center gap-0.5"><Timer className="w-3 h-3" /> {formatTime(boss.timeRemaining)}</span>
                     )}
                     {boss.myClaimed && <Badge className="text-[9px] bg-green-500/20 text-green-400 border-green-500/40 h-4 px-1">CLAIMED</Badge>}
                   </div>
                 </div>
 
-                {/* Arrow */}
-                {!locked && (isActive || isDefeated) && (
+                {/* Arrow — only for clickable current boss */}
+                {canClick && (
                   <ChevronRight className={`w-5 h-5 ${theme.text} flex-shrink-0`} />
                 )}
               </div>
