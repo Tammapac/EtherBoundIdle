@@ -66,6 +66,10 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
         skillId,
         targetIndex: selectedTarget,
       });
+      if (res?.success === false && res?.error) {
+        // "Not your turn" or similar — don't freeze, just skip
+        return;
+      }
       if (res?.session) setSession(res.session);
     } finally {
       setLoading(false);

@@ -5455,8 +5455,11 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       d.wave = 1;
       d.status = "combat";
       d.currentEnemyIndex = 0;
-      d.current_turn_index = 0;
-      d.turn_deadline = new Date(Date.now() + 3000).toISOString();
+      // Turn-based only for groups (2+ players)
+      if (members.length > 1) {
+        d.current_turn_index = 0;
+        d.turn_deadline = new Date(Date.now() + 3000).toISOString();
+      }
       d.totalRewards = { gold: 0, exp: 0, portalShards: 0, dust: {}, loot: [] };
       d.combat_log = [{ type: "system", text: `The Infinite Portal (Lv.${level}) opens! Wave 1 begins! ${members.length} player${members.length > 1 ? "s" : ""} enter the rift!` }];
       await db.update(portalSessionsTable).set({ status: "combat", wave: 1, data: d }).where(eq(portalSessionsTable.id, session.id));
@@ -5663,9 +5666,19 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       const me = members[meIdx];
       if (!me || me.hp <= 0) { sendError(res, 400, "You are KO'd"); return; }
 
-      // Turn-based enforcement: only the current turn player can act
-      if (members.length > 1) {
-        if (d.current_turn_index !== undefined && d.current_turn_index !== meIdx) {
+      // Turn-based enforcement: only the current turn player can act (groups only)
+      if (members.length > 1 && d.current_turn_index !== undefined) {
+        // If current turn player is dead/invalid, auto-advance to next alive
+        const turnHolder = members[d.current_turn_index];
+        if (!turnHolder || turnHolder.hp <= 0) {
+          let fixIdx = 0;
+          for (let i = 0; i < members.length; i++) {
+            if (members[i].hp > 0) { fixIdx = i; break; }
+          }
+          d.current_turn_index = fixIdx;
+          d.turn_deadline = new Date(Date.now() + 3000).toISOString();
+        }
+        if (d.current_turn_index !== meIdx) {
           sendSuccess(res, { success: false, error: "Not your turn" });
           return;
         }
@@ -5840,7 +5853,10 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         if (rewards.dustType) rewardText += `, +${rewards.dustAmount} ${rewards.dustType.replace(/_/g, " ")}`;
         d.combat_log.push({ type: "system", text: rewardText });
 
-        // Accumulate totals
+        // Accumulate totals (init if missing — for sessions created before totalRewards was added)
+        if (!d.totalRewards) d.totalRewards = { gold: 0, exp: 0, portalShards: 0, dust: {}, loot: [] };
+        if (!d.totalRewards.dust) d.totalRewards.dust = {};
+        if (!d.totalRewards.loot) d.totalRewards.loot = [];
         d.totalRewards.gold = (d.totalRewards.gold || 0) + rewards.gold;
         d.totalRewards.exp = (d.totalRewards.exp || 0) + rewards.exp;
         d.totalRewards.portalShards = (d.totalRewards.portalShards || 0) + rewards.portalShards;
@@ -5856,8 +5872,7 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         d.wave = nextWave;
         d.status = "combat";
         d.currentEnemyIndex = 0;
-        // Reset turn to first alive member for new wave
-        d.current_turn_index = 0;
+        // Reset turn to first alive member for new wave (groups only)
         if (members.length > 1) {
           let startIdx = 0;
           while (startIdx < members.length && members[startIdx].hp <= 0) startIdx++;
@@ -5950,6 +5965,22 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
             d.combat_log.push({ type: "system", text: "The portal has been abandoned." });
             await db.update(portalSessionsTable).set({ status: "abandoned", data: d }).where(eq(portalSessionsTable.id, sessionId));
           } else {
+            // Adjust turn index after member removal
+            if (d.current_turn_index !== undefined && remaining.length > 1) {
+              const leavingIdx = members.findIndex((m: any) => m.characterId === characterId);
+              if (d.current_turn_index >= remaining.length) {
+                d.current_turn_index = 0;
+              }
+              if (leavingIdx === d.current_turn_index || d.current_turn_index >= remaining.length) {
+                d.current_turn_index = d.current_turn_index % remaining.length;
+                d.turn_deadline = new Date(Date.now() + 3000).toISOString();
+              } else if (leavingIdx < d.current_turn_index) {
+                d.current_turn_index--;
+              }
+            } else if (remaining.length <= 1) {
+              delete d.current_turn_index;
+              delete d.turn_deadline;
+            }
             // Check if all remaining members are dead
             const allDead = remaining.every((m: any) => m.hp <= 0);
             if (allDead && d.status === "combat") {
