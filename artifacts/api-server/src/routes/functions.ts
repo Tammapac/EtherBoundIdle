@@ -6219,8 +6219,15 @@ const WORLD_BOSSES: Record<string, { name: string; hp: number; dmg: number; armo
   celestial_spire: { name: "Solaris, Cosmic Arbiter",  hp: 10_000_000_000,dmg: 3000, armor: 1000, element: "celestial", minLevel: 70, icon: "✨" },
 };
 
+const WORLD_BOSS_ZONE_ORDER = ["verdant_forest", "scorched_desert", "frozen_peaks", "shadow_realm", "celestial_spire"];
+
 function getWorldBossSpawnCycle(): number {
   return Math.floor(Date.now() / WORLD_BOSS_SPAWN_INTERVAL_MS);
+}
+
+function getActiveWorldBossZone(): string {
+  const cycle = getWorldBossSpawnCycle();
+  return WORLD_BOSS_ZONE_ORDER[cycle % WORLD_BOSS_ZONE_ORDER.length];
 }
 
 function formatHp(n: number): string {
@@ -6320,48 +6327,56 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
     // === GET STATUS: overview of all world bosses ===
     if (action === "get_status") {
       const cycle = getWorldBossSpawnCycle();
-      const cycleStart = cycle * WORLD_BOSS_SPAWN_INTERVAL_MS;
       const cycleEnd = (cycle + 1) * WORLD_BOSS_SPAWN_INTERVAL_MS;
-      const nextSpawn = cycleEnd;
+      const activeZone = getActiveWorldBossZone();
 
-      // Lazily create sessions for all zones
-      const sessionMap: Record<string, any> = {};
-      for (const z of Object.keys(WORLD_BOSSES)) {
-        const s = await getOrCreateWorldBossSession(z);
-        if (s) sessionMap[z] = s;
-      }
+      // Only create/fetch session for the currently active zone
+      const activeSession = await getOrCreateWorldBossSession(activeZone);
+      const activeBoss = WORLD_BOSSES[activeZone];
+      const d = activeSession ? (activeSession.data as any) || {} : {};
+      const participants = activeSession ? (activeSession.participants as any[]) || [] : [];
+      const myEntry = participants.find((p: any) => p.characterId === characterId);
 
-      const bosses = Object.entries(WORLD_BOSSES).map(([z, boss]) => {
-        const s = sessionMap[z];
-        const d = s ? (s.data as any) || {} : null;
-        const participants = s ? (s.participants as any[]) || [] : [];
-        const myEntry = participants.find((p: any) => p.characterId === characterId);
+      // Build info for all bosses (show which is active, others show next rotation time)
+      const bosses = WORLD_BOSS_ZONE_ORDER.map((z, idx) => {
+        const boss = WORLD_BOSSES[z];
+        const isCurrentBoss = z === activeZone;
 
-        // Get attack count for this player this cycle
-        const attackKey = `wb_attacks_${characterId}_${z}_${cycle}`;
+        // Calculate when this boss will next be active
+        const currentIdx = cycle % WORLD_BOSS_ZONE_ORDER.length;
+        const stepsUntil = (idx - currentIdx + WORLD_BOSS_ZONE_ORDER.length) % WORLD_BOSS_ZONE_ORDER.length;
+        const nextActiveAt = stepsUntil === 0 ? 0 : stepsUntil * WORLD_BOSS_SPAWN_INTERVAL_MS + (cycleEnd - Date.now());
 
+        if (isCurrentBoss && activeSession) {
+          const sessionStatus = activeSession.status === "active" && Date.now() > new Date(activeSession.expiresAt).getTime() ? "expired" : activeSession.status;
+          return {
+            zone: z, bossName: boss.name, bossIcon: boss.icon,
+            bossHp: d.boss_hp ?? boss.hp, bossMaxHp: boss.hp,
+            bossDmg: boss.dmg, bossArmor: boss.armor, bossElement: boss.element,
+            minLevel: boss.minLevel,
+            status: sessionStatus, isCurrentBoss: true,
+            participantCount: participants.length,
+            myDamage: myEntry?.totalDamage || 0,
+            myClaimed: myEntry?.claimed || false,
+            sessionId: activeSession.id,
+            timeRemaining: Math.max(0, cycleEnd - 30 * 60 * 1000 - Date.now()),
+            nextActiveAt: 0,
+            meetsLevel: (char.level || 1) >= boss.minLevel,
+          };
+        }
         return {
-          zone: z,
-          bossName: boss.name,
-          bossIcon: boss.icon,
-          bossHp: d ? (d.boss_hp ?? boss.hp) : boss.hp,
-          bossMaxHp: boss.hp,
-          bossDmg: boss.dmg,
-          bossArmor: boss.armor,
-          bossElement: boss.element,
+          zone: z, bossName: boss.name, bossIcon: boss.icon,
+          bossHp: boss.hp, bossMaxHp: boss.hp,
+          bossDmg: boss.dmg, bossArmor: boss.armor, bossElement: boss.element,
           minLevel: boss.minLevel,
-          status: s ? (s.status === "active" && Date.now() > new Date(s.expiresAt).getTime() ? "expired" : s.status) : "waiting",
-          participantCount: participants.length,
-          myDamage: myEntry?.totalDamage || 0,
-          myClaimed: myEntry?.claimed || false,
-          sessionId: s?.id || null,
-          timeRemaining: Math.max(0, cycleEnd - 30 * 60 * 1000 - Date.now()),
-          nextSpawn: nextSpawn,
+          status: "inactive", isCurrentBoss: false,
+          participantCount: 0, myDamage: 0, myClaimed: false, sessionId: null,
+          timeRemaining: 0, nextActiveAt,
           meetsLevel: (char.level || 1) >= boss.minLevel,
         };
       });
 
-      sendSuccess(res, { bosses, currentCycle: cycle });
+      sendSuccess(res, { bosses, currentCycle: cycle, activeZone });
       return;
     }
 
