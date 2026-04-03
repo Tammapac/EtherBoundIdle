@@ -5269,6 +5269,7 @@ router.post("/functions/runes", async (req: Request, res: Response) => {
 
 const PORTAL_MAX_LEVEL = 100;
 const PORTAL_ENEMY_SCALE = 1.25; // per portal level
+const PORTAL_MAX_DAILY_ENTRIES = 5;
 const PORTAL_SHARD_UPGRADE_COST: Record<number, number> = {};
 // Upgrade costs: level 1→2 = 10 shards, scaling up to level 99→100 = ~500 shards
 for (let i = 1; i <= PORTAL_MAX_LEVEL; i++) {
@@ -5322,12 +5323,12 @@ function getPortalWaveRewards(wave: number, portalLevel: number) {
   const isBoss = wave % 10 === 0;
   const baseGold = 20 + wave * 5 + portalLevel * 2;
   const baseExp = 15 + wave * 4 + portalLevel * 1.5;
-  // Portal shards: low chance on normal, guaranteed on boss waves
-  const portalShards = isBoss ? Math.floor(1 + wave / 20 + portalLevel / 25) : (Math.random() < 0.08 ? 1 : 0);
-  // Magic dust: every 3rd wave
+  // Portal shards: rare on normal, small amount on boss waves
+  const portalShards = isBoss ? Math.max(1, Math.floor(wave / 30)) : (Math.random() < 0.03 ? 1 : 0);
+  // Magic dust: every 5th wave (less frequent)
   const dustTypes = ["magic_dust", "heavens_dust", "void_dust"];
-  const dustType = wave % 3 === 0 ? dustTypes[Math.min(Math.floor(portalLevel / 35), 2)] : null;
-  const dustAmount = dustType ? Math.floor(1 + wave / 10 + portalLevel / 20) : 0;
+  const dustType = wave % 5 === 0 ? dustTypes[Math.min(Math.floor(portalLevel / 35), 2)] : null;
+  const dustAmount = dustType ? Math.floor(1 + wave / 15) : 0;
   // Unique gear: very rare, slightly higher on boss waves
   const hasUniqueLoot = isBoss ? Math.random() < 0.12 : Math.random() < 0.03;
   const hasLoot = isBoss || Math.random() < 0.10;
@@ -5362,14 +5363,57 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       );
       const activeSession = activeSessions[0] || memberSessions[0] || null;
       const nextUpgradeCost = portalData.level < PORTAL_MAX_LEVEL ? PORTAL_SHARD_UPGRADE_COST[portalData.level] : null;
+      // Daily entry tracking
+      const today = new Date().toISOString().slice(0, 10);
+      const dailyEntries = portalData.daily_entries || {};
+      const usedToday = dailyEntries[today] || 0;
       sendSuccess(res, {
         portalLevel: portalData.level || 1,
         portalShards: portalData.shards || 0,
         highestWave: portalData.highest_wave || 0,
         nextUpgradeCost,
         maxLevel: PORTAL_MAX_LEVEL,
+        entriesUsed: usedToday,
+        maxEntries: PORTAL_MAX_DAILY_ENTRIES,
         activeSession: activeSession ? { id: activeSession.id, wave: activeSession.wave, status: activeSession.status, ...(activeSession.data as any), members: activeSession.members } : null,
       });
+      return;
+    }
+
+    // === PORTAL LEADERBOARD ===
+    if (action === "leaderboard") {
+      const { leaderboardType } = req.body;
+      // Fetch all characters with portal data
+      const allChars = await db.select({
+        id: charactersTable.id,
+        name: charactersTable.name,
+        class: charactersTable.class,
+        level: charactersTable.level,
+        extraData: charactersTable.extraData,
+      }).from(charactersTable).limit(500);
+
+      const entries = allChars
+        .map(c => {
+          const ed = (c.extraData as any) || {};
+          const pd = ed.portal || {};
+          return {
+            id: c.id,
+            name: c.name,
+            class: c.class,
+            level: c.level,
+            portalLevel: pd.level || 1,
+            highestWave: pd.highest_wave || 0,
+          };
+        })
+        .filter(e => leaderboardType === "wave" ? e.highestWave > 0 : e.portalLevel > 1);
+
+      if (leaderboardType === "wave") {
+        entries.sort((a, b) => b.highestWave - a.highestWave);
+      } else {
+        entries.sort((a, b) => b.portalLevel - a.portalLevel || b.highestWave - a.highestWave);
+      }
+
+      sendSuccess(res, { leaderboard: entries.slice(0, 50).map((e, i) => ({ ...e, rank: i + 1 })) });
       return;
     }
 
@@ -5418,6 +5462,22 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...(s.data as any), members: s.members } });
         return;
       }
+
+      // Check daily entry limit
+      const today = new Date().toISOString().slice(0, 10);
+      const dailyEntries = portalData.daily_entries || {};
+      const usedToday = dailyEntries[today] || 0;
+      if (usedToday >= PORTAL_MAX_DAILY_ENTRIES) {
+        sendError(res, 400, `Daily portal entries exhausted (${PORTAL_MAX_DAILY_ENTRIES}/${PORTAL_MAX_DAILY_ENTRIES}). Try again tomorrow!`);
+        return;
+      }
+      // Increment daily entry count
+      dailyEntries[today] = usedToday + 1;
+      // Clean old dates to prevent bloat
+      for (const k of Object.keys(dailyEntries)) { if (k !== today) delete dailyEntries[k]; }
+      portalData.daily_entries = dailyEntries;
+      extraData.portal = portalData;
+      await db.update(charactersTable).set({ extraData }).where(eq(charactersTable.id, characterId));
 
       const memberStats = await calculateDungeonMemberStats(characterId, char);
       const level = portalData.level || 1;
