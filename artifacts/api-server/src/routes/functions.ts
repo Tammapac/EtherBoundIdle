@@ -6324,9 +6324,12 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       const cycleEnd = (cycle + 1) * WORLD_BOSS_SPAWN_INTERVAL_MS;
       const nextSpawn = cycleEnd;
 
-      const sessions = await db.select().from(worldBossSessionsTable).where(eq(worldBossSessionsTable.spawnCycle, cycle));
+      // Lazily create sessions for all zones
       const sessionMap: Record<string, any> = {};
-      for (const s of sessions) sessionMap[s.zone] = s;
+      for (const z of Object.keys(WORLD_BOSSES)) {
+        const s = await getOrCreateWorldBossSession(z);
+        if (s) sessionMap[z] = s;
+      }
 
       const bosses = Object.entries(WORLD_BOSSES).map(([z, boss]) => {
         const s = sessionMap[z];

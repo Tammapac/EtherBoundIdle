@@ -473,7 +473,7 @@ export default function WorldBoss({ character }) {
               } transition-all`}
               onClick={() => {
                 if (locked) { toast({ title: `Level ${boss.minLevel} required`, variant: "destructive" }); return; }
-                if (!isActive && !isDefeated) { toast({ title: "Boss not active yet" }); return; }
+                if (isExpired) { toast({ title: "Boss has expired, next one spawns soon" }); return; }
                 setSelectedBoss(boss);
               }}
             >
