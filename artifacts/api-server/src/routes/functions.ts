@@ -5369,7 +5369,18 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       const memberSessions = await db.select().from(portalSessionsTable).where(
         sql`${portalSessionsTable.status} IN ('waiting', 'combat') AND ${portalSessionsTable.members}::jsonb @> ${JSON.stringify([{ characterId }])}::jsonb`
       );
-      const activeSession = activeSessions[0] || memberSessions[0] || null;
+      let activeSession = activeSessions[0] || memberSessions[0] || null;
+      // Clean stuck sessions: combat with all enemies dead, or stuck > 2 hours
+      if (activeSession) {
+        const sd = (activeSession.data as any) || {};
+        const enemies = sd.enemies || [];
+        const allEnemiesDead = enemies.length > 0 && enemies.every((e: any) => e.hp <= 0);
+        const isOld = activeSession.createdAt && (Date.now() - new Date(activeSession.createdAt).getTime() > 2 * 60 * 60 * 1000);
+        if ((activeSession.status === "combat" && allEnemiesDead) || isOld) {
+          await db.update(portalSessionsTable).set({ status: "abandoned" }).where(eq(portalSessionsTable.id, activeSession.id));
+          activeSession = null;
+        }
+      }
       const nextUpgradeCost = portalData.level < PORTAL_MAX_LEVEL ? PORTAL_SHARD_UPGRADE_COST[portalData.level] : null;
       // Daily entry tracking
       const today = new Date().toISOString().slice(0, 10);
@@ -5557,8 +5568,15 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       );
       if (existing.length > 0) {
         const s = existing[0];
-        sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...(s.data as any), members: s.members } });
-        return;
+        // Clean stuck sessions (combat but all enemies dead)
+        const sd = (s.data as any) || {};
+        const sEnemies = sd.enemies || [];
+        if (s.status === "combat" && sEnemies.length > 0 && sEnemies.every((e: any) => e.hp <= 0)) {
+          await db.update(portalSessionsTable).set({ status: "abandoned" }).where(eq(portalSessionsTable.id, s.id));
+        } else {
+          sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...sd, members: s.members } });
+          return;
+        }
       }
       // Also check if member of another session
       const memberOf = await db.select().from(portalSessionsTable).where(
@@ -5566,8 +5584,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       );
       if (memberOf.length > 0) {
         const s = memberOf[0];
-        sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...(s.data as any), members: s.members } });
-        return;
+        const sd2 = (s.data as any) || {};
+        const sEnemies2 = sd2.enemies || [];
+        if (s.status === "combat" && sEnemies2.length > 0 && sEnemies2.every((e: any) => e.hp <= 0)) {
+          await db.update(portalSessionsTable).set({ status: "abandoned" }).where(eq(portalSessionsTable.id, s.id));
+        } else {
+          sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...sd2, members: s.members } });
+          return;
+        }
       }
 
       // Check daily entry limit
