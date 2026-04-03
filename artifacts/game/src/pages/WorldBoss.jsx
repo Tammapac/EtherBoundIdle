@@ -50,6 +50,11 @@ function WorldBossCombat({ boss, character, onLeave }) {
   const logRef = useRef(null);
   const { toast } = useToast();
 
+  // Skills — computed early so auto-fight can use them
+  const allClassSkills = CLASS_SKILLS[character?.class || "warrior"] || [];
+  const hotbarIds = character?.hotbar_skills?.length > 0 ? character.hotbar_skills : (character?.skills || []);
+  const charSkills = hotbarIds.map(sid => allClassSkills.find(s => s.id === sid)).filter(Boolean).slice(0, 6);
+
   useEffect(() => { autoFightRef.current = autoFight; }, [autoFight]);
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -101,25 +106,35 @@ function WorldBossCombat({ boss, character, onLeave }) {
         toast({ title: "Boss Defeated!", description: "Claim your rewards!" });
       }
     } catch (err) {
-      if (err.message?.includes("KO") || err.message?.includes("attacks")) {
-        setAutoFight(false);
-        toast({ title: err.message, variant: "destructive" });
-      }
+      setAutoFight(false);
+      toast({ title: err.message || "Action failed", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   }, [loading, boss.zone, character.id]);
 
-  // Auto-fight
+  // Auto-fight — cycles through skills for higher damage
+  const autoSkillIdx = useRef(0);
   useEffect(() => {
     if (!autoFight || loading) return;
     if (session?.status === "active" && myEntry?.hp > 0) {
       const timer = setTimeout(() => {
-        if (autoFightRef.current) doAction("attack");
+        if (!autoFightRef.current) return;
+        if (charSkills.length > 0) {
+          const skill = charSkills[autoSkillIdx.current % charSkills.length];
+          autoSkillIdx.current++;
+          if (skill?.damage > 0) {
+            doAction("skill", skill.id);
+          } else {
+            doAction("attack");
+          }
+        } else {
+          doAction("attack");
+        }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [autoFight, session, loading, doAction, myEntry?.hp]);
+  }, [autoFight, session, loading, doAction, myEntry?.hp, charSkills]);
 
   useEffect(() => {
     if (session?.status !== "active") setAutoFight(false);
@@ -151,11 +166,6 @@ function WorldBossCombat({ boss, character, onLeave }) {
   const isActive = session?.status === "active";
   const isDead = myEntry && myEntry.hp <= 0;
   const attacksLeft = myEntry ? (50 - (myEntry.attacks || 0)) : 50;
-
-  // Skills
-  const allClassSkills = CLASS_SKILLS[character?.class || "warrior"] || [];
-  const hotbarIds = character?.hotbar_skills?.length > 0 ? character.hotbar_skills : (character?.skills || []);
-  const charSkills = hotbarIds.map(sid => allClassSkills.find(s => s.id === sid)).filter(Boolean).slice(0, 6);
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-3">

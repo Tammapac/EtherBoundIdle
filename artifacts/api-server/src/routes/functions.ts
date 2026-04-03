@@ -6513,9 +6513,10 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       d.boss_hp = bossHp;
 
       d.combat_log = d.combat_log || [];
+      const skillTag = skillName !== "Basic Attack" ? ` [${skillName}]` : "";
       d.combat_log.push({
         type: "player_attack",
-        text: `${me.name} hits ${d.boss_name || boss.name} for ${formatHp(finalDmg)}${isCrit ? " (CRIT!)" : ""}!`,
+        text: `${me.name}${skillTag} hits ${d.boss_name || boss.name} for ${formatHp(finalDmg)}${isCrit ? " (CRIT!)" : ""}!`,
       });
 
       // Lifesteal
