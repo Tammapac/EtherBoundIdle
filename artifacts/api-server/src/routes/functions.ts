@@ -5455,6 +5455,8 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       d.wave = 1;
       d.status = "combat";
       d.currentEnemyIndex = 0;
+      d.current_turn_index = 0;
+      d.turn_deadline = new Date(Date.now() + 3000).toISOString();
       d.totalRewards = { gold: 0, exp: 0, portalShards: 0, dust: {}, loot: [] };
       d.combat_log = [{ type: "system", text: `The Infinite Portal (Lv.${level}) opens! Wave 1 begins! ${members.length} player${members.length > 1 ? "s" : ""} enter the rift!` }];
       await db.update(portalSessionsTable).set({ status: "combat", wave: 1, data: d }).where(eq(portalSessionsTable.id, session.id));
@@ -5661,6 +5663,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       const me = members[meIdx];
       if (!me || me.hp <= 0) { sendError(res, 400, "You are KO'd"); return; }
 
+      // Turn-based enforcement: only the current turn player can act
+      if (members.length > 1) {
+        if (d.current_turn_index !== undefined && d.current_turn_index !== meIdx) {
+          sendSuccess(res, { success: false, error: "Not your turn" });
+          return;
+        }
+      }
+
       const enemies = d.enemies || [];
       let tIdx = typeof targetIndex === "number" ? targetIndex : (d.currentEnemyIndex || 0);
       if (!enemies[tIdx] || enemies[tIdx].hp <= 0) {
@@ -5846,6 +5856,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         d.wave = nextWave;
         d.status = "combat";
         d.currentEnemyIndex = 0;
+        // Reset turn to first alive member for new wave
+        d.current_turn_index = 0;
+        if (members.length > 1) {
+          let startIdx = 0;
+          while (startIdx < members.length && members[startIdx].hp <= 0) startIdx++;
+          d.current_turn_index = startIdx < members.length ? startIdx : 0;
+          d.turn_deadline = new Date(Date.now() + 3000).toISOString();
+        }
         d.combat_log.push({ type: "system", text: `Wave ${nextWave} begins!${nextWaveData.isBossWave ? " ⚠️ BOSS WAVE!" : ""}` });
 
         members[meIdx] = me;
@@ -5854,32 +5872,35 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         return;
       }
 
-      // Enemies still alive — all alive enemies counter-attack ALL alive members
+      // Enemies counter-attack the current turn player only
       for (let ei = 0; ei < enemies.length; ei++) {
         const e = enemies[ei];
         if (e.hp <= 0) continue;
-        for (let mi = 0; mi < members.length; mi++) {
-          const m = members[mi];
-          if (m.hp <= 0) continue;
-          const eDmg = Math.max(1, Math.floor((e.dmg || 10) * (0.8 + Math.random() * 0.4) / Math.max(1, members.filter((x: any) => x.hp > 0).length)));
-          const memberDef = m.defense || 0;
-          const memberVit = m.vitality || 8;
-          const totalDefense = memberDef + memberVit * 0.5;
-          const memberEvasion = Math.min(0.4, (m.evasion || 0) / 100);
-          const evaded = Math.random() < memberEvasion;
-          const memberBlock = Math.min(0.35, (m.block_chance || 0) / 100);
-          const blocked = !evaded && Math.random() < memberBlock;
+        if (me.hp <= 0) break; // already dead, skip further attacks
+        const eDmg = Math.max(1, Math.floor((e.dmg || 10) * (0.8 + Math.random() * 0.4)));
+        const memberDef = me.defense || 0;
+        const memberVit = me.vitality || 8;
+        const totalDefense = memberDef + memberVit * 0.5;
+        const memberEvasion = Math.min(0.4, (me.evasion || 0) / 100);
+        const evaded = Math.random() < memberEvasion;
+        const memberBlock = Math.min(0.35, (me.block_chance || 0) / 100);
+        const blocked = !evaded && Math.random() < memberBlock;
 
-          if (evaded) {
-            d.combat_log.push({ type: "boss_attack", text: `${m.name} evaded ${e.name}'s attack!` });
-          } else {
-            const mitigated = Math.max(1, eDmg - Math.floor(totalDefense * 0.3));
-            const actualDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
-            m.hp = Math.max(0, m.hp - actualDmg);
-            d.combat_log.push({ type: "boss_attack", text: `${e.name} hits ${m.name} for ${actualDmg}${blocked ? " (BLOCKED!)" : ""}` });
-          }
+        if (evaded) {
+          d.combat_log.push({ type: "boss_attack", text: `${me.name} evaded ${e.name}'s attack!` });
+        } else {
+          const mitigated = Math.max(1, eDmg - Math.floor(totalDefense * 0.3));
+          const actualDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+          me.hp = Math.max(0, me.hp - actualDmg);
+          d.combat_log.push({ type: "boss_attack", text: `${e.name} hits ${me.name} for ${actualDmg}${blocked ? " (BLOCKED!)" : ""}` });
         }
       }
+
+      if (me.hp <= 0) {
+        d.combat_log.push({ type: "system", text: `${me.name} has been knocked out!` });
+      }
+
+      members[meIdx] = me;
 
       // Check if ALL members are dead
       const allMembersDead = members.every((m: any) => m.hp <= 0);
@@ -5893,11 +5914,22 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         return;
       }
 
+      // Advance turn to next alive member (turn-based for groups)
+      if (members.length > 1) {
+        let nextIdx = (meIdx + 1) % members.length;
+        let attempts = 0;
+        while (members[nextIdx].hp <= 0 && attempts < members.length) {
+          nextIdx = (nextIdx + 1) % members.length;
+          attempts++;
+        }
+        d.current_turn_index = nextIdx;
+        d.turn_deadline = new Date(Date.now() + 3000).toISOString();
+      }
+
       d.currentEnemyIndex = enemies.findIndex((e: any) => e.hp > 0);
       if (d.currentEnemyIndex < 0) d.currentEnemyIndex = 0;
       d.enemies = enemies;
 
-      members[meIdx] = me;
       await db.update(portalSessionsTable).set({ data: d, members }).where(eq(portalSessionsTable.id, session.id));
       sendSuccess(res, { success: true, session: { id: session.id, wave: session.wave, status: session.status, ...d, members } });
       return;
@@ -5945,7 +5977,102 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
       const [s] = await db.select().from(portalSessionsTable).where(eq(portalSessionsTable.id, sessionId));
       if (!s) { sendSuccess(res, { success: false, error: "Session ended" }); return; }
-      sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...(s.data as any), members: s.members } });
+      const pd = (s.data as any) || {};
+      const pMembers = (s.members as any[]) || [];
+
+      // AFK auto-attack: if turn deadline has passed and combat is active, auto-attack for the AFK player
+      if (pd.status === "combat" && pd.turn_deadline && pMembers.length > 1) {
+        const deadline = new Date(pd.turn_deadline).getTime();
+        if (Date.now() > deadline) {
+          const turnIdx = pd.current_turn_index || 0;
+          const afkMember = pMembers[turnIdx];
+          if (afkMember && afkMember.hp > 0) {
+            // Find first alive enemy
+            const enemies = pd.enemies || [];
+            const tIdx = enemies.findIndex((e: any) => e.hp > 0);
+            if (tIdx >= 0) {
+              const enemy = enemies[tIdx];
+              // Simple auto-attack: use member stats for basic attack
+              const aStr = afkMember.strength || 10;
+              const aDex = afkMember.dexterity || 8;
+              const aInt = afkMember.intelligence || 5;
+              const aScaling: Record<string, { primary: string; mult: number }> = {
+                warrior: { primary: "strength", mult: 1.3 }, mage: { primary: "intelligence", mult: 1.4 },
+                ranger: { primary: "dexterity", mult: 1.2 }, rogue: { primary: "dexterity", mult: 1.2 },
+              };
+              const aScale = aScaling[afkMember.class || "warrior"] || aScaling.warrior;
+              const aPrimary = aScale.primary === "strength" ? aStr : aScale.primary === "intelligence" ? aInt : aDex;
+              const aBaseDmg = aPrimary * aScale.mult + (afkMember.damage || 0);
+              const aRawDmg = Math.max(1, Math.floor(aBaseDmg * (0.85 + Math.random() * 0.3)));
+              const aPlayerDmg = Math.max(1, aRawDmg - Math.floor((enemy.armor || 0) * 0.4));
+              enemy.hp = Math.max(0, enemy.hp - aPlayerDmg);
+              pd.combat_log = pd.combat_log || [];
+              pd.combat_log.push({ type: "player_attack", text: `${afkMember.name} auto-attacks ${enemy.name} for ${aPlayerDmg}! (AFK)` });
+
+              if (enemy.hp <= 0) {
+                pd.combat_log.push({ type: "system", text: `${enemy.name} defeated!` });
+              }
+
+              // Check all enemies dead — wave clear handled on next actual attack
+              const allEnemiesDead = enemies.every((e: any) => e.hp <= 0);
+              if (!allEnemiesDead) {
+                // Enemy counter-attacks the AFK player
+                for (let ei = 0; ei < enemies.length; ei++) {
+                  const e = enemies[ei];
+                  if (e.hp <= 0 || afkMember.hp <= 0) continue;
+                  const eDmg = Math.max(1, Math.floor((e.dmg || 10) * (0.8 + Math.random() * 0.4)));
+                  const mDef = afkMember.defense || 0;
+                  const mVit = afkMember.vitality || 8;
+                  const tDef = mDef + mVit * 0.5;
+                  const evaded = Math.random() < Math.min(0.4, (afkMember.evasion || 0) / 100);
+                  const blocked = !evaded && Math.random() < Math.min(0.35, (afkMember.block_chance || 0) / 100);
+                  if (evaded) {
+                    pd.combat_log.push({ type: "boss_attack", text: `${afkMember.name} evaded ${e.name}'s attack!` });
+                  } else {
+                    const mitigated = Math.max(1, eDmg - Math.floor(tDef * 0.3));
+                    const actualDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+                    afkMember.hp = Math.max(0, afkMember.hp - actualDmg);
+                    pd.combat_log.push({ type: "boss_attack", text: `${e.name} hits ${afkMember.name} for ${actualDmg}${blocked ? " (BLOCKED!)" : ""} (AFK)` });
+                  }
+                }
+                if (afkMember.hp <= 0) {
+                  pd.combat_log.push({ type: "system", text: `${afkMember.name} has been knocked out!` });
+                }
+                pMembers[turnIdx] = afkMember;
+
+                // Check all dead
+                const allDead = pMembers.every((m: any) => m.hp <= 0);
+                if (allDead) {
+                  const wave = s.wave || pd.wave || 1;
+                  pd.combat_log.push({ type: "defeat", text: `All players have fallen on Wave ${wave}! The portal collapses...` });
+                  pd.status = "defeat";
+                  pd.finalWave = wave;
+                  await db.update(portalSessionsTable).set({ status: "defeat", data: pd, members: pMembers }).where(eq(portalSessionsTable.id, s.id));
+                  sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: "defeat", ...pd, members: pMembers } });
+                  return;
+                }
+              }
+
+              // Advance turn to next alive member
+              let nextIdx = (turnIdx + 1) % pMembers.length;
+              let att = 0;
+              while (pMembers[nextIdx].hp <= 0 && att < pMembers.length) {
+                nextIdx = (nextIdx + 1) % pMembers.length;
+                att++;
+              }
+              pd.current_turn_index = nextIdx;
+              pd.turn_deadline = new Date(Date.now() + 3000).toISOString();
+              pd.enemies = enemies;
+              pMembers[turnIdx] = afkMember;
+              await db.update(portalSessionsTable).set({ data: pd, members: pMembers }).where(eq(portalSessionsTable.id, s.id));
+              sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...pd, members: pMembers } });
+              return;
+            }
+          }
+        }
+      }
+
+      sendSuccess(res, { success: true, session: { id: s.id, wave: s.wave, status: s.status, ...pd, members: pMembers } });
       return;
     }
 

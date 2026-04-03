@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   Swords, Skull, Coins, Star, Gem, Play, Pause, LogOut, LogIn,
   ArrowUp, Shield, Zap, Heart, ChevronUp, Users, Crown, Sparkles,
-  Trophy, Crosshair, Wind, Flame, Copy, UserPlus,
+  Trophy, Crosshair, Wind, Flame, Copy, UserPlus, Timer,
 } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import { Input } from "@/components/ui/input";
@@ -26,11 +26,25 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
   const logRef = useRef(null);
   const { toast } = useToast();
 
+  const [turnCountdown, setTurnCountdown] = useState(null);
+
   useEffect(() => { autoFightRef.current = autoFight; }, [autoFight]);
   useEffect(() => { setSession(initialSession); }, [initialSession]);
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [session.combat_log?.length]);
+
+  // Turn countdown timer (3s)
+  useEffect(() => {
+    if (!session.turn_deadline || session.status !== "combat") { setTurnCountdown(null); return; }
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((new Date(session.turn_deadline).getTime() - Date.now()) / 1000));
+      setTurnCountdown(remaining);
+    };
+    update();
+    const iv = setInterval(update, 200);
+    return () => clearInterval(iv);
+  }, [session.turn_deadline, session.status]);
 
   // Fetch pet
   const { data: petData } = useQuery({
@@ -82,12 +96,18 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
     return () => clearInterval(interval);
   }, [session?.id, character.id]);
 
-  // Auto-fight every 1.5s
+  // Auto-fight every 1.5s (only when it's your turn in group, or always in solo)
   useEffect(() => {
     if (!autoFight || loading) return;
     if (session.status === "combat") {
-      const me = (session.members || []).find(m => m.characterId === character.id);
+      const mbrs = session.members || [];
+      const me = mbrs.find(m => m.characterId === character.id);
       if (!me || me.hp <= 0) return;
+      // In group mode, only auto-attack on your turn
+      if (mbrs.length > 1) {
+        const myIdx = mbrs.findIndex(m => m.characterId === character.id);
+        if (session.current_turn_index !== myIdx) return;
+      }
       const timer = setTimeout(() => {
         if (autoFightRef.current) doAction("attack");
       }, 1500);
@@ -101,6 +121,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
 
   const members = session.members || [];
   const me = members.find(m => m.characterId === character.id);
+  const meIdx = members.findIndex(m => m.characterId === character.id);
   const enemies = session.enemies || [];
   const inCombat = session.status === "combat";
   const isDefeat = session.status === "defeat";
@@ -108,6 +129,10 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
   const portalLevel = session.portalLevel || 1;
   const isBossWave = session.isBossWave;
   const totalRewards = session.totalRewards || {};
+  const isGroup = members.length > 1;
+  const currentTurnIdx = session.current_turn_index ?? 0;
+  const isMyTurn = !isGroup || currentTurnIdx === meIdx;
+  const turnMember = members[currentTurnIdx];
 
   const PET_ICONS = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
   const RARITY_COLORS = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
@@ -152,6 +177,13 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
                   <Users className="w-3 h-3 mr-0.5" />{members.length}/4
                 </Badge>
               )}
+              {isGroup && inCombat && turnMember && (
+                <Badge variant="outline" className={`${isMyTurn ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10 animate-pulse" : "text-amber-400 border-amber-500/30 bg-amber-500/10"}`}>
+                  <Timer className="w-3 h-3 mr-0.5" />
+                  {isMyTurn ? "YOUR TURN" : `${turnMember.name}'s turn`}
+                  {turnCountdown !== null && ` (${turnCountdown}s)`}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -175,20 +207,22 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
       <div className="grid md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
         {/* Left: Player(s) */}
         <div className="space-y-3">
-          {members.map((member) => {
+          {members.map((member, mIdx) => {
             const isMe = member.characterId === character.id;
             const isDead = member.hp <= 0;
+            const isTurnPlayer = isGroup && inCombat && currentTurnIdx === mIdx && !isDead;
             return (
               <motion.div
                 key={member.characterId}
                 animate={isDead ? { opacity: 0.4 } : {}}
-                className={`bg-card border rounded-xl p-4 ${isMe ? "border-violet-500/40" : "border-border/30"}`}
+                className={`bg-card border rounded-xl p-4 ${isTurnPlayer ? "border-emerald-500/60 ring-1 ring-emerald-500/30" : isMe ? "border-violet-500/40" : "border-border/30"}`}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <Shield className={`w-5 h-5 ${isMe ? "text-violet-400" : "text-muted-foreground"}`} />
+                  <Shield className={`w-5 h-5 ${isTurnPlayer ? "text-emerald-400" : isMe ? "text-violet-400" : "text-muted-foreground"}`} />
                   <div className="flex-1">
                     <p className="font-semibold text-sm">
                       {member.name} {isMe && <span className="text-muted-foreground text-xs">(You)</span>}
+                      {isTurnPlayer && <span className="text-emerald-400 text-xs ml-1">⚔ Turn</span>}
                     </p>
                     <p className="text-[10px] text-muted-foreground capitalize">{member.class} · Lv.{member.level}</p>
                   </div>
@@ -264,10 +298,17 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
       {/* Skills bar */}
       {inCombat && me && me.hp > 0 && (
         <div className="bg-card border border-border rounded-xl p-2">
+          {isGroup && !isMyTurn && (
+            <div className="text-center text-xs text-amber-400 mb-1.5">
+              <Timer className="w-3 h-3 inline mr-1" />
+              Waiting for {turnMember?.name || "another player"}...
+              {turnCountdown !== null && ` (${turnCountdown}s)`}
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => doAction("attack")}
-              disabled={loading}
+              disabled={loading || (isGroup && !isMyTurn)}
               className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-violet-600/30 border-violet-500/50 hover:bg-violet-600/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px]"
             >
               <Swords className="w-3.5 h-3.5 text-foreground" />
@@ -283,7 +324,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
                 <button
                   key={skill.id}
                   onClick={() => doAction("skill", skill.id)}
-                  disabled={loading}
+                  disabled={loading || (isGroup && !isMyTurn)}
                   title={`${skill.description || skill.name}\n${skill.mp}MP`}
                   className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
                 >
