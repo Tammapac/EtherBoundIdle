@@ -5415,6 +5415,53 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       return;
     }
 
+    // === LIST ACTIVE: show all active portal sessions anyone can join ===
+    if (action === "list_active") {
+      const sessions = await db.select().from(portalSessionsTable).where(
+        sql`${portalSessionsTable.status} IN ('waiting', 'combat') AND ${portalSessionsTable.createdAt} > NOW() - INTERVAL '2 hours'`
+      );
+      const activeSessions = sessions.map(s => {
+        const members = (s.members as any[]) || [];
+        const d = (s.data as any) || {};
+        return {
+          id: s.id,
+          ownerId: s.ownerId,
+          ownerName: members[0]?.name || "Unknown",
+          wave: s.wave || d.wave || 1,
+          portalLevel: s.portalLevel || d.portalLevel || 1,
+          memberCount: members.length,
+          maxMembers: 4,
+          members: members.map((m: any) => ({ name: m.name, class: m.class, level: m.level })),
+          status: d.status || s.status,
+        };
+      });
+      sendSuccess(res, { sessions: activeSessions });
+      return;
+    }
+
+    // === START: leader starts combat from waiting lobby ===
+    if (action === "start") {
+      if (!sessionId) { sendError(res, 400, "sessionId required"); return; }
+      const [session] = await db.select().from(portalSessionsTable).where(eq(portalSessionsTable.id, sessionId));
+      if (!session) { sendError(res, 404, "Session not found"); return; }
+      if (session.ownerId !== characterId) { sendError(res, 403, "Only the leader can start the portal"); return; }
+      if (session.status !== "waiting") { sendError(res, 400, "Session already started"); return; }
+      const d = (session.data as any) || {};
+      const members = (session.members as any[]) || [];
+      const level = session.portalLevel || d.portalLevel || 1;
+      const waveData = generatePortalWave(1, level);
+      d.enemies = waveData.enemies;
+      d.isBossWave = waveData.isBossWave;
+      d.wave = 1;
+      d.status = "combat";
+      d.currentEnemyIndex = 0;
+      d.totalRewards = { gold: 0, exp: 0, portalShards: 0, dust: {}, loot: [] };
+      d.combat_log = [{ type: "system", text: `The Infinite Portal (Lv.${level}) opens! Wave 1 begins! ${members.length} player${members.length > 1 ? "s" : ""} enter the rift!` }];
+      await db.update(portalSessionsTable).set({ status: "combat", wave: 1, data: d }).where(eq(portalSessionsTable.id, session.id));
+      sendSuccess(res, { success: true, session: { id: session.id, wave: 1, status: "combat", ...d, members } });
+      return;
+    }
+
     // === PORTAL LEADERBOARD ===
     if (action === "leaderboard") {
       const { leaderboardType } = req.body;
@@ -5521,30 +5568,25 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
 
       const memberStats = await calculateDungeonMemberStats(characterId, char);
       const level = portalData.level || 1;
-      const waveData = generatePortalWave(1, level);
       const member = { characterId, name: char.name, class: char.class, level: char.level, ...memberStats };
 
       const sessionData = {
         portalLevel: level,
-        wave: 1,
-        enemies: waveData.enemies,
-        isBossWave: waveData.isBossWave,
-        status: "combat",
-        combat_log: [{ type: "system", text: `Entering the Infinite Portal (Lv.${level})... Wave 1 begins!` }],
-        currentEnemyIndex: 0,
-        totalRewards: { gold: 0, exp: 0, portalShards: 0, dust: {}, loot: [] },
+        wave: 0,
+        status: "waiting",
+        combat_log: [{ type: "system", text: `${char.name} created a portal lobby (Lv.${level}). Waiting for players...` }],
       };
 
       const [session] = await db.insert(portalSessionsTable).values({
         ownerId: characterId,
         members: [member],
         portalLevel: level,
-        wave: 1,
-        status: "combat",
+        wave: 0,
+        status: "waiting",
         data: sessionData,
       }).returning();
 
-      sendSuccess(res, { success: true, session: { id: session.id, wave: 1, status: "combat", ...sessionData, members: [member] } });
+      sendSuccess(res, { success: true, session: { id: session.id, wave: 0, status: "waiting", ...sessionData, members: [member] } });
       return;
     }
 
