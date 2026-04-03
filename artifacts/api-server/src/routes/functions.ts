@@ -4550,27 +4550,28 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
       const [p2] = await db.select().from(petsTable).where(and(eq(petsTable.id, pet2Id), eq(petsTable.characterId, characterId)));
       if (!p1 || !p2) { sendError(res, 404, "Pet not found"); return; }
       if (p1.equipped || p2.equipped) { sendError(res, 400, "Cannot breed equipped pets"); return; }
-      // Breed cooldown check (4 hours between breeds)
+      // Breed cooldown & daily limit check
       const [charForBreed] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       const breedExtra = (charForBreed?.extraData as any) || {};
-      const lastBreedAt = breedExtra.last_breed_at ? new Date(breedExtra.last_breed_at).getTime() : 0;
+      const breedData = breedExtra.breeding || {};
+      const today = new Date().toISOString().slice(0, 10);
+
+      // Reset daily count if it's a new day
+      const breedDay = breedData.date || "";
+      const breedCountToday = breedDay === today ? (breedData.count || 0) : 0;
+
+      // 4-hour cooldown between breeds (also check old format for migration)
+      const lastBreedAt = breedData.last_at ? new Date(breedData.last_at).getTime()
+        : breedExtra.last_breed_at ? new Date(breedExtra.last_breed_at).getTime() : 0;
       const breedCooldownRemaining = BREEDING_COOLDOWN_MS - (Date.now() - lastBreedAt);
       if (breedCooldownRemaining > 0) {
         const hoursLeft = Math.ceil(breedCooldownRemaining / (60 * 60 * 1000));
         const minsLeft = Math.ceil(breedCooldownRemaining / (60 * 1000));
         sendError(res, 400, `Breed on cooldown. ${minsLeft < 60 ? minsLeft + " min" : hoursLeft + "h"} remaining.`); return;
       }
-      // Daily breed limit: 3 per day
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todaysPets = await db.select().from(petsTable).where(
-        and(
-          eq(petsTable.characterId, characterId),
-          sql`${petsTable.createdAt} >= ${todayStart.toISOString()}`
-        )
-      );
-      if (todaysPets.length >= 3) {
-        sendError(res, 400, "Daily breed limit reached (3/day)"); return;
+      // Daily breed limit: 3 per day (only counts actual breeds, not all pet sources)
+      if (breedCountToday >= 3) {
+        sendError(res, 400, "Daily breed limit reached (3/day). Resets at midnight."); return;
       }
 
       const goldCost = 5000;
@@ -4629,9 +4630,15 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         traits: childTraits,
       }).returning();
 
-      // Save breed timestamp for cooldown
-      const existingExtra = (charForBreed?.extraData as any) || {};
-      await db.update(charactersTable).set({ extraData: { ...existingExtra, last_breed_at: new Date().toISOString() } }).where(eq(charactersTable.id, characterId));
+      // Save breed timestamp and daily count
+      const latestExtra = (charForBreed?.extraData as any) || {};
+      // Re-read extraData to avoid overwriting concurrent changes
+      const [freshChar] = await db.select({ extraData: charactersTable.extraData }).from(charactersTable).where(eq(charactersTable.id, characterId));
+      const freshExtra = (freshChar?.extraData as any) || latestExtra;
+      freshExtra.breeding = { last_at: new Date().toISOString(), date: today, count: breedCountToday + 1 };
+      // Migrate: remove old last_breed_at if present
+      delete freshExtra.last_breed_at;
+      await db.update(charactersTable).set({ extraData: freshExtra }).where(eq(charactersTable.id, characterId));
 
       sendSuccess(res, {
         child,
