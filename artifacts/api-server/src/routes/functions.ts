@@ -6455,7 +6455,8 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       if (meIdx < 0) { sendError(res, 400, "Join the boss fight first"); return; }
       const me = participants[meIdx];
       if (me.hp <= 0) { sendError(res, 400, "You are KO'd. Wait for the boss to reset or use a revive."); return; }
-      if ((me.attacks || 0) >= WORLD_BOSS_MAX_ATTACKS) { sendError(res, 400, `Max ${WORLD_BOSS_MAX_ATTACKS} attacks per boss cycle`); return; }
+      const myMaxAttacks = me.maxAttacks || WORLD_BOSS_MAX_ATTACKS;
+      if ((me.attacks || 0) >= myMaxAttacks) { sendError(res, 400, `Max ${myMaxAttacks} attacks reached. Buy more with gems!`); return; }
 
       let bossHp = d.boss_hp ?? boss.hp;
       if (bossHp <= 0) { sendError(res, 400, "Boss already defeated"); return; }
@@ -6796,6 +6797,49 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
     }
 
     // === LEADERBOARD ===
+    // === BUY MORE ATTACKS WITH GEMS ===
+    if (action === "buy_attacks") {
+      if (!zone) { sendError(res, 400, "zone required"); return; }
+      const { pack } = req.body;
+      const ATTACK_PACKS: Record<string, { attacks: number; gems: number }> = {
+        small:  { attacks: 10,  gems: 50 },
+        medium: { attacks: 50,  gems: 250 },
+        large:  { attacks: 100, gems: 500 },
+      };
+      const chosen = ATTACK_PACKS[pack];
+      if (!chosen) { sendError(res, 400, "Invalid pack. Use: small, medium, large"); return; }
+
+      const session = await getOrCreateWorldBossSession(zone);
+      if (!session || session.status !== "active") { sendError(res, 400, "Boss not active"); return; }
+
+      const participants = (session.participants as any[]) || [];
+      const meIdx = participants.findIndex((p: any) => p.characterId === characterId);
+      if (meIdx < 0) { sendError(res, 400, "Join the boss fight first"); return; }
+
+      // Check gems
+      if (char.gems < chosen.gems) { sendError(res, 400, `Not enough gems. Need ${chosen.gems}, have ${char.gems}`); return; }
+
+      // Deduct gems
+      await db.update(charactersTable).set({ gems: char.gems - chosen.gems }).where(eq(charactersTable.id, characterId));
+
+      // Increase max attacks for this session
+      const me = participants[meIdx];
+      me.maxAttacks = (me.maxAttacks || WORLD_BOSS_MAX_ATTACKS) + chosen.attacks;
+      participants[meIdx] = me;
+
+      await db.update(worldBossSessionsTable).set({ participants }).where(eq(worldBossSessionsTable.id, session.id));
+
+      const d = (session.data as any) || {};
+      sendSuccess(res, {
+        success: true,
+        message: `Purchased ${chosen.attacks} extra attacks for ${chosen.gems} gems!`,
+        newGems: char.gems - chosen.gems,
+        myEntry: me,
+        session: { id: session.id, zone, status: session.status, ...d, participants },
+      });
+      return;
+    }
+
     if (action === "leaderboard") {
       if (!zone) { sendError(res, 400, "zone required"); return; }
       // Get recent defeated sessions for this zone

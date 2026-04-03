@@ -154,6 +154,25 @@ function WorldBossCombat({ boss, character, onLeave }) {
     }
   };
 
+  const buyAttacks = async (pack) => {
+    try {
+      const res = await base44.functions.invoke("worldBossAction", {
+        action: "buy_attacks", characterId: character.id, zone: boss.zone, pack,
+      });
+      if (res?.session) setSession(res.session);
+      if (res?.myEntry) setMyEntry(res.myEntry);
+      toast({ title: res?.message || "Attacks purchased!" });
+    } catch (err) {
+      toast({ title: err.message || "Purchase failed", variant: "destructive" });
+    }
+  };
+
+  const ATTACK_PACKS = [
+    { id: "small",  attacks: 10,  gems: 50,  label: "10 Attacks" },
+    { id: "medium", attacks: 50,  gems: 250, label: "50 Attacks" },
+    { id: "large",  attacks: 100, gems: 500, label: "100 Attacks" },
+  ];
+
   const theme = ZONE_THEMES[boss.zone] || ZONE_THEMES.verdant_forest;
   const participants = session?.participants || [];
   const bossHp = session?.boss_hp ?? boss.bossHp;
@@ -165,7 +184,8 @@ function WorldBossCombat({ boss, character, onLeave }) {
   const isExpired = session?.status === "expired";
   const isActive = session?.status === "active";
   const isDead = myEntry && myEntry.hp <= 0;
-  const attacksLeft = myEntry ? (50 - (myEntry.attacks || 0)) : 50;
+  const myMaxAttacks = myEntry?.maxAttacks || 50;
+  const attacksLeft = myEntry ? (myMaxAttacks - (myEntry.attacks || 0)) : 50;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-3">
@@ -214,7 +234,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
             </div>
             <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
               <span>{((bossHp / bossMaxHp) * 100).toFixed(2)}% HP</span>
-              {myEntry && <span>Your DMG: {formatHp(myEntry.totalDamage || 0)} | Attacks: {myEntry.attacks || 0}/50</span>}
+              {myEntry && <span>Your DMG: {formatHp(myEntry.totalDamage || 0)} | Attacks: {myEntry.attacks || 0}/{myMaxAttacks}</span>}
             </div>
           </div>
 
@@ -275,10 +295,23 @@ function WorldBossCombat({ boss, character, onLeave }) {
         </div>
       )}
       {attacksLeft <= 0 && isActive && !isDead && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center space-y-2">
           <Timer className="w-6 h-6 text-amber-400 mx-auto mb-1" />
-          <p className="text-sm text-amber-400 font-bold">Max attacks reached (50/50)</p>
-          <p className="text-xs text-muted-foreground">Wait for the boss to be defeated to claim rewards.</p>
+          <p className="text-sm text-amber-400 font-bold">Max attacks reached ({myMaxAttacks}/{myMaxAttacks})</p>
+          <p className="text-xs text-muted-foreground">Buy more attacks with gems to keep fighting!</p>
+          <div className="flex flex-wrap justify-center gap-2 mt-2">
+            {ATTACK_PACKS.map(pack => (
+              <button
+                key={pack.id}
+                onClick={() => buyAttacks(pack.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/40 bg-violet-600/20 hover:bg-violet-600/40 transition-colors text-xs"
+              >
+                <Swords className="w-3 h-3 text-violet-400" />
+                <span className="font-semibold">{pack.label}</span>
+                <span className="text-violet-300 flex items-center gap-0.5"><Gem className="w-3 h-3" />{pack.gems}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
