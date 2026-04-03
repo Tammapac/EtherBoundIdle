@@ -5572,7 +5572,7 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
     // === GET PARTY SESSIONS: find portal sessions from party members ===
     if (action === "get_party_sessions") {
       const party = await db.select().from(partiesTable).where(
-        sql`${partiesTable.members}::jsonb @> ${JSON.stringify([{ character_id: characterId }])}::jsonb AND ${partiesTable.status} = 'active'`
+        sql`${partiesTable.members}::jsonb @> ${JSON.stringify([{ character_id: characterId }])}::jsonb AND ${partiesTable.status} = 'open'`
       );
       if (party.length === 0) { sendSuccess(res, { sessions: [] }); return; }
       const partyMembers = ((party[0].members as any[]) || []).map((m: any) => m.character_id).filter(Boolean);
