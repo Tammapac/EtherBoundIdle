@@ -5270,6 +5270,8 @@ router.post("/functions/runes", async (req: Request, res: Response) => {
 const PORTAL_MAX_LEVEL = 100;
 const PORTAL_ENEMY_SCALE = 1.25; // per portal level
 const PORTAL_MAX_DAILY_ENTRIES = 5;
+const PORTAL_ENTRY_RESET_GEM_COST = 500;
+const PORTAL_MIN_LEVEL = 50; // minimum character level to enter portal
 const PORTAL_SHARD_UPGRADE_COST: Record<number, number> = {};
 // Upgrade costs: level 1→2 = 10 shards, scaling up to level 99→100 = ~500 shards
 for (let i = 1; i <= PORTAL_MAX_LEVEL; i++) {
@@ -5329,9 +5331,8 @@ function getPortalWaveRewards(wave: number, portalLevel: number) {
   const dustTypes = ["magic_dust", "heavens_dust", "void_dust"];
   const dustType = wave % 5 === 0 ? dustTypes[Math.min(Math.floor(portalLevel / 35), 2)] : null;
   const dustAmount = dustType ? Math.floor(1 + wave / 15) : 0;
-  // Unique gear: very rare, slightly higher on boss waves
-  const hasUniqueLoot = isBoss ? Math.random() < 0.12 : Math.random() < 0.03;
-  const hasLoot = isBoss || Math.random() < 0.10;
+  // Unique gear only drops — portal is the unique gear farming ground
+  const hasLoot = isBoss ? Math.random() < 0.15 : Math.random() < 0.04;
   return {
     gold: Math.floor(baseGold * (isBoss ? 3 : 1)),
     exp: Math.floor(baseExp * (isBoss ? 3 : 1)),
@@ -5339,7 +5340,7 @@ function getPortalWaveRewards(wave: number, portalLevel: number) {
     dustType,
     dustAmount,
     hasLoot,
-    hasUniqueLoot,
+    hasUniqueLoot: hasLoot, // all portal drops are unique/legendary
   };
 }
 
@@ -5375,7 +5376,34 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         maxLevel: PORTAL_MAX_LEVEL,
         entriesUsed: usedToday,
         maxEntries: PORTAL_MAX_DAILY_ENTRIES,
+        entryResetGemCost: PORTAL_ENTRY_RESET_GEM_COST,
+        characterGems: char.gems || 0,
+        minLevel: PORTAL_MIN_LEVEL,
         activeSession: activeSession ? { id: activeSession.id, wave: activeSession.wave, status: activeSession.status, ...(activeSession.data as any), members: activeSession.members } : null,
+      });
+      return;
+    }
+
+    // === RESET ENTRIES: spend gems to reset daily portal entries ===
+    if (action === "reset_entries") {
+      const gems = char.gems || 0;
+      if (gems < PORTAL_ENTRY_RESET_GEM_COST) {
+        sendError(res, 400, `Not enough gems (need ${PORTAL_ENTRY_RESET_GEM_COST}, have ${gems})`);
+        return;
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      portalData.daily_entries = { [today]: 0 };
+      extraData.portal = portalData;
+      await db.update(charactersTable).set({
+        extraData,
+        gems: gems - PORTAL_ENTRY_RESET_GEM_COST,
+      }).where(eq(charactersTable.id, characterId));
+      sendSuccess(res, {
+        success: true,
+        entriesUsed: 0,
+        maxEntries: PORTAL_MAX_DAILY_ENTRIES,
+        gemsSpent: PORTAL_ENTRY_RESET_GEM_COST,
+        gemsRemaining: gems - PORTAL_ENTRY_RESET_GEM_COST,
       });
       return;
     }
@@ -5439,6 +5467,11 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
 
     // === ENTER: create or join a portal session ===
     if (action === "enter") {
+      // Level requirement check
+      if ((char.level || 1) < PORTAL_MIN_LEVEL) {
+        sendError(res, 400, `You must be at least level ${PORTAL_MIN_LEVEL} to enter the Infinite Portal! (Current: Lv.${char.level || 1})`);
+        return;
+      }
       // Clean old stuck sessions (> 2 hours)
       await db.update(portalSessionsTable).set({ status: "abandoned" }).where(
         and(sql`${portalSessionsTable.status} IN ('waiting', 'combat')`,
@@ -5510,6 +5543,10 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
 
     // === JOIN: join an existing portal session (party) ===
     if (action === "join") {
+      if ((char.level || 1) < PORTAL_MIN_LEVEL) {
+        sendError(res, 400, `You must be at least level ${PORTAL_MIN_LEVEL} to enter the Infinite Portal!`);
+        return;
+      }
       const { targetSessionId } = req.body;
       if (!targetSessionId) { sendError(res, 400, "targetSessionId required"); return; }
       const [session] = await db.select().from(portalSessionsTable).where(eq(portalSessionsTable.id, targetSessionId));
@@ -5532,16 +5569,16 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       return;
     }
 
-    // === INVITE: share session ID with party members ===
+    // === GET PARTY SESSIONS: find portal sessions from party members ===
     if (action === "get_party_sessions") {
-      // Find active portal sessions from the player's party members
       const party = await db.select().from(partiesTable).where(
-        sql`${partiesTable.members}::jsonb @> ${JSON.stringify([characterId])}::jsonb AND ${partiesTable.status} = 'active'`
+        sql`${partiesTable.members}::jsonb @> ${JSON.stringify([{ character_id: characterId }])}::jsonb AND ${partiesTable.status} = 'active'`
       );
       if (party.length === 0) { sendSuccess(res, { sessions: [] }); return; }
-      const partyMembers = (party[0].members as string[]) || [];
+      const partyMembers = ((party[0].members as any[]) || []).map((m: any) => m.character_id).filter(Boolean);
+      if (partyMembers.length === 0) { sendSuccess(res, { sessions: [] }); return; }
       const sessions = await db.select().from(portalSessionsTable).where(
-        sql`${portalSessionsTable.status} IN ('waiting', 'combat') AND ${portalSessionsTable.ownerId} = ANY(${partyMembers})`
+        sql`${portalSessionsTable.status} IN ('waiting', 'combat') AND ${portalSessionsTable.ownerId} = ANY(ARRAY[${sql.join(partyMembers.map((id: string) => sql`${id}`), sql`, `)}]::varchar[])`
       );
       sendSuccess(res, { sessions: sessions.map(s => ({ id: s.id, owner: s.ownerId, wave: s.wave, memberCount: ((s.members as any[]) || []).length, portalLevel: s.portalLevel })) });
       return;
@@ -5700,18 +5737,18 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         // Generate loot for owner
         if (rewards.hasLoot) {
           try {
-            const loot = generateLoot(wave + portalLevel * 2, char.luck || 5, rewards.hasUniqueLoot, null, char.class);
+            const loot = generateLoot(wave + portalLevel * 2, char.luck || 5, true, null, char.class);
             if (loot) {
               await db.insert(itemsTable).values({
                 ownerId: characterId,
                 name: loot.name,
                 type: loot.type,
-                rarity: rewards.hasUniqueLoot ? "legendary" : loot.rarity,
+                rarity: "legendary",
                 level: Math.max(1, Math.floor((wave + portalLevel) / 5)),
                 stats: loot.stats || {},
-                extraData: { source: "portal", wave, portal_level: portalLevel, rune_slots: loot.rune_slots || 0 },
+                extraData: { source: "portal", wave, portal_level: portalLevel, rune_slots: loot.rune_slots || 0, unique: true },
               });
-              d.combat_log.push({ type: "system", text: `Loot: ${loot.name} (${rewards.hasUniqueLoot ? "legendary" : loot.rarity})` });
+              d.combat_log.push({ type: "system", text: `Unique Loot: ${loot.name} (legendary)` });
               d.totalRewards.loot.push(loot.name);
             }
           } catch {}
