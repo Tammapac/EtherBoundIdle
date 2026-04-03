@@ -251,27 +251,34 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
       {inCombat && me && me.hp > 0 && (
         <div className="bg-card border border-border rounded-xl p-2">
           <div className="flex flex-wrap gap-1.5">
-            <Button
+            <button
               onClick={() => doAction("attack")}
               disabled={loading}
-              size="sm"
-              className="min-w-[52px] gap-1 bg-violet-600 hover:bg-violet-700"
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-violet-600/30 border-violet-500/50 hover:bg-violet-600/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px]"
             >
-              <Swords className="w-3.5 h-3.5" /> Attack
-            </Button>
-            {charSkills.map(skill => (
-              <Button
-                key={skill.id}
-                variant="outline"
-                size="sm"
-                onClick={() => doAction("skill", skill.id)}
-                disabled={loading}
-                className="min-w-[52px] text-xs border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300"
-              >
-                {skill.name}
-                {skill.mp && <span className="text-[9px] text-blue-400 ml-1">{skill.mp}MP</span>}
-              </Button>
-            ))}
+              <Swords className="w-3.5 h-3.5 text-foreground" />
+              <span className="text-[9px] font-medium leading-none">Attack</span>
+            </button>
+            {charSkills.map(skill => {
+              const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
+              const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
+                : skill.buff === "attack" ? "border-orange-500/50 text-orange-400"
+                : elem ? `border-current/30 ${elem.color}`
+                : "border-violet-500/30 text-secondary";
+              return (
+                <button
+                  key={skill.id}
+                  onClick={() => doAction("skill", skill.id)}
+                  disabled={loading}
+                  title={`${skill.description || skill.name}\n${skill.mp}MP`}
+                  className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
+                >
+                  <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>
+                  <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
+                  <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -352,7 +359,25 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
             >
               <LogOut className="w-12 h-12 text-violet-400 mx-auto" />
               <h3 className="font-orbitron text-lg font-bold">Leave Portal?</h3>
-              <p className="text-sm text-muted-foreground">Are you sure you want to leave? All progress in this run will be lost.</p>
+              <p className="text-sm text-muted-foreground">Are you sure you want to leave?</p>
+              {/* Show accumulated rewards */}
+              {(totalRewards.gold > 0 || totalRewards.exp > 0 || totalRewards.portalShards > 0 || totalRewards.loot?.length > 0) && (
+                <div className="bg-black/30 rounded-xl p-3 space-y-1.5 text-sm text-left">
+                  <p className="font-bold text-violet-400 text-center text-xs mb-1.5">Rewards Earned So Far</p>
+                  {totalRewards.gold > 0 && (
+                    <div className="flex justify-between text-xs"><span className="text-muted-foreground">Gold</span><span className="text-yellow-400">{(totalRewards.gold || 0).toLocaleString()}</span></div>
+                  )}
+                  {totalRewards.exp > 0 && (
+                    <div className="flex justify-between text-xs"><span className="text-muted-foreground">EXP</span><span className="text-blue-400">{(totalRewards.exp || 0).toLocaleString()}</span></div>
+                  )}
+                  {totalRewards.portalShards > 0 && (
+                    <div className="flex justify-between text-xs"><span className="text-muted-foreground">Portal Shards</span><span className="text-violet-400">{totalRewards.portalShards}</span></div>
+                  )}
+                  {totalRewards.loot?.length > 0 && (
+                    <div className="flex justify-between text-xs"><span className="text-muted-foreground">Items Looted</span><span className="text-amber-400">{totalRewards.loot.length}</span></div>
+                  )}
+                </div>
+              )}
               <div className="flex gap-3">
                 <Button variant="outline" className="flex-1" onClick={() => setShowLeaveConfirm(false)}>Stay</Button>
                 <Button variant="destructive" className="flex-1" onClick={doLeave}>Leave</Button>
@@ -471,6 +496,26 @@ export default function Portal({ character, onCharacterUpdate }) {
   const entriesUsed = portalStatus?.entriesUsed || 0;
   const maxEntries = portalStatus?.maxEntries || 5;
   const entriesLeft = maxEntries - entriesUsed;
+  const entryResetGemCost = portalStatus?.entryResetGemCost || 500;
+  const characterGems = portalStatus?.characterGems || 0;
+  const minLevel = portalStatus?.minLevel || 50;
+  const meetsLevelReq = (character?.level || 1) >= minLevel;
+
+  const handleResetEntries = async () => {
+    setLoading(true);
+    try {
+      const res = await base44.functions.invoke("portalAction", { action: "reset_entries", characterId: character.id });
+      if (res?.success) {
+        toast({ title: `Entries reset! (${res.gemsSpent} gems spent)` });
+        refetch();
+        queryClient.invalidateQueries({ queryKey: ["characters"] });
+      }
+    } catch (err) {
+      toast({ title: err.message || "Failed to reset entries", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEnter = async () => {
     setLoading(true);
@@ -576,14 +621,36 @@ export default function Portal({ character, onCharacterUpdate }) {
       </div>
 
       {/* Enter Portal */}
-      <Button
-        onClick={handleEnter}
-        disabled={loading || entriesLeft <= 0}
-        className="w-full h-14 text-lg font-orbitron gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/30 shadow-lg shadow-violet-500/20 disabled:opacity-40"
-      >
-        <Sparkles className="w-5 h-5" />
-        {entriesLeft <= 0 ? "No Entries Left Today" : "Enter Portal Solo"}
-      </Button>
+      {!meetsLevelReq ? (
+        <div className="bg-card border-2 border-red-500/30 rounded-xl p-4 text-center space-y-2">
+          <Shield className="w-8 h-8 text-red-400 mx-auto" />
+          <p className="font-orbitron font-bold text-red-400">Level {minLevel} Required</p>
+          <p className="text-sm text-muted-foreground">Your character is Lv.{character?.level || 1}. Reach level {minLevel} to unlock the Infinite Portal.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Button
+            onClick={handleEnter}
+            disabled={loading || entriesLeft <= 0}
+            className="w-full h-14 text-lg font-orbitron gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/30 shadow-lg shadow-violet-500/20 disabled:opacity-40"
+          >
+            <Sparkles className="w-5 h-5" />
+            {entriesLeft <= 0 ? "No Entries Left Today" : "Enter Portal Solo"}
+          </Button>
+          {entriesLeft <= 0 && (
+            <Button
+              onClick={handleResetEntries}
+              disabled={loading || characterGems < entryResetGemCost}
+              variant="outline"
+              className="w-full gap-2 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-40"
+            >
+              <Gem className="w-4 h-4 text-amber-400" />
+              Reset Entries ({entryResetGemCost} Gems)
+              <span className="text-xs text-muted-foreground ml-1">({characterGems} available)</span>
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Party Sessions */}
       {partySessions.length > 0 && (
@@ -649,13 +716,15 @@ export default function Portal({ character, onCharacterUpdate }) {
       {/* Info */}
       <div className="bg-card/50 border border-border/30 rounded-xl p-4 text-xs text-muted-foreground space-y-1.5">
         <p className="font-bold text-foreground text-sm mb-2">How it works</p>
+        <p>- Requires Level {minLevel} to enter</p>
         <p>- Enemies spawn infinitely, getting stronger each wave</p>
         <p>- When all players die, the portal records your highest wave</p>
-        <p>- Rewards: Gold, EXP, Magic Dust, Portal Shards, and rare gear</p>
+        <p>- Drops unique/legendary gear only — the best farming ground!</p>
+        <p>- Rewards: Gold, EXP, Magic Dust, Portal Shards, and unique gear</p>
         <p>- Use Portal Shards to upgrade the portal (stronger enemies = better loot)</p>
         <p>- Up to 4 party members can fight together</p>
         <p>- Boss waves appear every 10 waves with guaranteed shard drops</p>
-        <p>- {maxEntries} entries per day</p>
+        <p>- {maxEntries} entries per day (reset with gems)</p>
       </div>
     </div>
   );
