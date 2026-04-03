@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import {
-  Swords, Skull, Coins, Star, Gem, Play, Pause, LogOut,
+  Swords, Skull, Coins, Star, Gem, Play, Pause, LogOut, LogIn,
   ArrowUp, Shield, Zap, Heart, ChevronUp, Users, Crown, Sparkles,
-  Trophy, Crosshair, Wind, Flame,
+  Trophy, Crosshair, Wind, Flame, Copy, UserPlus,
 } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
+import { Input } from "@/components/ui/input";
 import HealthBar from "@/components/game/HealthBar";
 
 // ─── Portal Combat (matches Battle.jsx layout) ─────────────────────────────
@@ -454,10 +455,114 @@ function PortalLeaderboard({ character }) {
   );
 }
 
+// ─── Portal Waiting Lobby ────────────────────────────────────────────────────
+function PortalLobby({ session: initialSession, character, onLeave, onStart }) {
+  const [session, setSession] = useState(initialSession);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  // Poll for member updates
+  useEffect(() => {
+    if (session.status !== "waiting") return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await base44.functions.invoke("portalAction", { action: "poll", characterId: character.id, sessionId: session.id });
+        if (res?.session) {
+          setSession(res.session);
+          if (res.session.status === "combat") onStart(res.session);
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [session.id, session.status, character.id]);
+
+  const isLeader = session.ownerId === character.id || ((session.members || [])[0]?.characterId === character.id);
+  const members = session.members || [];
+
+  const handleStart = async () => {
+    setLoading(true);
+    try {
+      const res = await base44.functions.invoke("portalAction", { action: "start", characterId: character.id, sessionId: session.id });
+      if (res?.session) onStart(res.session);
+    } catch (err) {
+      toast({ title: err.message || "Failed to start", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-4 md:p-6 max-w-lg mx-auto space-y-5">
+      <div className="text-center space-y-2">
+        <Sparkles className="w-10 h-10 text-violet-400 mx-auto" />
+        <h2 className="font-orbitron text-xl font-bold text-violet-300">Portal Lobby</h2>
+        <p className="text-sm text-muted-foreground">Waiting for players to join...</p>
+      </div>
+
+      {/* Session ID */}
+      <div className="bg-card border border-violet-500/20 rounded-xl p-3 flex items-center gap-2">
+        <span className="text-xs text-muted-foreground flex-shrink-0">Session ID:</span>
+        <code className="text-xs text-violet-300 flex-1 truncate select-all">{session.id}</code>
+        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(session.id); toast({ title: "Session ID copied!" }); }}>
+          <Copy className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {/* Portal info */}
+      <div className="flex justify-center gap-4 text-sm">
+        <Badge variant="outline" className="text-violet-400 border-violet-500/30">Lv.{session.portalLevel || 1}</Badge>
+        <Badge variant="outline" className="text-cyan-400 border-cyan-500/30">
+          <Users className="w-3 h-3 mr-1" />{members.length}/4
+        </Badge>
+      </div>
+
+      {/* Members list */}
+      <div className="space-y-2">
+        {members.map((m, i) => {
+          const isMe = m.characterId === character.id;
+          const isOwner = i === 0;
+          return (
+            <div key={m.characterId} className={`flex items-center gap-3 bg-card border rounded-xl p-3 ${isMe ? "border-violet-500/40" : "border-border/30"}`}>
+              <Shield className={`w-5 h-5 ${isOwner ? "text-amber-400" : "text-muted-foreground"}`} />
+              <div className="flex-1">
+                <p className="font-semibold text-sm">{m.name} {isMe && <span className="text-muted-foreground text-xs">(You)</span>}</p>
+                <p className="text-[10px] text-muted-foreground capitalize">{m.class} · Lv.{m.level}</p>
+              </div>
+              {isOwner && <Badge className="text-[10px] bg-amber-500/20 text-amber-300 border-amber-500/30">Leader</Badge>}
+            </div>
+          );
+        })}
+        {/* Empty slots */}
+        {Array.from({ length: 4 - members.length }).map((_, i) => (
+          <div key={`empty-${i}`} className="flex items-center gap-3 bg-card/30 border border-dashed border-border/20 rounded-xl p-3">
+            <Users className="w-5 h-5 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground/40 italic">Waiting for player...</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <Button variant="outline" className="flex-1 gap-1.5" onClick={onLeave}>
+          <LogOut className="w-4 h-4" /> Leave
+        </Button>
+        {isLeader && (
+          <Button onClick={handleStart} disabled={loading} className="flex-1 gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500">
+            <Play className="w-4 h-4" /> {loading ? "Starting..." : "Start Portal"}
+          </Button>
+        )}
+      </div>
+      {!isLeader && <p className="text-xs text-muted-foreground text-center">Waiting for the leader to start...</p>}
+    </div>
+  );
+}
+
 // ─── Main Portal Page ───────────────────────────────────────────────────────
 export default function Portal({ character, onCharacterUpdate }) {
   const [activeSession, setActiveSession] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
+  const [joinId, setJoinId] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -468,19 +573,14 @@ export default function Portal({ character, onCharacterUpdate }) {
     refetchInterval: 5000,
   });
 
-  // Fetch party data for "Enter with Party" option
-  const { data: partyData } = useQuery({
-    queryKey: ["party", character?.id],
-    queryFn: async () => {
-      try {
-        const res = await base44.functions.invoke("portalAction", { action: "get_party_sessions", characterId: character.id });
-        return res;
-      } catch { return { sessions: [] }; }
-    },
+  // Fetch all active public portal sessions
+  const { data: activePortals, refetch: refetchPortals } = useQuery({
+    queryKey: ["portalActiveSessions"],
+    queryFn: () => base44.functions.invoke("portalAction", { action: "list_active", characterId: character.id }),
     enabled: !!character?.id,
-    staleTime: 10000,
+    refetchInterval: 6000,
   });
-  const partySessions = partyData?.sessions || [];
+  const publicSessions = (activePortals?.sessions || []).filter(s => s.memberCount < s.maxMembers);
 
   // Resume active session
   useEffect(() => {
@@ -500,6 +600,20 @@ export default function Portal({ character, onCharacterUpdate }) {
   const characterGems = portalStatus?.characterGems || 0;
   const minLevel = portalStatus?.minLevel || 50;
   const meetsLevelReq = (character?.level || 1) >= minLevel;
+
+  const handleJoinById = async () => {
+    const id = joinId.trim();
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await base44.functions.invoke("portalAction", { action: "join", characterId: character.id, targetSessionId: id });
+      if (res?.session) { setActiveSession(res.session); setJoinId(""); setShowJoin(false); }
+    } catch (err) {
+      toast({ title: err.message || "Failed to join session", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleResetEntries = async () => {
     setLoading(true);
@@ -563,11 +677,25 @@ export default function Portal({ character, onCharacterUpdate }) {
   const handleLeave = () => {
     setActiveSession(null);
     refetch();
+    refetchPortals();
     queryClient.invalidateQueries({ queryKey: ["characters"] });
     queryClient.invalidateQueries({ queryKey: ["items"] });
   };
 
-  if (activeSession) {
+  const doLeaveSession = async () => {
+    try {
+      await base44.functions.invoke("portalAction", { action: "leave", characterId: character.id, sessionId: activeSession?.id });
+    } catch {}
+    handleLeave();
+  };
+
+  // Waiting lobby
+  if (activeSession && (activeSession.status === "waiting")) {
+    return <PortalLobby session={activeSession} character={character} onLeave={doLeaveSession} onStart={(s) => setActiveSession(s)} />;
+  }
+
+  // Combat
+  if (activeSession && activeSession.status === "combat") {
     return <PortalCombat session={activeSession} character={character} onLeave={handleLeave} />;
   }
 
@@ -575,156 +703,220 @@ export default function Portal({ character, onCharacterUpdate }) {
   const upgradeProgress = nextUpgradeCost ? Math.min(100, (portalShards / nextUpgradeCost) * 100) : 100;
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="font-orbitron text-3xl font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-          Infinite Portal
-        </h1>
-        <p className="text-muted-foreground text-sm">Enter the rift and face endless waves of enemies.</p>
-      </div>
-
-      {/* Portal Visual */}
-      <div className="relative mx-auto w-56 h-56">
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-600/20 animate-pulse" />
-        <div className="absolute inset-4 rounded-full bg-gradient-to-br from-violet-900/60 via-indigo-900/40 to-purple-900/60 border-2 border-violet-500/40 flex items-center justify-center overflow-hidden">
-          <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,rgba(139,92,246,0.15),transparent,rgba(99,102,241,0.15),transparent)] animate-spin" style={{ animationDuration: "8s" }} />
-          <div className="relative text-center z-10">
-            <p className="font-orbitron text-4xl font-bold text-violet-300">{portalLevel}</p>
-            <p className="text-xs text-violet-400/70 uppercase tracking-wider">Portal Level</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="bg-card border border-violet-500/20 rounded-xl p-3 text-center">
-          <Gem className="w-4 h-4 text-violet-400 mx-auto mb-1" />
-          <p className="text-xl font-bold text-violet-300">{portalShards}</p>
-          <p className="text-[9px] text-muted-foreground uppercase">Shards</p>
-        </div>
-        <div className="bg-card border border-amber-500/20 rounded-xl p-3 text-center">
-          <Crown className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-          <p className="text-xl font-bold text-amber-300">{highestWave}</p>
-          <p className="text-[9px] text-muted-foreground uppercase">Best Wave</p>
-        </div>
-        <div className="bg-card border border-indigo-500/20 rounded-xl p-3 text-center">
-          <Swords className="w-4 h-4 text-indigo-400 mx-auto mb-1" />
-          <p className="text-xl font-bold text-indigo-300">{(Math.pow(1.25, portalLevel - 1) * 100).toFixed(0)}%</p>
-          <p className="text-[9px] text-muted-foreground uppercase">Power</p>
-        </div>
-        <div className="bg-card border border-green-500/20 rounded-xl p-3 text-center">
-          <Sparkles className="w-4 h-4 text-green-400 mx-auto mb-1" />
-          <p className="text-xl font-bold text-green-300">{entriesLeft}/{maxEntries}</p>
-          <p className="text-[9px] text-muted-foreground uppercase">Entries</p>
-        </div>
-      </div>
-
-      {/* Enter Portal */}
-      {!meetsLevelReq ? (
-        <div className="bg-card border-2 border-red-500/30 rounded-xl p-4 text-center space-y-2">
-          <Shield className="w-8 h-8 text-red-400 mx-auto" />
-          <p className="font-orbitron font-bold text-red-400">Level {minLevel} Required</p>
-          <p className="text-sm text-muted-foreground">Your character is Lv.{character?.level || 1}. Reach level {minLevel} to unlock the Infinite Portal.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <Button
-            onClick={handleEnter}
-            disabled={loading || entriesLeft <= 0}
-            className="w-full h-14 text-lg font-orbitron gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/30 shadow-lg shadow-violet-500/20 disabled:opacity-40"
-          >
-            <Sparkles className="w-5 h-5" />
-            {entriesLeft <= 0 ? "No Entries Left Today" : "Enter Portal Solo"}
-          </Button>
-          {entriesLeft <= 0 && (
-            <Button
-              onClick={handleResetEntries}
-              disabled={loading || characterGems < entryResetGemCost}
-              variant="outline"
-              className="w-full gap-2 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-300 disabled:opacity-40"
-            >
-              <Gem className="w-4 h-4 text-amber-400" />
-              Reset Entries ({entryResetGemCost} Gems)
-              <span className="text-xs text-muted-foreground ml-1">({characterGems} available)</span>
+    <div className="p-4 md:p-6 max-w-5xl mx-auto">
+      <div className="flex gap-4">
+        {/* Left: Main Portal Content */}
+        <div className="flex-1 space-y-6 min-w-0">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h1 className="font-orbitron text-xl font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-violet-400" /> Infinite Portal
+              </h1>
+              <p className="text-xs text-muted-foreground">Enter the rift and face endless waves of enemies.</p>
+            </div>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowJoin(v => !v)}>
+              <LogIn className="w-3.5 h-3.5" /> Join by ID
             </Button>
-          )}
-        </div>
-      )}
+          </div>
 
-      {/* Party Sessions */}
-      {partySessions.length > 0 && (
-        <div className="bg-card border border-cyan-500/20 rounded-xl p-4 space-y-2">
-          <h3 className="text-sm font-bold text-cyan-400 flex items-center gap-1.5">
-            <Users className="w-4 h-4" /> Party Portals
-          </h3>
-          {partySessions.map(ps => (
-            <div key={ps.id} className="flex items-center justify-between bg-black/20 rounded-lg p-2">
-              <div className="text-xs">
-                <span className="text-foreground">Wave {ps.wave}</span>
-                <span className="text-muted-foreground ml-2">Lv.{ps.portalLevel}</span>
-                <span className="text-muted-foreground ml-2">{ps.memberCount}/4 players</span>
+          {/* Join by Session ID */}
+          <AnimatePresence>
+            {showJoin && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                className="bg-card border border-violet-500/30 rounded-xl p-3 flex gap-2"
+              >
+                <Input value={joinId} onChange={e => setJoinId(e.target.value)} placeholder="Paste Session ID..."
+                  className="h-8 text-xs flex-1" onKeyDown={e => e.key === 'Enter' && handleJoinById()} />
+                <Button size="sm" onClick={handleJoinById} disabled={loading} className="h-8 text-xs">{loading ? "..." : "Join"}</Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Portal Visual */}
+          <div className="relative mx-auto w-48 h-48">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-600/20 animate-pulse" />
+            <div className="absolute inset-4 rounded-full bg-gradient-to-br from-violet-900/60 via-indigo-900/40 to-purple-900/60 border-2 border-violet-500/40 flex items-center justify-center overflow-hidden">
+              <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,rgba(139,92,246,0.15),transparent,rgba(99,102,241,0.15),transparent)] animate-spin" style={{ animationDuration: "8s" }} />
+              <div className="relative text-center z-10">
+                <p className="font-orbitron text-3xl font-bold text-violet-300">{portalLevel}</p>
+                <p className="text-[10px] text-violet-400/70 uppercase tracking-wider">Portal Level</p>
               </div>
-              <Button size="sm" variant="outline" className="text-xs border-cyan-500/30 hover:bg-cyan-500/10" onClick={() => handleJoinSession(ps.id)} disabled={loading}>
-                Join
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-4 gap-2">
+            <div className="bg-card border border-violet-500/20 rounded-xl p-2.5 text-center">
+              <Gem className="w-3.5 h-3.5 text-violet-400 mx-auto mb-0.5" />
+              <p className="text-lg font-bold text-violet-300">{portalShards}</p>
+              <p className="text-[9px] text-muted-foreground uppercase">Shards</p>
+            </div>
+            <div className="bg-card border border-amber-500/20 rounded-xl p-2.5 text-center">
+              <Crown className="w-3.5 h-3.5 text-amber-400 mx-auto mb-0.5" />
+              <p className="text-lg font-bold text-amber-300">{highestWave}</p>
+              <p className="text-[9px] text-muted-foreground uppercase">Best Wave</p>
+            </div>
+            <div className="bg-card border border-indigo-500/20 rounded-xl p-2.5 text-center">
+              <Swords className="w-3.5 h-3.5 text-indigo-400 mx-auto mb-0.5" />
+              <p className="text-lg font-bold text-indigo-300">{(Math.pow(1.25, portalLevel - 1) * 100).toFixed(0)}%</p>
+              <p className="text-[9px] text-muted-foreground uppercase">Power</p>
+            </div>
+            <div className="bg-card border border-green-500/20 rounded-xl p-2.5 text-center">
+              <Sparkles className="w-3.5 h-3.5 text-green-400 mx-auto mb-0.5" />
+              <p className="text-lg font-bold text-green-300">{entriesLeft}/{maxEntries}</p>
+              <p className="text-[9px] text-muted-foreground uppercase">Entries</p>
+            </div>
+          </div>
+
+          {/* Entry Reset */}
+          {entriesLeft < maxEntries && (
+            <div className="bg-card/50 border border-border rounded-lg p-2.5 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{entriesLeft === 0 ? "No entries left" : `${entriesLeft} entries remaining`}</span>
+              <Button size="sm" variant="outline" className="gap-1 text-xs h-7" onClick={handleResetEntries}
+                disabled={loading || characterGems < entryResetGemCost}>
+                <Gem className="w-3 h-3 text-amber-400" /> Reset ({entryResetGemCost} Gems)
               </Button>
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* Upgrade Section */}
-      {portalLevel < 100 && (
-        <div className="bg-card border border-violet-500/20 rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm flex items-center gap-1.5">
-              <ChevronUp className="w-4 h-4 text-violet-400" />
-              Upgrade Portal
-              <span className="text-violet-400">Lv.{portalLevel}</span>
-              <span className="text-muted-foreground">→</span>
-              <span className="text-violet-300">Lv.{portalLevel + 1}</span>
+          {/* Enter Portal */}
+          {!meetsLevelReq ? (
+            <div className="bg-card border-2 border-red-500/30 rounded-xl p-4 text-center space-y-2">
+              <Shield className="w-8 h-8 text-red-400 mx-auto" />
+              <p className="font-orbitron font-bold text-red-400">Level {minLevel} Required</p>
+              <p className="text-sm text-muted-foreground">Your character is Lv.{character?.level || 1}. Reach level {minLevel} to unlock the Infinite Portal.</p>
+            </div>
+          ) : (
+            <Button onClick={handleEnter} disabled={loading || entriesLeft <= 0}
+              className="w-full h-12 font-orbitron gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/30 shadow-lg shadow-violet-500/20 disabled:opacity-40"
+            >
+              <Sparkles className="w-5 h-5" />
+              {entriesLeft <= 0 ? "No Entries Left" : "Create Portal"}
+            </Button>
+          )}
+
+          {/* Upgrade Section */}
+          {portalLevel < 100 && (
+            <div className="bg-card border border-violet-500/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm flex items-center gap-1.5">
+                  <ChevronUp className="w-4 h-4 text-violet-400" />
+                  Upgrade Portal
+                  <span className="text-violet-400">Lv.{portalLevel}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="text-violet-300">Lv.{portalLevel + 1}</span>
+                </h3>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Portal Shards</span>
+                  <span className={portalShards >= nextUpgradeCost ? "text-green-400" : "text-red-400"}>{portalShards} / {nextUpgradeCost}</span>
+                </div>
+                <div className="h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                  <div className="h-full bg-violet-500 rounded-full transition-all duration-500" style={{ width: `${upgradeProgress}%` }} />
+                </div>
+              </div>
+              <Button onClick={handleUpgrade} disabled={!canUpgrade || loading} variant="outline"
+                className="w-full gap-2 border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300 disabled:opacity-40">
+                <ArrowUp className="w-4 h-4" /> Upgrade ({nextUpgradeCost} Shards)
+              </Button>
+            </div>
+          )}
+
+          {/* Max Level Banner */}
+          {portalLevel >= 100 && (
+            <div className="bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center space-y-2">
+              <Crown className="w-8 h-8 text-amber-400 mx-auto" />
+              <h3 className="font-orbitron text-base font-bold text-amber-300">Portal Level 100!</h3>
+              <p className="text-xs text-amber-400/80">Mysterious and glorious rewards await...</p>
+            </div>
+          )}
+
+          {/* Leaderboard */}
+          <PortalLeaderboard character={character} />
+
+          {/* Info */}
+          <div className="bg-card/50 border border-border/30 rounded-xl p-4 text-xs text-muted-foreground space-y-1.5">
+            <p className="font-bold text-foreground text-sm mb-2">How it works</p>
+            <p>- Requires Level {minLevel} to enter</p>
+            <p>- Create a portal, wait for players to join, then leader clicks Start</p>
+            <p>- Enemies spawn infinitely, getting stronger each wave</p>
+            <p>- Drops unique/legendary gear only</p>
+            <p>- Up to 4 players can fight together</p>
+            <p>- Boss waves every 10 waves with guaranteed shard drops</p>
+            <p>- {maxEntries} entries per day (reset with gems)</p>
+          </div>
+        </div>
+
+        {/* Right Sidebar: Public Portals */}
+        <div className="hidden md:block w-72 flex-shrink-0">
+          <div className="sticky top-4 space-y-3">
+            <div className="bg-card border border-violet-500/20 rounded-xl overflow-hidden">
+              <div className="p-3 border-b border-violet-500/15 bg-violet-500/5">
+                <h3 className="text-sm font-bold text-violet-400 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4" /> Public Portals
+                </h3>
+              </div>
+              <div className="max-h-[500px] overflow-y-auto">
+                {publicSessions.length === 0 ? (
+                  <p className="text-center text-muted-foreground text-xs py-6">No active portals</p>
+                ) : (
+                  publicSessions.map(ps => (
+                    <div key={ps.id} className="p-2.5 border-b border-border/20 hover:bg-violet-500/5 transition-colors">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-foreground truncate">{ps.ownerName}</span>
+                        <Button size="sm" className="h-6 text-[10px] px-2 bg-violet-600 hover:bg-violet-700"
+                          onClick={() => handleJoinSession(ps.id)} disabled={loading || !meetsLevelReq}>
+                          Join
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-violet-500/30 text-violet-400">P-Lv.{ps.portalLevel}</Badge>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-400">
+                          {ps.status === "waiting" ? "Lobby" : `W${ps.wave}`}
+                        </Badge>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-cyan-500/30 text-cyan-400">
+                          {ps.memberCount}/{ps.maxMembers}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {ps.members.map((m, i) => (
+                          <span key={i} className="text-[9px] text-muted-foreground">{m.name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile: Public Portals (below main content) */}
+      <div className="md:hidden mt-6">
+        {publicSessions.length > 0 && (
+          <div className="bg-card border border-violet-500/20 rounded-xl p-3 space-y-2">
+            <h3 className="text-sm font-bold text-violet-400 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4" /> Public Portals
             </h3>
+            {publicSessions.map(ps => (
+              <div key={ps.id} className="flex items-center justify-between bg-black/20 rounded-lg p-2">
+                <div className="text-xs flex-1 min-w-0">
+                  <span className="font-semibold text-foreground">{ps.ownerName}</span>
+                  <span className="text-muted-foreground ml-1">Lv.{ps.portalLevel}</span>
+                  <span className="text-muted-foreground ml-1">{ps.status === "waiting" ? "Lobby" : `W${ps.wave}`}</span>
+                  <span className="text-muted-foreground ml-1">{ps.memberCount}/{ps.maxMembers}</span>
+                </div>
+                <Button size="sm" className="text-xs h-7 bg-violet-600 hover:bg-violet-700"
+                  onClick={() => handleJoinSession(ps.id)} disabled={loading || !meetsLevelReq}>
+                  Join
+                </Button>
+              </div>
+            ))}
           </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Portal Shards</span>
-              <span className={portalShards >= nextUpgradeCost ? "text-green-400" : "text-red-400"}>{portalShards} / {nextUpgradeCost}</span>
-            </div>
-            <div className="h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
-              <div className="h-full bg-violet-500 rounded-full transition-all duration-500" style={{ width: `${upgradeProgress}%` }} />
-            </div>
-          </div>
-          <Button onClick={handleUpgrade} disabled={!canUpgrade || loading} variant="outline"
-            className="w-full gap-2 border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300 disabled:opacity-40">
-            <ArrowUp className="w-4 h-4" /> Upgrade ({nextUpgradeCost} Shards)
-          </Button>
-        </div>
-      )}
-
-      {/* Max Level Banner */}
-      {portalLevel >= 100 && (
-        <div className="bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-amber-500/10 border border-amber-500/30 rounded-xl p-6 text-center space-y-2">
-          <Crown className="w-10 h-10 text-amber-400 mx-auto" />
-          <h3 className="font-orbitron text-lg font-bold text-amber-300">Portal Level 100 - Maximum Power!</h3>
-          <p className="text-sm text-amber-400/80">Mysterious and glorious rewards are awaiting those who dare to push beyond...</p>
-        </div>
-      )}
-
-      {/* Leaderboard */}
-      <PortalLeaderboard character={character} />
-
-      {/* Info */}
-      <div className="bg-card/50 border border-border/30 rounded-xl p-4 text-xs text-muted-foreground space-y-1.5">
-        <p className="font-bold text-foreground text-sm mb-2">How it works</p>
-        <p>- Requires Level {minLevel} to enter</p>
-        <p>- Enemies spawn infinitely, getting stronger each wave</p>
-        <p>- When all players die, the portal records your highest wave</p>
-        <p>- Drops unique/legendary gear only — the best farming ground!</p>
-        <p>- Rewards: Gold, EXP, Magic Dust, Portal Shards, and unique gear</p>
-        <p>- Use Portal Shards to upgrade the portal (stronger enemies = better loot)</p>
-        <p>- Up to 4 party members can fight together</p>
-        <p>- Boss waves appear every 10 waves with guaranteed shard drops</p>
-        <p>- {maxEntries} entries per day (reset with gems)</p>
+        )}
       </div>
     </div>
   );
