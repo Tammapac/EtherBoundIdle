@@ -6811,8 +6811,9 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
         const rarityMult = { rare: 1, epic: 1.5, legendary: 2.5 }[runeRarity] || 1;
         const mainValue = Math.floor((10 + tier * 5) * rarityMult);
         await db.insert(runesTable).values({
-          ownerId: characterId, runeType, rarity: runeRarity, level: tier * 3,
+          characterId, runeType, rarity: runeRarity, level: tier * 3,
           mainStat, mainValue, subStats: {},
+          name: `${runeRarity.charAt(0).toUpperCase() + runeRarity.slice(1)} ${runeType.charAt(0).toUpperCase() + runeType.slice(1)} Rune`,
         });
         rewardItems.push(`${runeRarity} ${runeType} rune`);
       }
