@@ -1,13 +1,13 @@
 import base44 from '@/api/base44Client';
 
 const TICK_INTERVALS = {
-  fight: 4000,
-  lifeSkills: 20000,
-  gemLab: 30000,
-  shopRotation: 60000,
-  guildBoss: 30000,
-  save: 15000,
-  presence: 30000,
+  fight: 10000,
+  lifeSkills: 30000,
+  gemLab: 60000,
+  shopRotation: 120000,
+  guildBoss: 60000,
+  save: 30000,
+  presence: 60000,
 };
 
 const listeners = {};

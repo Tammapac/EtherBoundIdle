@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Mail, Send, Coins, Inbox, Trash2, X } from "lucide-react";
 import { format, addDays } from "date-fns";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 export default function MailPanel({ character, onCharacterUpdate }) {
   const [composing, setComposing] = useState(false);
@@ -17,11 +18,13 @@ export default function MailPanel({ character, onCharacterUpdate }) {
   const [goldAttach, setGoldAttach] = useState(0);
   const [selectedMail, setSelectedMail] = useState(null);
   const qc = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   const { data: inbox = [] } = useQuery({
     queryKey: ["mail_inbox", character.id],
     queryFn: () => base44.entities.Mail.filter({ to_character_id: character.id }),
-    refetchInterval: 30000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   const { data: sent = [] } = useQuery({

@@ -35,7 +35,7 @@ export default function PartyBattlePanel({ party, selfId, onPartyAction }) {
     };
 
     refresh();
-    const interval = setInterval(refresh, 15000);
+    const interval = setInterval(refresh, 30000);
     return () => clearInterval(interval);
   }, [party?.id, party?.members?.length]);
 
@@ -65,7 +65,7 @@ export default function PartyBattlePanel({ party, selfId, onPartyAction }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 15000);
     return () => clearInterval(interval);
   }, [party?.id, selfId]);
 

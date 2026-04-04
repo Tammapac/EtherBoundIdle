@@ -11,6 +11,7 @@ import {
   Wind, Mountain, Leaf, Moon, Sun, RefreshCw, CheckCircle2, XCircle,
   TrendingUp, GitBranch, Baby, Dna, Layers, Plus, RotateCcw, Crown,
 } from "lucide-react";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -363,6 +364,7 @@ function ConfirmModal({ modal, onClose }) {
 function PetsInner({ character, onCharacterUpdate }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   // Tab state
   const [activeTab, setActiveTab] = useState("pets");
@@ -430,7 +432,8 @@ function PetsInner({ character, onCharacterUpdate }) {
     queryKey: ["petExpeditions", character?.id],
     queryFn: () => base44.functions.invoke("petExpedition", { characterId: character.id, action: "list" }),
     enabled: !!character?.id && activeTab === "expeditions",
-    refetchInterval: activeTab === "expeditions" ? 30000 : false,
+    refetchInterval: activeTab === "expeditions" ? pollInterval : false,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   const expeditions = expeditionData?.expeditions || [];

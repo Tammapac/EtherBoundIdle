@@ -9,6 +9,7 @@ import MessagesPanel from "@/components/social/MessagesPanel";
 import MailPanel from "@/components/social/MailPanel";
 import TradePanel from "@/components/social/TradePanel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 // Error boundary to prevent black screen on component crashes
 class SocialErrorBoundary extends React.Component {
@@ -38,6 +39,8 @@ class SocialErrorBoundary extends React.Component {
 export default function Social({ character, onCharacterUpdate }) {
   const [activeTab, setActiveTab] = useState("friends");
   const qc = useQueryClient();
+  const bgPollInterval = useSmartPolling(POLL_INTERVALS.BACKGROUND);
+  const socialPollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
 
   const [tradeTarget, setTradeTarget] = useState(null);
 
@@ -88,7 +91,8 @@ export default function Social({ character, onCharacterUpdate }) {
     queryKey: ["mail_unread", character?.id],
     queryFn: () => base44.entities.Mail.filter({ to_character_id: character?.id, is_read: false }),
     enabled: !!character?.id,
-    refetchInterval: 60000,
+    refetchInterval: bgPollInterval,
+    staleTime: POLL_INTERVALS.BACKGROUND,
   });
 
   // Pending trade count
@@ -96,7 +100,8 @@ export default function Social({ character, onCharacterUpdate }) {
     queryKey: ["trades_pending", character?.id],
     queryFn: () => base44.entities.TradeSession.filter({ receiver_id: character?.id, status: "pending" }),
     enabled: !!character?.id,
-    refetchInterval: 5000,
+    refetchInterval: socialPollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   // Friend requests count — reuses same query key as FriendPanel, no duplicate fetch
@@ -104,7 +109,8 @@ export default function Social({ character, onCharacterUpdate }) {
     queryKey: ["friend_requests_in", character?.id],
     queryFn: () => base44.entities.FriendRequest.filter({ to_character_id: character?.id, status: "pending" }),
     enabled: !!character?.id,
-    refetchInterval: 5000,
+    refetchInterval: socialPollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   if (!character) return null;

@@ -39,7 +39,7 @@ export default function PartyBattleArena({ party, selfId, selfZone }) {
     };
 
     fetchMembers();
-    const interval = setInterval(fetchMembers, 8000);
+    const interval = setInterval(fetchMembers, 30000);
     return () => clearInterval(interval);
   }, [party?.id, party?.members?.length, selfId, selfZone]);
 

@@ -8,12 +8,14 @@ import { Gem, Zap, Gauge, TrendingUp, Clock, Coins } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import hybridPersistence from "@/lib/hybridPersistence";
 import GemLabProgressBar from "./GemLabProgressBar";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 export default function GemLabPanel({ character, onCharacterUpdate }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [buyCount, setBuyCount] = useState(1);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   // Fetch GemLab data
   const { data: gemLab, isLoading } = useQuery({
@@ -23,7 +25,8 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
       return labs[0] || null;
     },
     enabled: !!character?.id,
-    refetchInterval: 30000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   // Process gem generation (calculate pending gems)

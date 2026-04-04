@@ -18,6 +18,7 @@ import InlineChat from "@/components/game/InlineChat";
 import { idleEngine } from "@/lib/idleEngine";
 import { calculateFinalStats, rollDamage } from "@/lib/statSystem";
 import { useToast } from "@/components/ui/use-toast";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 // Each boss template has 3 raid tiers with increasing HP and token multipliers
 const GUILD_BOSSES = [
@@ -46,11 +47,13 @@ export default function GuildPage({ character, onCharacterUpdate }) {
   const [search, setSearch] = useState("");
   const [bossVictoryModal, setBossVictoryModal] = useState(null);
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   const { data: guilds = [] } = useQuery({
     queryKey: ["guilds"],
     queryFn: () => base44.entities.Guild.list("-member_count", 30),
-    refetchInterval: 5000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   const myGuild = guilds.find(g => g.id === character?.guild_id);

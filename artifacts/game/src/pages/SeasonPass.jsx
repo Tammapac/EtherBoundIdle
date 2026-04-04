@@ -6,6 +6,7 @@ import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SEASON_PASS_CONFIG } from "@/lib/gameData";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 export default function SeasonPass({ character, onCharacterUpdate }) {
   const [claiming, setClaiming] = useState(null);
@@ -14,6 +15,7 @@ export default function SeasonPass({ character, onCharacterUpdate }) {
   const trackRef = useRef(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.BACKGROUND);
 
   // Fetch season pass status
   const { data: seasonData, refetch, error: seasonError } = useQuery({
@@ -26,7 +28,8 @@ export default function SeasonPass({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: 30000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.BACKGROUND,
     retry: 1,
   });
 

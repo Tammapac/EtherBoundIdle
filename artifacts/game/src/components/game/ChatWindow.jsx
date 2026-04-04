@@ -7,6 +7,7 @@ import { Send, MessageCircle } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
 import RoleBadge from "@/components/game/RoleBadge";
 import { useAuth } from "@/lib/AuthContext";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 function getConversationId(idA, idB) {
   return [idA, idB].sort().join("_");
@@ -26,6 +27,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
   const scrollRef = useRef(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
 
   // --- Chat Messages query (global / guild) ---
   const chatQuery = activeTab === "guild" && guildId
@@ -39,7 +41,8 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
       "-created_date",
       50
     ),
-    refetchInterval: 3000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
     enabled: activeTab !== "whisper",
   });
 
@@ -56,7 +59,8 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
         (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
       );
     },
-    refetchInterval: 5000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
     enabled: !!character?.id,
   });
 

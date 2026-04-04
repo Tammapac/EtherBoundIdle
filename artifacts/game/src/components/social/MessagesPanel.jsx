@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Send, ArrowLeft, MessageCircle } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
 import { format } from "date-fns";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 function getConversationId(idA, idB) {
   return [idA, idB].sort().join("_");
@@ -16,6 +17,7 @@ export default function MessagesPanel({ character }) {
   const [message, setMessage] = useState("");
   const scrollRef = useRef(null);
   const qc = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
 
   // Get all messages involving this character
   const { data: allMessages = [] } = useQuery({
@@ -27,7 +29,8 @@ export default function MessagesPanel({ character }) {
       ]);
       return [...sent, ...received];
     },
-    refetchInterval: 5000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   // Build conversation list

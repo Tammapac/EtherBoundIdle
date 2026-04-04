@@ -11,14 +11,18 @@ import SkillBreakdownChart from "@/components/dashboard/SkillBreakdownChart";
 import GoldTransmutation from "@/components/game/GoldTransmutation";
 import GemLabPanel from "@/components/game/GemLabPanel";
 import { formatGold } from "@/lib/formatGold";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 export default function Dashboard({ character, onCharacterUpdate }) {
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
+
   // Fetch fresh character data from server
   const { data: freshChar } = useQuery({
     queryKey: ["character-fresh", character?.id],
     queryFn: () => base44.entities.Character.get(character.id),
     enabled: !!character?.id,
-    refetchInterval: 10000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   // Merge fresh data into character for display, and update parent

@@ -115,7 +115,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     fetchZones();
-    const interval = setInterval(fetchZones, 10000);
+    const interval = setInterval(fetchZones, 30000);
     return () => clearInterval(interval);
   }, [partyData?.members?.length]);
 
@@ -938,7 +938,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     load();
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(load, 15000);
     return () => clearInterval(interval);
   }, [character?.id]);
 
@@ -1004,7 +1004,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 

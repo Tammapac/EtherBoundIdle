@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import PlayerProfileModal from "@/components/game/PlayerProfileModal";
 import { REGIONS } from "@/lib/gameData";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const CLASS_COLORS = {
   warrior: "text-red-400", mage: "text-blue-400",
@@ -27,6 +28,7 @@ export default function PartyPanel({ character }) {
   const [memberDetails, setMemberDetails] = useState({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
 
   const { data: partyData } = useQuery({
     queryKey: ["party", character?.id],
@@ -38,8 +40,8 @@ export default function PartyPanel({ character }) {
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    staleTime: 5000,
-    refetchInterval: 5000,
+    staleTime: POLL_INTERVALS.SOCIAL,
+    refetchInterval: pollInterval,
   });
 
   useEffect(() => {
@@ -71,8 +73,8 @@ export default function PartyPanel({ character }) {
       return base44.entities.PartyInvite.filter({ to_character_id: character.id, status: 'pending' });
     },
     enabled: !!character?.id,
-    staleTime: 3000,
-    refetchInterval: 3000,
+    staleTime: POLL_INTERVALS.SOCIAL,
+    refetchInterval: pollInterval,
   });
 
   const invalidateParty = () => {

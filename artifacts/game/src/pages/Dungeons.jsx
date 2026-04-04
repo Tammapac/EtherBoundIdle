@@ -13,6 +13,7 @@ import PartyActivityNotifier from "@/components/game/PartyActivityNotifier";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const DUNGEONS = [
   {
@@ -145,6 +146,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
   const [showJoin, setShowJoin] = useState(false);
   const [resetting, setResetting] = useState(false);
   const { toast } = useToast();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
 
   // Fetch dungeon entry info (entries remaining, reset cost)
   const { data: entryInfo, refetch: refetchEntries } = useQuery({
@@ -157,7 +159,8 @@ export default function Dungeons({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: 60000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
   // Alias for compatibility
   const entryStatus = entryInfo ? {
@@ -199,7 +202,8 @@ export default function Dungeons({ character, onCharacterUpdate }) {
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    refetchInterval: 15000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   // Broadcast party activity when entering dungeon

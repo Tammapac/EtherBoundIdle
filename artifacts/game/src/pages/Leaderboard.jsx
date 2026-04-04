@@ -15,6 +15,7 @@ import RoleBadge from "@/components/game/RoleBadge";
 import { useEffect } from "react";
 import { RARITY_CONFIG } from "@/lib/gameData";
 import { SLOT_LABELS } from "@/lib/equipmentSystem";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 export default function Leaderboard({ character }) {
   const [selectedChar, setSelectedChar] = useState(null);
@@ -24,6 +25,7 @@ export default function Leaderboard({ character }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [friendRequestSent, setFriendRequestSent] = useState({});
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.BACKGROUND);
 
   // Fetch equipped items when a character is selected
   useEffect(() => {
@@ -57,7 +59,8 @@ export default function Leaderboard({ character }) {
       const res = await base44.functions.invoke("getLeaderboard", { type: "level" });
       return res?.leaderboard || [];
     },
-    refetchInterval: 30000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.BACKGROUND,
   });
 
   const { data: playerRoles = {} } = useQuery({
@@ -66,7 +69,8 @@ export default function Leaderboard({ character }) {
       const res = await base44.functions.invoke("getPlayerRoles", {});
       return res || {};
     },
-    refetchInterval: 60000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.BACKGROUND,
   });
 
   useQuery({

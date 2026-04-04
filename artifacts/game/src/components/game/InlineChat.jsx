@@ -7,12 +7,14 @@ import { Send } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
 import RoleBadge from "@/components/game/RoleBadge";
 import { useAuth } from "@/lib/AuthContext";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 export default function InlineChat({ character, channel = "global", guildId = null }) {
   const { user } = useAuth();
   const [message, setMessage] = useState("");
   const scrollRef = useRef(null);
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
 
   const query = channel === "guild" && guildId
     ? { channel: "guild", guild_id: guildId }
@@ -22,7 +24,8 @@ export default function InlineChat({ character, channel = "global", guildId = nu
   const { data: messages = [] } = useQuery({
     queryKey: ["chat", channel, guildId],
     queryFn: () => base44.entities.ChatMessage.filter(query, "-created_date", 50),
-    refetchInterval: 3000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   const sendMutation = useMutation({

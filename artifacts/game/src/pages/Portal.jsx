@@ -14,6 +14,7 @@ import {
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import { Input } from "@/components/ui/input";
 import HealthBar from "@/components/game/HealthBar";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 // ─── Portal Combat (matches Battle.jsx layout) ─────────────────────────────
 function PortalCombat({ session: initialSession, character, onLeave }) {
@@ -25,6 +26,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
   const autoFightRef = useRef(false);
   const logRef = useRef(null);
   const { toast } = useToast();
+  const combatPollInterval = useSmartPolling(POLL_INTERVALS.COMBAT);
 
   const [turnCountdown, setTurnCountdown] = useState(null);
 
@@ -87,7 +89,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
     onLeave();
   };
 
-  // Poll for session updates every 2s (so all players see same enemies/state)
+  // Poll for session updates (so all players see same enemies/state)
   useEffect(() => {
     if (!session?.id) return;
     const interval = setInterval(async () => {
@@ -96,7 +98,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
         if (res?.session) setSession(res.session);
         if (res?.success === false) onLeave(); // session ended
       } catch {}
-    }, 2000);
+    }, combatPollInterval || 5000);
     return () => clearInterval(interval);
   }, [session?.id, character.id]);
 
@@ -627,12 +629,15 @@ export default function Portal({ character, onCharacterUpdate }) {
   const [joinId, setJoinId] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const portalCombatPoll = useSmartPolling(POLL_INTERVALS.COMBAT);
+  const portalSocialPoll = useSmartPolling(POLL_INTERVALS.SOCIAL);
 
   const { data: portalStatus, refetch } = useQuery({
     queryKey: ["portalStatus", character?.id],
     queryFn: () => base44.functions.invoke("portalAction", { action: "get_status", characterId: character.id }),
     enabled: !!character?.id,
-    refetchInterval: 5000,
+    refetchInterval: portalCombatPoll,
+    staleTime: POLL_INTERVALS.COMBAT,
   });
 
   // Fetch all active public portal sessions
@@ -640,7 +645,8 @@ export default function Portal({ character, onCharacterUpdate }) {
     queryKey: ["portalActiveSessions"],
     queryFn: () => base44.functions.invoke("portalAction", { action: "list_active", characterId: character.id }),
     enabled: !!character?.id,
-    refetchInterval: 6000,
+    refetchInterval: portalSocialPoll,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
   const publicSessions = (activePortals?.sessions || []).filter(s => s.memberCount < s.maxMembers);
 

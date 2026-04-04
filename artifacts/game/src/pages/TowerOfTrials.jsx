@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { TOWER_CONFIG, generateTowerFloorData } from "@/lib/gameData";
 import TowerCombat from "@/components/tower/TowerCombat";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const PET_SPECIES_ICONS_TOT = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
 const PET_EVO_SUFFIX_TOT = ["", "⭐", "👑"];
@@ -31,6 +32,7 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
   const [loading, setLoading] = useState(false);
   const [viewOffset, setViewOffset] = useState(0);
   const { toast } = useToast();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   // Fetch equipped pet
   const { data: petData } = useQuery({
@@ -52,7 +54,8 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: 30000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   // If there's an active session from the server, resume it

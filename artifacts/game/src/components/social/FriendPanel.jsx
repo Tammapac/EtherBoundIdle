@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { UserPlus, UserMinus, Star, StarOff, Ban, Check, X, Search, Wifi, WifiOff, MessageCircle, ArrowLeftRight, Users } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { CLASSES } from "@/lib/gameData";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const STATUS_COLOR = {
   online: "bg-green-500",
@@ -29,29 +30,35 @@ export default function FriendPanel({ character, onWhisper }) {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const qc = useQueryClient();
+  const socialPollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
+  const bgPollInterval = useSmartPolling(POLL_INTERVALS.BACKGROUND);
 
   const { data: friends = [] } = useQuery({
     queryKey: ["friends", character.id],
     queryFn: () => base44.entities.Friendship.filter({ character_id: character.id }),
-    refetchInterval: 10000,
+    refetchInterval: socialPollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   const { data: presences = [] } = useQuery({
     queryKey: ["presences"],
     queryFn: () => base44.entities.Presence.list("-last_seen", 100),
-    refetchInterval: 30000,
+    refetchInterval: socialPollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   const { data: incomingRequests = [] } = useQuery({
     queryKey: ["friend_requests_in", character.id],
     queryFn: () => base44.entities.FriendRequest.filter({ to_character_id: character.id, status: "pending" }),
-    refetchInterval: 5000,
+    refetchInterval: socialPollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   const { data: outgoingRequests = [] } = useQuery({
     queryKey: ["friend_requests_out", character.id],
     queryFn: () => base44.entities.FriendRequest.filter({ from_character_id: character.id, status: "pending" }),
-    refetchInterval: 5000,
+    refetchInterval: socialPollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   // Polling already handles friend requests (15s) and friends (30s) — no-op subscribe removed
@@ -68,7 +75,8 @@ export default function FriendPanel({ character, onWhisper }) {
       return results.filter(Boolean);
     },
     enabled: friendIds.length > 0,
-    refetchInterval: 60000,
+    refetchInterval: bgPollInterval,
+    staleTime: POLL_INTERVALS.BACKGROUND,
   });
   const friendCharMap = Object.fromEntries(friendChars.map(c => [c.id, c]));
 

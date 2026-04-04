@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeftRight, Plus, Minus, Check, X, Search, Coins, Package, Shield, Swords, AlertTriangle } from "lucide-react";
 import { RARITY_CONFIG, CLASSES } from "@/lib/gameData";
 import { addMinutes } from "date-fns";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const MIN_LEVEL_TO_TRADE = 5;
 
@@ -19,6 +20,7 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
   const [activeTrade, setActiveTrade] = useState(null);
   const qc = useQueryClient();
 
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
   const canTrade = (character.level || 1) >= MIN_LEVEL_TO_TRADE;
 
   const { data: myItems = [] } = useQuery({
@@ -30,7 +32,8 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
   const { data: incomingTrades = [] } = useQuery({
     queryKey: ["trades_pending", character.id],
     queryFn: () => base44.entities.TradeSession.filter({ receiver_id: character.id, status: "pending" }),
-    refetchInterval: 3000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   const { data: myTrades = [] } = useQuery({
@@ -42,7 +45,8 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
       ]);
       return [...asInit, ...asRecv].filter(t => ["pending", "active", "initiator_locked", "receiver_locked"].includes(t.status));
     },
-    refetchInterval: 5000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   // Poll active trade for real-time updates
@@ -54,9 +58,9 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
         if (res) setActiveTrade(res);
       } catch {}
     };
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, pollInterval || 15000);
     return () => clearInterval(interval);
-  }, [activeTrade?.id]);
+  }, [activeTrade?.id, pollInterval]);
 
   // Auto-initiate trade when clicking trade button from friend list
   useEffect(() => {

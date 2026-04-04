@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Users, Shield, AlertCircle, Check, X, ChevronRight, Backpack, Lock, Volume2, Trash2, Edit, Globe, RefreshCw, Swords, LogOut } from "lucide-react";
 import { ROLES } from "@/lib/roleSystem";
 import { useAuth } from "@/lib/AuthContext";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 
 export default function AdminPanel() {
@@ -24,6 +25,7 @@ export default function AdminPanel() {
   const [banDuration, setBanDuration] = useState("permanent");
   const [muteDuration, setMuteDuration] = useState("24");
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.BACKGROUND);
 
   const [currentUser, setCurrentUser] = useState(null);
   const isAdmin = currentUser?.role === "admin" || currentUser?.role === "superadmin";
@@ -122,7 +124,8 @@ export default function AdminPanel() {
     queryKey: ["serverPlayers"],
     queryFn: () => base44.entities.Character.list("-level", 100),
     enabled: isAdmin,
-    refetchInterval: 30000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.BACKGROUND,
   });
 
   const updateStatsMutation = useMutation({

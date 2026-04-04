@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +31,13 @@ function DailyTimer({ expiresAt }) {
 export default function Quests({ character, onCharacterUpdate }) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("daily");
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   const { data: quests = [], isLoading } = useQuery({
     queryKey: ["quests", character?.id],
     queryFn: () => base44.entities.Quest.filter({ character_id: character?.id }),
-    refetchInterval: 10000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
     enabled: !!character?.id,
   });
 

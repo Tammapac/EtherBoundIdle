@@ -10,6 +10,7 @@ import {
 import { REGIONS } from "@/lib/gameData";
 import { useToast } from "@/components/ui/use-toast";
 import PartyActivityNotifier from "@/components/game/PartyActivityNotifier";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const REGION_ICONS = { Trees, Sun, Snowflake, Moon, Star };
 
@@ -17,6 +18,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [travelConfirm, setTravelConfirm] = useState(null); // regionKey awaiting confirm
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   // Get current party
   const { data: partyData } = useQuery({
@@ -29,7 +31,8 @@ export default function WorldMap({ character, onCharacterUpdate }) {
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    refetchInterval: 5000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   // Fetch fresh party member levels (party members array stores stale join-time levels)
@@ -45,7 +48,8 @@ export default function WorldMap({ character, onCharacterUpdate }) {
       return levels;
     },
     enabled: !!partyData?.members?.length,
-    refetchInterval: 10000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   const travelMutation = useMutation({

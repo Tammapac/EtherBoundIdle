@@ -8,6 +8,7 @@ import { Swords, Zap, LogOut, Crown, Skull, Clock, User } from "lucide-react";
 import { SKILLS, CLASSES } from "@/lib/gameData";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import PlayerProfileModal from "@/components/game/PlayerProfileModal";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const CLASS_COLORS = {
   warrior: "text-red-400", mage: "text-blue-400",
@@ -64,6 +65,7 @@ export default function DungeonCombat({ session: initialSession, character, onLe
   const [loading, setLoading] = useState(false);
   const [profileTarget, setProfileTarget] = useState(null);
   const logRef = useRef(null);
+  const combatPollInterval = useSmartPolling(POLL_INTERVALS.COMBAT);
 
   const PET_SPECIES_ICONS_DC = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
   const PET_EVO_SUFFIX_DC = ["", "⭐", "👑"];
@@ -90,9 +92,9 @@ export default function DungeonCombat({ session: initialSession, character, onLe
         if (res?.success && res.session) setSession(res.session);
       } catch {}
     };
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, combatPollInterval || 5000);
     return () => clearInterval(interval);
-  }, [session.id, character.id]);
+  }, [session.id, character.id, combatPollInterval]);
 
   // Scroll log to bottom
   useEffect(() => {

@@ -20,6 +20,7 @@ import { aggregateSetStats } from "@/lib/setSystem";
 import ItemTooltip from "@/components/game/ItemTooltip";
 import { getUniqueItemDef } from "@/lib/uniqueItems";
 import SetCollectionPanel from "@/components/game/SetCollectionPanel";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const TYPE_ICONS = {
   weapon: Swords, armor: ShieldCheck, helmet: Crown, gloves: Hand,
@@ -301,6 +302,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   useEffect(() => {
     if (!character?.id) return;
@@ -331,7 +333,8 @@ export default function Inventory({ character, onCharacterUpdate }) {
     queryKey: ["runes", character?.id],
     queryFn: () => base44.functions.invoke("runes", { characterId: character.id, action: "list" }),
     enabled: !!character?.id,
-    refetchInterval: 1000, // Auto-refresh every second for live stat updates
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
   const allRunes = runeData?.runes || [];
   const equippedRunes = useMemo(() => allRunes.filter(r => r.itemId || r.item_id), [allRunes]);

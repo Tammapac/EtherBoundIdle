@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import HealthBar from "@/components/game/HealthBar";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const ZONE_THEMES = {
   verdant_forest:  { label: "Verdant Forest",  color: "emerald", bg: "from-emerald-900/40 to-emerald-950/60", border: "border-emerald-500/40", text: "text-emerald-400", accent: "bg-emerald-500" },
@@ -75,7 +76,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
     })();
   }, [boss.zone, character.id]);
 
-  // Poll every 2s
+  // Poll every 5s
   useEffect(() => {
     if (!boss.zone) return;
     const iv = setInterval(async () => {
@@ -87,7 +88,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
         if (res?.myEntry) setMyEntry(res.myEntry);
         if (res?.topDamagers) setTopDamagers(res.topDamagers);
       } catch {}
-    }, 2000);
+    }, 5000);
     return () => clearInterval(iv);
   }, [boss.zone, character.id]);
 
@@ -470,12 +471,14 @@ export default function WorldBoss({ character }) {
   const [selectedBoss, setSelectedBoss] = useState(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   const { data: statusData, refetch } = useQuery({
     queryKey: ["worldBossStatus", character?.id],
     queryFn: () => base44.functions.invoke("worldBossAction", { action: "get_status", characterId: character.id }),
     enabled: !!character?.id,
-    refetchInterval: 10000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   const bosses = statusData?.bosses || [];

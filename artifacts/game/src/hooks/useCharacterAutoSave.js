@@ -48,7 +48,7 @@ export function useCharacterAutoSave(character, enabled = true) {
 
     saveTimerRef.current = setInterval(() => {
       if (pendingSaveRef.current) doSave(pendingSaveRef.current, lastSavedRef);
-    }, 10000);
+    }, 30000);
 
     return () => {
       if (saveTimerRef.current) clearInterval(saveTimerRef.current);

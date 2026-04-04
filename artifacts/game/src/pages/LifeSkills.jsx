@@ -8,6 +8,7 @@ import ResourceInventory from "@/components/lifeskills/ResourceInventory";
 import ProcessingPanel from "@/components/lifeskills/ProcessingPanel";
 import { useToast } from "@/components/ui/use-toast";
 import hybridPersistence from "@/lib/hybridPersistence";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const DROP_ICONS = {
   iron_ore: "🪨", copper_ore: "🟤", silver_ore: "⚪", gold_ore: "🟡",
@@ -25,6 +26,7 @@ export default function LifeSkills({ character, onCharacterUpdate }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [lastDrops, setLastDrops] = useState({});
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   const { data, isLoading } = useQuery({
     queryKey: ["lifeskills", character?.id],
@@ -36,7 +38,8 @@ export default function LifeSkills({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: 30000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
   });
 
   const skills     = data?.skills     || [];

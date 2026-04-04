@@ -55,7 +55,7 @@ export default function PartyActivityDisplay({ partyMembers, currentZone }) {
     };
 
     fetchPresence();
-    const interval = setInterval(fetchPresence, 10000);
+    const interval = setInterval(fetchPresence, 30000);
     return () => clearInterval(interval);
   }, [partyMembers?.length]);
 

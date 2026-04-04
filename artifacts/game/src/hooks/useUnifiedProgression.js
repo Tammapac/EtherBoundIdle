@@ -51,7 +51,7 @@ export function useUnifiedProgression(characterId, enabled = true) {
     if (!enabled || !characterId) return;
 
     syncState();
-    syncTimerRef.current = setInterval(syncState, 5000); // Sync every 5 seconds
+    syncTimerRef.current = setInterval(syncState, 30000); // Sync every 30 seconds
 
     return () => {
       if (syncTimerRef.current) clearInterval(syncTimerRef.current);
