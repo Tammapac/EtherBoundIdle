@@ -613,9 +613,10 @@ router.post("/functions/useItem", async (req: Request, res: Response) => {
     }
     // --- HOURGLASS: refill dungeon entries ---
     else if (consumableType === "hourglass") {
-      const dungeonExtra = charExtra.dungeon_data || {};
-      dungeonExtra.entries = [];
-      await db.update(charactersTable).set({ extraData: { ...charExtra, dungeon_data: dungeonExtra } }).where(eq(charactersTable.id, char.id));
+      // Reset dungeon entries in gameConfigTable (the actual tracking location)
+      const dungeonConfigKey = `dungeon_entries_${char.id}`;
+      await db.insert(gameConfigTable).values({ id: dungeonConfigKey, config: { entries: [], windowStart: Date.now() } })
+        .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: { entries: [], windowStart: Date.now() } } });
       message = "Hourglass of Eternity used! Dungeon entries have been reset.";
       effectApplied = { type: "dungeon_reset" };
     }
@@ -626,16 +627,36 @@ router.post("/functions/useItem", async (req: Request, res: Response) => {
       message = "Dungeon Ticket used! You have 1 extra dungeon entry.";
       effectApplied = { type: "dungeon_entry", entries: bonusEntries };
     }
-    // --- PET EGG: hatch directly into a pet ---
+    // --- PET EGG: start incubation (requires incubator item) ---
     else if (consumableType === "pet_egg" || consumableType === "pet_egg_shiny") {
+      // Check if player has an incubator
+      const [incubator] = await db.select().from(itemsTable).where(
+        and(eq(itemsTable.ownerId, char.id), sql`extra_data->>'consumableType' = 'pet_incubator'`)
+      );
+      if (!incubator) {
+        sendError(res, 400, "You need a Pet Incubator to hatch eggs! Incubators drop from World Bosses.");
+        return;
+      }
+      // Check if already incubating
+      const activeIncubation = charExtra.incubating_egg;
+      if (activeIncubation && activeIncubation.hatches_at) {
+        sendError(res, 400, "Already incubating an egg! Wait for it to hatch first.");
+        return;
+      }
       const isShiny = consumableType === "pet_egg_shiny" || extra.guaranteed_shiny;
       const eggRarity = isShiny ? "shiny" : (extra.eggRarity || item.rarity || "common");
-      const petData = hatchPetFromEgg(eggRarity, char.id, isShiny);
-      const [newPet] = await db.insert(petsTable).values(petData).returning();
-      message = isShiny
-        ? `A Shiny ${newPet.species} hatched from the egg! Check your Pets page!`
-        : `A ${newPet.rarity} ${newPet.species} hatched from the egg! Check your Pets page!`;
-      effectApplied = { type: "pet_hatched", petName: newPet.species, petRarity: newPet.rarity, shiny: isShiny };
+      // Hatch time: 1h common, 2h uncommon, 3h rare, 4h epic, 6h legendary, 8h shiny/mythic
+      const hatchHours: Record<string, number> = { common: 1, uncommon: 2, rare: 3, epic: 4, legendary: 6, mythic: 8, shiny: 8 };
+      const hours = hatchHours[eggRarity] || 2;
+      const hatchesAt = new Date(Date.now() + hours * 3600000).toISOString();
+      // Consume incubator
+      await db.delete(itemsTable).where(eq(itemsTable.id, incubator.id));
+      // Start incubation
+      await db.update(charactersTable).set({
+        extraData: { ...charExtra, incubating_egg: { eggRarity, isShiny, hatches_at: hatchesAt, speedups_used: 0, egg_name: item.name } },
+      }).where(eq(charactersTable.id, char.id));
+      message = `${item.name} is now incubating! It will hatch in ${hours} hours. Check the Pets tab!`;
+      effectApplied = { type: "incubation_started", eggRarity, hatchesAt, hours };
     }
     else {
       sendError(res, 400, `Unknown consumable type: ${consumableType}`);
@@ -2131,10 +2152,14 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       if (now - (entryData.windowStart || 0) >= DUNGEON_WINDOW_MS) {
         entryData = { entries: [], windowStart: now };
       }
-      if (entryData.entries.length >= DUNGEON_MAX_ENTRIES) {
+      // Check bonus entries from dungeon tickets + hourglass resets
+      const charExtraD = (char.extraData as any) || {};
+      const bonusEntries = charExtraD.bonus_dungeon_entries || 0;
+      const maxEntries = DUNGEON_MAX_ENTRIES + bonusEntries;
+      if (entryData.entries.length >= maxEntries) {
         const windowRemaining = Math.max(0, DUNGEON_WINDOW_MS - (now - (entryData.windowStart || 0)));
         const minutesLeft = Math.ceil(windowRemaining / 60000);
-        sendError(res, 400, `Dungeon limit reached (${DUNGEON_MAX_ENTRIES} per 8 hours). Resets in ${minutesLeft} minutes.`);
+        sendError(res, 400, `Dungeon limit reached (${maxEntries} per 8 hours). Resets in ${minutesLeft} minutes.`);
         return;
       }
       entryData.entries.push(now);
@@ -3320,6 +3345,8 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     // Apply active character buffs (from guild shop scrolls/runes)
     let buffExpBonus = 0;
     let buffGoldBonus = 0;
+    let buffDmgBonus = 0;
+    let buffLootBonus = 0;
     const charExtra = (char.extraData as any) || {};
 
     // Load equipped pet buffs
@@ -3382,6 +3409,8 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       if (new Date(buff.expires_at).getTime() > nowMs) {
         if (buff.type === "exp_bonus") buffExpBonus += (buff.value || 0) / 100;
         if (buff.type === "gold_bonus") buffGoldBonus += (buff.value || 0) / 100;
+        if (buff.type === "dmg_bonus") buffDmgBonus += (buff.value || 0) / 100;
+        if (buff.type === "loot_bonus") buffLootBonus += (buff.value || 0) / 100;
       }
     }
 
@@ -3409,7 +3438,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     const newMaxMp = (char.maxMp || 50) + levelDiff * (progCfg.MP_PER_LEVEL || 3);
     const newGold = (char.gold || 0) + goldGain;
     const newTotalKills = (char.totalKills || 0) + 1;
-    const damageDealt = enemyData.hp || Math.floor((char.strength || 10) * 2);
+    const damageDealt = Math.floor((enemyData.hp || Math.floor((char.strength || 10) * 2)) * (1 + buffDmgBonus));
     const newTotalDamage = (char.totalDamage || 0) + damageDealt;
 
     const [updated] = await db.update(charactersTable).set({
@@ -3515,11 +3544,11 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         stoneLoot = rollStone(enemyKeyStr, charLuck);
       }
 
-      // 3. Normal loot generation
+      // 3. Normal loot generation (loot_bonus increases luck for better drops)
       if (!loot) {
         loot = generateLoot(
           char.level || 1,
-          charLuck,
+          charLuck + Math.floor(buffLootBonus * 50),
           serverIsBoss,
           serverRegionKey,
           char.class || null
@@ -4888,6 +4917,61 @@ router.post("/functions/petAction", async (req: Request, res: Response) => {
         traits: rollTraits(rarity),
       }).returning();
       sendSuccess(res, { pet });
+      return;
+    }
+
+    // === HATCHERY: check incubation status ===
+    if (action === "hatchery_status") {
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const charExtra = (char?.extraData as any) || {};
+      const incubating = charExtra.incubating_egg || null;
+      // Count incubator items
+      const incubators = await db.select().from(itemsTable).where(
+        and(eq(itemsTable.ownerId, characterId), sql`extra_data->>'consumableType' = 'pet_incubator'`)
+      );
+      // Count egg items
+      const eggs = await db.select().from(itemsTable).where(
+        and(eq(itemsTable.ownerId, characterId), sql`extra_data->>'consumableType' IN ('pet_egg', 'pet_egg_shiny')`)
+      );
+      sendSuccess(res, { incubating, incubatorCount: incubators.length, eggs: eggs.map(e => ({ id: e.id, name: e.name, rarity: e.rarity, extraData: e.extraData })) });
+      return;
+    }
+
+    // === HATCHERY: speed up incubation with gems ===
+    if (action === "hatchery_speedup") {
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const charExtra = (char?.extraData as any) || {};
+      const incubating = charExtra.incubating_egg;
+      if (!incubating || !incubating.hatches_at) { sendError(res, 400, "Nothing incubating"); return; }
+      if ((incubating.speedups_used || 0) >= 5) { sendError(res, 400, "Max 5 speedups reached"); return; }
+      const gemCost = 50;
+      if ((char.gems || 0) < gemCost) { sendError(res, 400, "Not enough gems (50 required)"); return; }
+      // Subtract 30 minutes from hatch time
+      const newHatchTime = new Date(new Date(incubating.hatches_at).getTime() - 30 * 60000).toISOString();
+      incubating.hatches_at = newHatchTime;
+      incubating.speedups_used = (incubating.speedups_used || 0) + 1;
+      await db.update(charactersTable).set({
+        gems: (char.gems || 0) - gemCost,
+        extraData: { ...charExtra, incubating_egg: incubating },
+      }).where(eq(charactersTable.id, characterId));
+      sendSuccess(res, { incubating, gemsLeft: (char.gems || 0) - gemCost });
+      return;
+    }
+
+    // === HATCHERY: claim hatched pet ===
+    if (action === "hatchery_claim") {
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      const charExtra = (char?.extraData as any) || {};
+      const incubating = charExtra.incubating_egg;
+      if (!incubating || !incubating.hatches_at) { sendError(res, 400, "Nothing incubating"); return; }
+      if (new Date(incubating.hatches_at).getTime() > Date.now()) { sendError(res, 400, "Egg hasn't hatched yet!"); return; }
+      // Hatch the pet
+      const petData = hatchPetFromEgg(incubating.eggRarity, characterId, incubating.isShiny);
+      const [newPet] = await db.insert(petsTable).values(petData).returning();
+      // Clear incubation
+      delete charExtra.incubating_egg;
+      await db.update(charactersTable).set({ extraData: charExtra }).where(eq(charactersTable.id, characterId));
+      sendSuccess(res, { pet: newPet, hatched: true });
       return;
     }
 
@@ -6901,6 +6985,15 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
         level: 1, stats: {}, extraData: { consumableType: "dungeon_ticket", source: "world_boss" },
       });
       rewardItems.push("Dungeon Ticket");
+
+      // Pet Incubator — medium drop chance (40%) for all participants
+      if (Math.random() < 0.4) {
+        await db.insert(itemsTable).values({
+          ownerId: characterId, name: "Pet Incubator", type: "consumable", rarity: "rare",
+          level: 1, stats: {}, extraData: { consumableType: "pet_incubator", source: "world_boss" },
+        });
+        rewardItems.push("Pet Incubator");
+      }
 
       // Boss Gear — top 10% get unique boss gear
       if (percentile < 0.1) {

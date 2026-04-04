@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/AuthContext";
 import RoleBadge from "@/components/game/RoleBadge";
 import CharacterProfileModal from "@/components/game/CharacterProfileModal";
 import IdleStatusBar from "@/components/game/IdleStatusBar";
+import ActiveBuffsBar from "@/components/game/ActiveBuffsBar";
 
 const NAV_ITEMS = [
   { path: "/", icon: Swords, label: "Battle" },
@@ -237,6 +238,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
          )}
 
         {character && <IdleStatusBar character={character} />}
+        {character && <ActiveBuffsBar character={character} />}
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto relative">

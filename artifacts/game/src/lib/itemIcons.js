@@ -51,6 +51,7 @@ const CONSUMABLE_ICONS = {
   pet_egg_shiny:   Egg,
   pet_egg:         Egg,
   upgrade_stone:   Wrench,
+  pet_incubator:   Sparkles,
 };
 
 // Type -> fallback icon (when no subtype)

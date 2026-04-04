@@ -10,6 +10,7 @@ import {
   MapPin, Clock, ChevronRight, Package, Wrench, CircleDot, Flame, Droplets,
   Wind, Mountain, Leaf, Moon, Sun, RefreshCw, CheckCircle2, XCircle,
   TrendingUp, GitBranch, Baby, Dna, Layers, Plus, RotateCcw, Crown,
+  Egg, Timer, Gem, FastForward,
 } from "lucide-react";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
@@ -1072,6 +1073,7 @@ function PetsInner({ character, onCharacterUpdate }) {
         <div className="flex gap-2 min-w-max">
           {[
             { key: "pets",        label: "My Pets",    icon: PawPrint },
+            { key: "hatchery",   label: "Hatchery",    icon: Egg },
             { key: "expeditions", label: "Expeditions", icon: MapPin },
             { key: "equipment",   label: "Equipment",   icon: Wrench },
             { key: "evolution",   label: "Evolution",   icon: TrendingUp },
@@ -1294,6 +1296,13 @@ function PetsInner({ character, onCharacterUpdate }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          TAB: HATCHERY
+         ══════════════════════════════════════════════════════ */}
+      {activeTab === "hatchery" && (
+        <HatcheryTab character={character} />
       )}
 
       {/* ══════════════════════════════════════════════════════
@@ -2297,6 +2306,228 @@ function PetsInner({ character, onCharacterUpdate }) {
           })()}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Hatchery Tab Component ────────────────────────────────────────────────
+const HATCH_RARITY_COLORS = {
+  common: "text-gray-400", uncommon: "text-green-400", rare: "text-blue-400",
+  epic: "text-purple-400", legendary: "text-amber-400", mythic: "text-red-400", shiny: "text-yellow-300",
+};
+
+function HatcheryTab({ character }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, setTick] = useState(0);
+  const [showHatchResult, setShowHatchResult] = useState(null);
+
+  const { data: hatcheryData, refetch } = useQuery({
+    queryKey: ["hatchery", character?.id],
+    queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "hatchery_status" }),
+    enabled: !!character?.id,
+    refetchInterval: 10000,
+  });
+
+  const incubating = hatcheryData?.incubating || null;
+  const incubatorCount = hatcheryData?.incubatorCount || 0;
+  const eggs = hatcheryData?.eggs || [];
+
+  // Tick timer
+  useEffect(() => {
+    if (!incubating) return;
+    const iv = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(iv);
+  }, [!!incubating]);
+
+  const timeLeft = incubating ? Math.max(0, new Date(incubating.hatches_at).getTime() - Date.now()) : 0;
+  const isReady = incubating && timeLeft <= 0;
+
+  const speedupMutation = useMutation({
+    mutationFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "hatchery_speedup" }),
+    onSuccess: (res) => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["characters"] });
+      toast({ title: "Speedup applied! -30 minutes" });
+    },
+    onError: (err) => toast({ title: err.message || "Speedup failed", variant: "destructive" }),
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "hatchery_claim" }),
+    onSuccess: (res) => {
+      setShowHatchResult(res.pet);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["petData"] });
+    },
+    onError: (err) => toast({ title: err.message || "Claim failed", variant: "destructive" }),
+  });
+
+  const startHatchMutation = useMutation({
+    mutationFn: (itemId) => base44.functions.invoke("useItem", { itemId }),
+    onSuccess: (res) => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+      toast({ title: res.message || "Incubation started!" });
+    },
+    onError: (err) => toast({ title: err.message || "Failed to start", variant: "destructive" }),
+  });
+
+  const formatTime = (ms) => {
+    if (ms <= 0) return "Ready!";
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Active Incubation */}
+      <div className="bg-gradient-to-b from-amber-900/30 to-amber-950/50 border-2 border-amber-500/40 rounded-2xl p-5 text-center">
+        <Egg className="w-10 h-10 text-amber-400 mx-auto mb-2" />
+        <h3 className="font-orbitron text-lg font-bold text-amber-400 mb-1">Hatchery</h3>
+        <p className="text-xs text-muted-foreground mb-4">Place a pet egg to start hatching. Requires 1 Pet Incubator.</p>
+
+        {incubating ? (
+          <div className="space-y-3">
+            <div className={`text-sm font-semibold ${HATCH_RARITY_COLORS[incubating.eggRarity] || "text-white"}`}>
+              {incubating.egg_name || "Pet Egg"} {incubating.isShiny && <span className="text-yellow-300">(Shiny!)</span>}
+            </div>
+            {/* Progress bar */}
+            <div className="max-w-xs mx-auto">
+              <div className="h-4 bg-black/50 rounded-full overflow-hidden border border-amber-500/30">
+                <motion.div
+                  className={`h-full rounded-full ${isReady ? "bg-green-500 animate-pulse" : "bg-amber-500"}`}
+                  animate={{ width: isReady ? "100%" : `${Math.max(5, 100 - (timeLeft / (8 * 3600000)) * 100)}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+              <p className={`text-lg font-bold mt-2 ${isReady ? "text-green-400 animate-pulse" : "text-amber-300"}`}>
+                <Timer className="w-4 h-4 inline mr-1" />
+                {isReady ? "Ready to Hatch!" : formatTime(timeLeft)}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 justify-center mt-3">
+              {!isReady && (incubating.speedups_used || 0) < 5 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1 border-violet-500/40 text-violet-400 hover:bg-violet-500/20"
+                  onClick={() => speedupMutation.mutate()}
+                  disabled={speedupMutation.isPending}
+                >
+                  <FastForward className="w-3.5 h-3.5" />
+                  Speed Up (-30m)
+                  <span className="flex items-center gap-0.5 text-violet-300"><Gem className="w-3 h-3" />50</span>
+                  <span className="text-[10px] text-muted-foreground">({incubating.speedups_used || 0}/5)</span>
+                </Button>
+              )}
+              {isReady && (
+                <Button
+                  className="gap-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 font-orbitron"
+                  onClick={() => claimMutation.mutate()}
+                  disabled={claimMutation.isPending}
+                >
+                  <Sparkles className="w-4 h-4" /> Hatch Now!
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Incubators: <span className={incubatorCount > 0 ? "text-green-400 font-bold" : "text-red-400 font-bold"}>{incubatorCount}</span>
+              {incubatorCount === 0 && " (Drops from World Boss)"}
+            </p>
+            {eggs.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs text-amber-400 font-semibold">Your Eggs:</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {eggs.map(egg => (
+                    <button
+                      key={egg.id}
+                      onClick={() => startHatchMutation.mutate(egg.id)}
+                      disabled={startHatchMutation.isPending || incubatorCount === 0}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border transition-all ${
+                        incubatorCount > 0
+                          ? "border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 cursor-pointer"
+                          : "border-gray-700 bg-gray-800/50 opacity-50 cursor-not-allowed"
+                      }`}
+                    >
+                      <Egg className={`w-4 h-4 ${HATCH_RARITY_COLORS[egg.rarity] || "text-gray-400"}`} />
+                      <span className={`text-xs font-semibold ${HATCH_RARITY_COLORS[egg.rarity] || "text-gray-400"}`}>{egg.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">No pet eggs. Eggs drop from World Bosses, Dungeons, and Expeditions.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Hatch Result Animation */}
+      <AnimatePresence>
+        {showHatchResult && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowHatchResult(null)}
+          >
+            <motion.div
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", damping: 12, stiffness: 200 }}
+              className="bg-card border-2 border-amber-500/60 rounded-2xl p-8 max-w-sm w-full mx-4 text-center space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: [0, 1.3, 1] }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+              >
+                <Sparkles className="w-20 h-20 text-amber-400 mx-auto" />
+              </motion.div>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+                <h2 className="font-orbitron text-2xl font-bold text-amber-400">Pet Hatched!</h2>
+                <p className={`text-xl font-bold mt-2 ${HATCH_RARITY_COLORS[showHatchResult.rarity] || "text-white"}`}>
+                  {showHatchResult.species}
+                </p>
+                <Badge className={`mt-1 ${HATCH_RARITY_COLORS[showHatchResult.rarity]}`}>
+                  {showHatchResult.rarity?.toUpperCase()}
+                </Badge>
+              </motion.div>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+                className="bg-black/30 rounded-xl p-3 space-y-1 text-sm text-left"
+              >
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Passive</span>
+                  <span className="text-cyan-400">{showHatchResult.passiveType?.replace(/_/g, " ")} +{showHatchResult.passiveValue}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Skill</span>
+                  <span className="text-green-400">{showHatchResult.skillType?.replace(/_/g, " ")} +{showHatchResult.skillValue}</span>
+                </div>
+                {showHatchResult.traits?.length > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Traits</span>
+                    <span className="text-amber-400">{showHatchResult.traits.map(t => t.name).join(", ")}</span>
+                  </div>
+                )}
+              </motion.div>
+              <Button onClick={() => setShowHatchResult(null)} className="w-full bg-amber-600 hover:bg-amber-700 font-orbitron">
+                Awesome!
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

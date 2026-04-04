@@ -77,12 +77,46 @@ const CONSUMABLE_DESCRIPTIONS = {
   pet_egg: "Hatch to receive a pet",
   pet_egg_shiny: "Hatch to receive a shiny pet",
   upgrade_stone: "Used to upgrade equipment",
+  pet_incubator: "Required to hatch pet eggs",
+};
+
+const CONSUMABLE_DETAILS = {
+  hourglass:      { effect: "Resets all dungeon entries to 0", icon: "⏳" },
+  scroll_exp:     { effect: "+50% EXP gain from combat", duration: "2 hours", icon: "📜" },
+  scroll_gold:    { effect: "+50% Gold gain from combat", duration: "2 hours", icon: "📜" },
+  scroll_dmg:     { effect: "+25% Damage dealt in combat", duration: "2 hours", icon: "📜" },
+  scroll_loot:    { effect: "+25% Loot drop quality", duration: "2 hours", icon: "📜" },
+  dungeon_ticket: { effect: "+1 Bonus dungeon entry (permanent)", icon: "🎟️" },
+  pet_egg:        { effect: "Use in Pets tab to start hatching", icon: "🥚" },
+  pet_egg_shiny:  { effect: "Use in Pets tab to hatch a Mythic pet", icon: "✨" },
+  upgrade_stone:  { effect: "Used to upgrade equipment at the forge", icon: "🔧" },
+  pet_incubator:  { effect: "Required to start hatching a pet egg in the Pets tab", icon: "🔬" },
 };
 
 function getConsumableDesc(item) {
   const extra = item.extraData || item.extra_data || {};
   const cType = extra.consumableType || extra.materialType || "";
   return CONSUMABLE_DESCRIPTIONS[cType] || "";
+}
+
+function ConsumableDetail({ item }) {
+  const extra = item.extraData || item.extra_data || {};
+  const cType = extra.consumableType || extra.materialType || "";
+  const detail = CONSUMABLE_DETAILS[cType];
+  if (!detail) return null;
+  const stats = item.stats || {};
+  return (
+    <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+      <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Effect</p>
+      <p className="text-sm text-foreground">{detail.icon} {detail.effect}</p>
+      {stats.bonus_value && (
+        <p className="text-xs text-amber-400">Bonus: +{stats.bonus_value}%</p>
+      )}
+      {detail.duration && (
+        <p className="text-xs text-muted-foreground">Duration: {detail.duration}</p>
+      )}
+    </div>
+  );
 }
 
 function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew, onMarkSeen, allRunes = [] }) {
@@ -685,6 +719,9 @@ export default function Inventory({ character, onCharacterUpdate }) {
                       character={character}
                       socketedRunes={allRunes}
                     />
+                    {(selectedItem.type === "consumable" || selectedItem.type === "material") && (
+                      <ConsumableDetail item={selectedItem} />
+                    )}
                     {equippedInSlot && !selectedItem.equipped && (
                       <div className="mt-3 pt-3 border-t border-border">
                         <p className="text-xs text-muted-foreground mb-2">Currently Equipped:</p>
