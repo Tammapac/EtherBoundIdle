@@ -1766,52 +1766,66 @@ const DUNGEON_RESET_COST = 500;
 const DUNGEON_WINDOW_MS = 8 * 60 * 60 * 1000;
 
 // Skill data for damage multipliers (mirrored from frontend skillData.js)
-const SKILL_DATA: Record<string, { damage: number; mp: number }> = {
+const SKILL_DATA: Record<string, { damage: number; mp: number; element?: string }> = {
   // ── Warrior ──
-  w_basic_strike: { damage: 1.3, mp: 18 }, w_shield_block: { damage: 0, mp: 22 },
-  w_power_strike: { damage: 1.8, mp: 32 }, w_flame_slash: { damage: 1.5, mp: 35 },
-  w_shield_bash: { damage: 1.5, mp: 42 }, w_war_cry: { damage: 0, mp: 40 },
-  w_rage: { damage: 2.2, mp: 55 }, w_blood_rage: { damage: 1.7, mp: 48 },
-  w_whirlwind: { damage: 1.7, mp: 65 }, w_taunt: { damage: 0, mp: 45 },
-  w_ground_slam: { damage: 2.5, mp: 75 }, w_thunder_strike: { damage: 2.0, mp: 70 },
-  w_bulwark: { damage: 0, mp: 85 }, w_avatar: { damage: 3.0, mp: 110 },
-  w_juggernaut: { damage: 2.8, mp: 100 }, w_sand_veil: { damage: 1.5, mp: 90 },
-  w_titan_form: { damage: 0, mp: 140 }, w_armageddon: { damage: 5.0, mp: 160 },
-  w_eternal_guard: { damage: 3.5, mp: 130 },
+  w_basic_strike: { damage: 1.3, mp: 18, element: "physical" }, w_shield_block: { damage: 0, mp: 22 },
+  w_power_strike: { damage: 1.8, mp: 32, element: "physical" }, w_flame_slash: { damage: 1.5, mp: 35, element: "fire" },
+  w_shield_bash: { damage: 1.5, mp: 42, element: "physical" }, w_war_cry: { damage: 0, mp: 40 },
+  w_rage: { damage: 2.2, mp: 55, element: "physical" }, w_blood_rage: { damage: 1.7, mp: 48, element: "blood" },
+  w_whirlwind: { damage: 1.7, mp: 65, element: "physical" }, w_taunt: { damage: 0, mp: 45 },
+  w_ground_slam: { damage: 2.5, mp: 75, element: "physical" }, w_thunder_strike: { damage: 2.0, mp: 70, element: "lightning" },
+  w_bulwark: { damage: 0, mp: 85 }, w_avatar: { damage: 3.0, mp: 110, element: "physical" },
+  w_juggernaut: { damage: 2.8, mp: 100, element: "physical" }, w_sand_veil: { damage: 1.5, mp: 90, element: "sand" },
+  w_titan_form: { damage: 0, mp: 140 }, w_armageddon: { damage: 5.0, mp: 160, element: "fire" },
+  w_eternal_guard: { damage: 3.5, mp: 130, element: "physical" },
+  w_cleave: { damage: 1.6, mp: 40, element: "physical" }, w_iron_skin: { damage: 0, mp: 35 },
+  w_execute: { damage: 2.0, mp: 60, element: "physical" }, w_earthquake: { damage: 2.2, mp: 80, element: "sand" },
+  w_battle_shout: { damage: 0, mp: 50 }, w_blood_sacrifice: { damage: 3.2, mp: 95, element: "blood" },
+  w_tremor: { damage: 2.8, mp: 100, element: "physical" }, w_inferno_blade: { damage: 4.5, mp: 145, element: "fire" },
+  w_godslayer: { damage: 8.0, mp: 200, element: "physical" }, w_warlord_aura: { damage: 0, mp: 180 },
+  w_ragnarok: { damage: 10.0, mp: 250, element: "fire" },
   // ── Mage ──
-  m_magic_bolt: { damage: 1.4, mp: 22 }, m_frost_armor: { damage: 0, mp: 28 },
-  m_fireball: { damage: 1.9, mp: 38 }, m_poison_bolt: { damage: 1.2, mp: 30 },
-  m_ice_lance: { damage: 1.6, mp: 48 }, m_mana_shield: { damage: 0, mp: 55 },
-  m_arcane_burst: { damage: 2.4, mp: 65 }, m_lightning_bolt: { damage: 1.8, mp: 45 },
-  m_blizzard: { damage: 2.0, mp: 85 }, m_flame_wall: { damage: 1.8, mp: 80 },
-  m_time_warp: { damage: 0, mp: 75 }, m_meteor: { damage: 3.0, mp: 100 },
-  m_black_hole: { damage: 2.5, mp: 110 }, m_arcane_nova: { damage: 3.2, mp: 130 },
-  m_blood_pact: { damage: 2.0, mp: 95 }, m_chrono_rift: { damage: 0, mp: 100 },
-  m_ice_prison: { damage: 2.2, mp: 105 },
-  m_singularity: { damage: 4.0, mp: 150 }, m_genesis: { damage: 3.5, mp: 140 },
-  m_apocalypse: { damage: 6.0, mp: 180 },
+  m_magic_bolt: { damage: 1.4, mp: 22, element: "arcane" }, m_frost_armor: { damage: 0, mp: 28 },
+  m_fireball: { damage: 1.9, mp: 38, element: "fire" }, m_poison_bolt: { damage: 1.2, mp: 30, element: "poison" },
+  m_ice_lance: { damage: 1.6, mp: 48, element: "ice" }, m_mana_shield: { damage: 0, mp: 55 },
+  m_arcane_burst: { damage: 2.4, mp: 65, element: "arcane" }, m_lightning_bolt: { damage: 1.8, mp: 45, element: "lightning" },
+  m_blizzard: { damage: 2.0, mp: 85, element: "ice" }, m_flame_wall: { damage: 1.8, mp: 80, element: "fire" },
+  m_time_warp: { damage: 0, mp: 75 }, m_meteor: { damage: 3.0, mp: 100, element: "fire" },
+  m_black_hole: { damage: 2.5, mp: 110, element: "arcane" }, m_arcane_nova: { damage: 3.2, mp: 130, element: "arcane" },
+  m_blood_pact: { damage: 2.0, mp: 95, element: "blood" }, m_chrono_rift: { damage: 0, mp: 100 },
+  m_ice_prison: { damage: 2.2, mp: 105, element: "ice" },
+  m_singularity: { damage: 4.0, mp: 150, element: "arcane" }, m_genesis: { damage: 3.5, mp: 140, element: "arcane" },
+  m_apocalypse: { damage: 6.0, mp: 180, element: "fire" },
+  m_arcane_shield: { damage: 0, mp: 55 }, m_chain_lightning: { damage: 2.0, mp: 60, element: "lightning" },
+  m_poison_cloud: { damage: 1.5, mp: 55, element: "poison" }, m_frost_nova: { damage: 1.8, mp: 70, element: "ice" },
+  m_mana_burn: { damage: 1.6, mp: 65, element: "arcane" }, m_infernal_pact: { damage: 2.5, mp: 90, element: "fire" },
+  m_sandstorm: { damage: 2.0, mp: 80, element: "sand" }, m_arcane_god: { damage: 5.0, mp: 160, element: "arcane" },
+  m_supernova: { damage: 7.0, mp: 200, element: "fire" }, m_absolute_zero: { damage: 5.5, mp: 170, element: "ice" },
   // ── Ranger ──
-  r_quick_shot: { damage: 1.2, mp: 15 }, r_dodge_roll: { damage: 0, mp: 20 },
-  r_poison_shot: { damage: 1.0, mp: 22 }, r_fire_arrow: { damage: 1.4, mp: 28 },
-  r_triple_shot: { damage: 1.5, mp: 40 }, r_frost_arrow: { damage: 1.3, mp: 35 },
-  r_multishot: { damage: 2.2, mp: 60 }, r_lightning_arrow: { damage: 1.8, mp: 52 },
-  r_eagle_eye: { damage: 0, mp: 45 }, r_traps: { damage: 1.5, mp: 55 },
-  r_sand_trap: { damage: 1.4, mp: 50 }, r_arrow_rain: { damage: 2.5, mp: 80 },
-  r_hunters_mark: { damage: 0, mp: 70 }, r_blood_arrow: { damage: 2.0, mp: 75 },
-  r_volley: { damage: 2.8, mp: 100 }, r_shadow_step: { damage: 1.8, mp: 85 },
-  r_death_arrow: { damage: 4.0, mp: 130 }, r_storm_bow: { damage: 4.5, mp: 150 },
-  r_wrath_of_hunt: { damage: 5.0, mp: 160 },
+  r_quick_shot: { damage: 1.2, mp: 15, element: "physical" }, r_dodge_roll: { damage: 0, mp: 20 },
+  r_poison_shot: { damage: 1.0, mp: 22, element: "poison" }, r_fire_arrow: { damage: 1.4, mp: 28, element: "fire" },
+  r_triple_shot: { damage: 1.5, mp: 40, element: "physical" }, r_frost_arrow: { damage: 1.3, mp: 35, element: "ice" },
+  r_multishot: { damage: 2.2, mp: 60, element: "physical" }, r_lightning_arrow: { damage: 1.8, mp: 52, element: "lightning" },
+  r_eagle_eye: { damage: 0, mp: 45 }, r_traps: { damage: 1.5, mp: 55, element: "physical" },
+  r_sand_trap: { damage: 1.4, mp: 50, element: "sand" }, r_arrow_rain: { damage: 2.5, mp: 80, element: "physical" },
+  r_hunters_mark: { damage: 0, mp: 70 }, r_blood_arrow: { damage: 2.0, mp: 75, element: "blood" },
+  r_volley: { damage: 2.8, mp: 100, element: "physical" }, r_shadow_step: { damage: 1.8, mp: 85, element: "physical" },
+  r_death_arrow: { damage: 4.0, mp: 130, element: "poison" }, r_storm_bow: { damage: 4.5, mp: 150, element: "lightning" },
+  r_wrath_of_hunt: { damage: 5.0, mp: 160, element: "physical" },
+  r_nature_bond: { damage: 0, mp: 55 }, r_explosive_arrow: { damage: 1.6, mp: 35, element: "fire" },
+  r_wind_walk: { damage: 0, mp: 30 }, r_venom_rain: { damage: 2.2, mp: 75, element: "poison" },
+  r_snipe: { damage: 2.5, mp: 65, element: "physical" }, r_elemental_quiver: { damage: 0, mp: 80 },
   // ── Rogue ──
-  ro_quick_slash: { damage: 1.3, mp: 16 }, ro_smoke_bomb: { damage: 0, mp: 22 },
-  ro_poison_blade: { damage: 1.1, mp: 20 }, ro_backstab: { damage: 2.0, mp: 32 },
-  ro_open_wounds: { damage: 1.5, mp: 38 }, ro_pickpocket: { damage: 0, mp: 30 },
-  ro_frost_strike: { damage: 1.4, mp: 35 }, ro_lightning_step: { damage: 1.8, mp: 48 },
-  ro_blade_dance: { damage: 1.8, mp: 60 }, ro_garrote: { damage: 1.6, mp: 55 },
-  ro_sand_blind: { damage: 1.3, mp: 50 }, ro_shadow_strike: { damage: 2.5, mp: 75 },
-  ro_blood_frenzy: { damage: 2.2, mp: 85 }, ro_death_mark: { damage: 2.0, mp: 80 },
-  ro_assassinate: { damage: 3.5, mp: 110 }, ro_shadow_realm_entry: { damage: 2.0, mp: 90 },
-  ro_oblivion: { damage: 4.0, mp: 130 }, ro_phantom: { damage: 3.5, mp: 125 },
-  ro_reaper: { damage: 5.5, mp: 170 },
+  ro_quick_slash: { damage: 1.3, mp: 16, element: "physical" }, ro_smoke_bomb: { damage: 0, mp: 22 },
+  ro_poison_blade: { damage: 1.1, mp: 20, element: "poison" }, ro_backstab: { damage: 2.0, mp: 32, element: "physical" },
+  ro_open_wounds: { damage: 1.5, mp: 38, element: "blood" }, ro_pickpocket: { damage: 0, mp: 30 },
+  ro_frost_strike: { damage: 1.4, mp: 35, element: "ice" }, ro_lightning_step: { damage: 1.8, mp: 48, element: "lightning" },
+  ro_blade_dance: { damage: 1.8, mp: 60, element: "physical" }, ro_garrote: { damage: 1.6, mp: 55, element: "blood" },
+  ro_sand_blind: { damage: 1.3, mp: 50, element: "sand" }, ro_shadow_strike: { damage: 2.5, mp: 75, element: "physical" },
+  ro_blood_frenzy: { damage: 2.2, mp: 85, element: "blood" }, ro_death_mark: { damage: 2.0, mp: 80, element: "poison" },
+  ro_assassinate: { damage: 3.5, mp: 110, element: "physical" }, ro_shadow_realm_entry: { damage: 2.0, mp: 90, element: "physical" },
+  ro_oblivion: { damage: 4.0, mp: 130, element: "physical" }, ro_phantom: { damage: 3.5, mp: 125, element: "physical" },
+  ro_reaper: { damage: 5.5, mp: 170, element: "physical" },
 };
 
 // Calculate full member stats including equipment for dungeon sessions
@@ -1855,6 +1869,51 @@ async function calculateDungeonMemberStats(charId: number, char: any) {
     }
   } catch {}
 
+  // Rune bonuses (socketed runes — those with an itemId)
+  const RUNE_STAT_MAP: Record<string, string> = {
+    attack_pct: "damage", crit_chance: "crit_chance", crit_dmg_pct: "crit_dmg_pct",
+    attack_speed: "attack_speed", lifesteal: "lifesteal", defense_pct: "defense",
+    block_chance: "block_chance", evasion: "evasion", hp_flat: "hp_bonus", mp_flat: "mp_bonus",
+    fire_dmg: "fire_dmg", ice_dmg: "ice_dmg", lightning_dmg: "lightning_dmg",
+    poison_dmg: "poison_dmg", blood_dmg: "blood_dmg", sand_dmg: "sand_dmg",
+    boss_dmg_pct: "boss_dmg_pct",
+  };
+  let bossDmgPct = 0;
+  try {
+    const runes = await db.select().from(runesTable).where(
+      and(eq(runesTable.characterId, String(charId)), sql`${runesTable.itemId} IS NOT NULL`)
+    );
+    for (const rune of runes) {
+      const mainKey = RUNE_STAT_MAP[rune.mainStat];
+      if (mainKey) {
+        if (mainKey === "damage") dmgBonus += rune.mainValue || 0;
+        else if (mainKey === "defense") totalDef += rune.mainValue || 0;
+        else if (mainKey === "hp_bonus") hpBonus += rune.mainValue || 0;
+        else if (mainKey === "mp_bonus") mpBonus += rune.mainValue || 0;
+        else if (mainKey === "crit_chance") critChance += rune.mainValue || 0;
+        else if (mainKey === "crit_dmg_pct") critDmgPct += rune.mainValue || 0;
+        else if (mainKey === "attack_speed") atkSpeed += rune.mainValue || 0;
+        else if (mainKey === "lifesteal") lifesteal += rune.mainValue || 0;
+        else if (mainKey === "evasion") evasion += rune.mainValue || 0;
+        else if (mainKey === "block_chance") blockChance += rune.mainValue || 0;
+        else if (mainKey === "boss_dmg_pct") bossDmgPct += rune.mainValue || 0;
+        else if (ELEM_KEYS.includes(mainKey)) elemDmg[mainKey] = (elemDmg[mainKey] || 0) + (rune.mainValue || 0);
+      }
+      // Sub-stats
+      const subs = (rune.subStats as any[]) || [];
+      for (const sub of subs) {
+        const subKey = RUNE_STAT_MAP[sub.stat];
+        if (subKey === "damage") dmgBonus += sub.value || 0;
+        else if (subKey === "defense") totalDef += sub.value || 0;
+        else if (subKey === "crit_chance") critChance += sub.value || 0;
+        else if (subKey === "crit_dmg_pct") critDmgPct += sub.value || 0;
+        else if (subKey === "lifesteal") lifesteal += sub.value || 0;
+        else if (subKey === "boss_dmg_pct") bossDmgPct += sub.value || 0;
+        else if (subKey && ELEM_KEYS.includes(subKey)) elemDmg[subKey] = (elemDmg[subKey] || 0) + (sub.value || 0);
+      }
+    }
+  } catch {}
+
   const level = char.level || 1;
   // HP formula mirrors frontend statSystem: base + vit scaling + hp_bonus + level
   const maxHp = Math.floor(100 + totalVit * 12 + hpBonus + level * 8);
@@ -1883,6 +1942,7 @@ async function calculateDungeonMemberStats(charId: number, char: any) {
     evasion,
     block_chance: blockChance,
     elemental_damage: elemDmg,
+    boss_dmg_pct: bossDmgPct,
   };
 }
 
@@ -6486,29 +6546,34 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
 
       let dmgMult = 1.0;
       let skillName = "Basic Attack";
+      let skillElement: string | undefined;
       if (action === "skill" && skillId && SKILL_DATA[skillId]) {
         // Match battle formula: skill multiplier is applied twice (once for base scaling, once for skill power)
         const skillBase = SKILL_DATA[skillId].damage || 1.0;
         dmgMult = skillBase * skillBase;
         skillName = skillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+        skillElement = SKILL_DATA[skillId].element;
       }
-      const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
-      let playerDmg = Math.max(1, rawDmg - Math.floor((d.boss_armor || boss.armor) * 0.4));
 
-      // Elemental bonus
+      // Elemental multiplier (multiplicative, matching battle rollDamage formula)
       const memberElemDmg = me.elemental_damage || {};
       const ELEM_MAP: Record<string, string> = { fire: "fire_dmg", ice: "ice_dmg", lightning: "lightning_dmg", poison: "poison_dmg", blood: "blood_dmg", sand: "sand_dmg" };
-      let elemBonusDmg = 0;
-      for (const [, statKey] of Object.entries(ELEM_MAP)) {
-        const val = memberElemDmg[statKey] || 0;
-        if (val > 0) elemBonusDmg += val;
+      let elementalMult = 1.0;
+      if (skillElement && ELEM_MAP[skillElement]) {
+        const elemPct = memberElemDmg[ELEM_MAP[skillElement]] || 0;
+        if (elemPct > 0) elementalMult = 1 + elemPct / 100;
       }
-      if (elemBonusDmg > 0) playerDmg += elemBonusDmg;
 
-      // Crit
+      // Boss damage bonus from runes
+      const bossDmgMult = 1 + ((me.boss_dmg_pct || 0) / 100);
+
+      const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * elementalMult * bossDmgMult * (0.85 + Math.random() * 0.3)));
+      let playerDmg = Math.max(1, rawDmg - Math.floor((d.boss_armor || boss.armor) * 0.4));
+
+      // Crit (matching battle formula: BASE_CRIT_DMG_PCT=115, CRIT_DMG_LUK_RATE=0.1)
       const effectiveCritChance = Math.min(0.5, ((me.crit_chance || 0) + totalLuck * 0.3 + totalDex * 0.1) / 100);
       const isCrit = Math.random() < effectiveCritChance;
-      const critMultiplier = 1.5 + ((me.crit_dmg_pct || 0) / 100);
+      const critMultiplier = (115 + totalLuck * 0.1 + (me.crit_dmg_pct || 0)) / 100;
       const finalDmg = isCrit ? Math.floor(playerDmg * critMultiplier) : playerDmg;
 
       // Apply damage to boss
@@ -6860,13 +6925,9 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
 
       const memberElemDmg = me.elemental_damage || {};
       const ELEM_MAP: Record<string, string> = { fire: "fire_dmg", ice: "ice_dmg", lightning: "lightning_dmg", poison: "poison_dmg", blood: "blood_dmg", sand: "sand_dmg" };
-      let elemBonusDmg = 0;
-      for (const [, statKey] of Object.entries(ELEM_MAP)) {
-        const val = memberElemDmg[statKey] || 0;
-        if (val > 0) elemBonusDmg += val;
-      }
       const effectiveCritChance = Math.min(0.5, ((me.crit_chance || 0) + totalLuck * 0.3 + totalDex * 0.1) / 100);
-      const critMultiplier = 1.5 + ((me.crit_dmg_pct || 0) / 100);
+      const critMultiplier = (115 + totalLuck * 0.1 + (me.crit_dmg_pct || 0)) / 100;
+      const bossDmgMult = 1 + ((me.boss_dmg_pct || 0) / 100);
       const bossDmgBase = d.boss_dmg || boss.dmg;
       const memberDef = me.defense || 0;
       const memberVit = me.vitality || 8;
@@ -6886,17 +6947,23 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
 
         // Cycle through skills, fall back to basic attack
         let dmgMult = 1.0;
-        let skillName = "Basic Attack";
+        let skillElement: string | undefined;
         if (charSkillIds.length > 0) {
           const sid = charSkillIds[i % charSkillIds.length];
           const skillBase = SKILL_DATA[sid].damage || 1.0;
           dmgMult = skillBase * skillBase;
-          skillName = sid.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+          skillElement = SKILL_DATA[sid].element;
         }
 
-        const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
+        // Elemental multiplier (multiplicative, matching battle)
+        let elementalMult = 1.0;
+        if (skillElement && ELEM_MAP[skillElement]) {
+          const elemPct = memberElemDmg[ELEM_MAP[skillElement]] || 0;
+          if (elemPct > 0) elementalMult = 1 + elemPct / 100;
+        }
+
+        const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * elementalMult * bossDmgMult * (0.85 + Math.random() * 0.3)));
         let playerDmg = Math.max(1, rawDmg - Math.floor((d.boss_armor || boss.armor) * 0.4));
-        if (elemBonusDmg > 0) playerDmg += elemBonusDmg;
 
         const isCrit = Math.random() < effectiveCritChance;
         const finalDmg = isCrit ? Math.floor(playerDmg * critMultiplier) : playerDmg;
