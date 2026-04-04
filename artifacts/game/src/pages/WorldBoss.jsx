@@ -154,23 +154,33 @@ function WorldBossCombat({ boss, character, onLeave }) {
     }
   };
 
-  const buyAttacks = async (pack) => {
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const doBulkAttack = async (pack) => {
+    if (bulkLoading) return;
+    setBulkLoading(true);
     try {
       const res = await base44.functions.invoke("worldBossAction", {
-        action: "buy_attacks", characterId: character.id, zone: boss.zone, pack,
+        action: "bulk_attack", characterId: character.id, zone: boss.zone, pack,
       });
       if (res?.session) setSession(res.session);
       if (res?.myEntry) setMyEntry(res.myEntry);
-      toast({ title: res?.message || "Attacks purchased!" });
+      if (res?.bossDefeated) {
+        setAutoFight(false);
+        toast({ title: "Boss Defeated!", description: res?.message });
+      } else {
+        toast({ title: res?.message || "Bulk attack complete!" });
+      }
     } catch (err) {
-      toast({ title: err.message || "Purchase failed", variant: "destructive" });
+      toast({ title: err.message || "Bulk attack failed", variant: "destructive" });
+    } finally {
+      setBulkLoading(false);
     }
   };
 
-  const ATTACK_PACKS = [
-    { id: "small",  attacks: 10,  gems: 50,  label: "10 Attacks" },
-    { id: "medium", attacks: 50,  gems: 250, label: "50 Attacks" },
-    { id: "large",  attacks: 100, gems: 500, label: "100 Attacks" },
+  const BULK_PACKS = [
+    { id: "x10",  attacks: 10,  gems: 50  },
+    { id: "x50",  attacks: 50,  gems: 250 },
+    { id: "x100", attacks: 100, gems: 500 },
   ];
 
   const theme = ZONE_THEMES[boss.zone] || ZONE_THEMES.verdant_forest;
@@ -234,25 +244,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
             </div>
             <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
               <span>{((bossHp / bossMaxHp) * 100).toFixed(2)}% HP</span>
-              {myEntry && (
-                <div className="flex items-center gap-2">
-                  <span>Your DMG: {formatHp(myEntry.totalDamage || 0)} | Attacks: {myEntry.attacks || 0}/{myMaxAttacks}</span>
-                  {isActive && (
-                    <div className="flex gap-1">
-                      {ATTACK_PACKS.map(pack => (
-                        <button
-                          key={pack.id}
-                          onClick={(e) => { e.stopPropagation(); buyAttacks(pack.id); }}
-                          className="px-1.5 py-0.5 rounded border border-violet-500/40 bg-violet-600/20 hover:bg-violet-600/40 transition-colors text-[9px] flex items-center gap-0.5"
-                          title={`Buy ${pack.attacks} attacks for ${pack.gems} gems`}
-                        >
-                          +{pack.attacks}<Gem className="w-2.5 h-2.5 text-violet-400" />{pack.gems}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {myEntry && <span>Your DMG: {formatHp(myEntry.totalDamage || 0)} | Attacks: {myEntry.attacks || 0}/{myMaxAttacks}</span>}
             </div>
           </div>
 
@@ -270,53 +262,66 @@ function WorldBossCombat({ boss, character, onLeave }) {
       </div>
 
       {/* Action Bar */}
-      {isActive && myEntry && myEntry.hp > 0 && attacksLeft > 0 && (
-        <div className="bg-card border border-border rounded-xl p-2">
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => doAction("attack")}
-              disabled={loading}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-violet-600/30 border-violet-500/50 hover:bg-violet-600/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px]"
-            >
-              <Swords className="w-3.5 h-3.5 text-foreground" />
-              <span className="text-[9px] font-medium leading-none">Attack</span>
-            </button>
-            {charSkills.map(skill => {
-              const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
-              const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
-                : skill.buff === "attack" ? "border-orange-500/50 text-orange-400"
-                : elem ? `border-current/30 ${elem.color}` : "border-violet-500/30 text-secondary";
-              return (
-                <button
-                  key={skill.id}
-                  onClick={() => doAction("skill", skill.id)}
-                  disabled={loading}
-                  title={`${skill.description || skill.name}\n${skill.mp}MP`}
-                  className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
-                >
-                  <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>
-                  <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
-                  <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
-                </button>
-              );
-            })}
+      {isActive && myEntry && myEntry.hp > 0 && (
+        <div className="bg-card border border-border rounded-xl p-2 space-y-1.5">
+          {attacksLeft > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => doAction("attack")}
+                disabled={loading}
+                className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-violet-600/30 border-violet-500/50 hover:bg-violet-600/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px]"
+              >
+                <Swords className="w-3.5 h-3.5 text-foreground" />
+                <span className="text-[9px] font-medium leading-none">Attack</span>
+              </button>
+              {charSkills.map(skill => {
+                const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
+                const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
+                  : skill.buff === "attack" ? "border-orange-500/50 text-orange-400"
+                  : elem ? `border-current/30 ${elem.color}` : "border-violet-500/30 text-secondary";
+                return (
+                  <button
+                    key={skill.id}
+                    onClick={() => doAction("skill", skill.id)}
+                    disabled={loading}
+                    title={`${skill.description || skill.name}\n${skill.mp}MP`}
+                    className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
+                  >
+                    <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>
+                    <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
+                    <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {attacksLeft <= 0 && (
+            <p className="text-xs text-amber-400 text-center font-semibold">Max attacks reached! Use bulk attacks below:</p>
+          )}
+          {/* Bulk attack buttons — always visible */}
+          <div className="flex gap-1.5 justify-center border-t border-border/30 pt-1.5">
+            {BULK_PACKS.map(pack => (
+              <button
+                key={pack.id}
+                onClick={() => doBulkAttack(pack.id)}
+                disabled={bulkLoading}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-500/40 bg-amber-600/20 hover:bg-amber-600/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-xs"
+              >
+                <Zap className="w-3 h-3 text-amber-400" />
+                <span className="font-bold text-amber-300">x{pack.attacks}</span>
+                <span className="text-[10px] text-violet-300 flex items-center gap-0.5"><Gem className="w-2.5 h-2.5" />{pack.gems}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* KO or no attacks */}
+      {/* KO */}
       {isDead && isActive && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-center">
           <Skull className="w-6 h-6 text-red-400 mx-auto mb-1" />
           <p className="text-sm text-red-400 font-bold">You've been knocked out!</p>
           <p className="text-xs text-muted-foreground">Wait for the boss to be defeated to claim rewards.</p>
-        </div>
-      )}
-      {attacksLeft <= 0 && isActive && !isDead && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
-          <Timer className="w-5 h-5 text-amber-400 mx-auto mb-1" />
-          <p className="text-sm text-amber-400 font-bold">Max attacks reached!</p>
-          <p className="text-xs text-muted-foreground">Use the buy buttons above to get more attacks.</p>
         </div>
       )}
 
