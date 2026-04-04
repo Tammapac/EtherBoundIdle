@@ -6798,25 +6798,31 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       return;
     }
 
-    // === LEADERBOARD ===
-    // === BUY MORE ATTACKS WITH GEMS ===
-    if (action === "buy_attacks") {
+    // === BULK ATTACK (x10/x50/x100) — costs gems, executes multiple attacks at once ===
+    if (action === "bulk_attack") {
       if (!zone) { sendError(res, 400, "zone required"); return; }
       const { pack } = req.body;
-      const ATTACK_PACKS: Record<string, { attacks: number; gems: number }> = {
-        small:  { attacks: 10,  gems: 50 },
-        medium: { attacks: 50,  gems: 250 },
-        large:  { attacks: 100, gems: 500 },
+      const BULK_PACKS: Record<string, { attacks: number; gems: number }> = {
+        x10:  { attacks: 10,  gems: 50 },
+        x50:  { attacks: 50,  gems: 250 },
+        x100: { attacks: 100, gems: 500 },
       };
-      const chosen = ATTACK_PACKS[pack];
-      if (!chosen) { sendError(res, 400, "Invalid pack. Use: small, medium, large"); return; }
+      const chosen = BULK_PACKS[pack];
+      if (!chosen) { sendError(res, 400, "Invalid pack"); return; }
 
       const session = await getOrCreateWorldBossSession(zone);
       if (!session || session.status !== "active") { sendError(res, 400, "Boss not active"); return; }
+      if (Date.now() > new Date(session.expiresAt).getTime()) {
+        await db.update(worldBossSessionsTable).set({ status: "expired" }).where(eq(worldBossSessionsTable.id, session.id));
+        sendError(res, 400, "Boss expired"); return;
+      }
 
+      const d = (session.data as any) || {};
       const participants = (session.participants as any[]) || [];
       const meIdx = participants.findIndex((p: any) => p.characterId === characterId);
       if (meIdx < 0) { sendError(res, 400, "Join the boss fight first"); return; }
+      const me = participants[meIdx];
+      if (me.hp <= 0) { sendError(res, 400, "You are KO'd"); return; }
 
       // Check gems
       if (char.gems < chosen.gems) { sendError(res, 400, `Not enough gems. Need ${chosen.gems}, have ${char.gems}`); return; }
@@ -6824,20 +6830,135 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       // Deduct gems
       await db.update(charactersTable).set({ gems: char.gems - chosen.gems }).where(eq(charactersTable.id, characterId));
 
-      // Increase max attacks for this session
-      const me = participants[meIdx];
-      me.maxAttacks = (me.maxAttacks || WORLD_BOSS_MAX_ATTACKS) + chosen.attacks;
+      // Get player's skills for cycling
+      const charSkillIds = (char.hotbarSkills as string[] || char.skills as string[] || []).filter(
+        (sid: string) => SKILL_DATA[sid] && SKILL_DATA[sid].damage > 0
+      );
+
+      // Pre-calc constants
+      const totalStr = me.strength || 10;
+      const totalDex = me.dexterity || 8;
+      const totalInt = me.intelligence || 5;
+      const totalLuck = me.luck || 5;
+      const classScaling: Record<string, { primary: string; mult: number }> = {
+        warrior: { primary: "strength", mult: 1.3 },
+        mage: { primary: "intelligence", mult: 1.4 },
+        ranger: { primary: "dexterity", mult: 1.2 },
+        rogue: { primary: "dexterity", mult: 1.2 },
+      };
+      const scaling = classScaling[char.class || "warrior"] || classScaling.warrior;
+      const primaryStat = scaling.primary === "strength" ? totalStr : scaling.primary === "intelligence" ? totalInt : totalDex;
+      let baseDmg = primaryStat * scaling.mult + (me.damage || 0);
+
+      // Guild bonus
+      if (char.guildId) {
+        try {
+          const [g] = await db.select({ buffs: guildsTable.buffs }).from(guildsTable).where(eq(guildsTable.id, char.guildId));
+          if (g?.buffs && typeof g.buffs === "object") baseDmg *= (1 + ((g.buffs as any).damage_bonus || 0) / 100);
+        } catch {}
+      }
+
+      const memberElemDmg = me.elemental_damage || {};
+      const ELEM_MAP: Record<string, string> = { fire: "fire_dmg", ice: "ice_dmg", lightning: "lightning_dmg", poison: "poison_dmg", blood: "blood_dmg", sand: "sand_dmg" };
+      let elemBonusDmg = 0;
+      for (const [, statKey] of Object.entries(ELEM_MAP)) {
+        const val = memberElemDmg[statKey] || 0;
+        if (val > 0) elemBonusDmg += val;
+      }
+      const effectiveCritChance = Math.min(0.5, ((me.crit_chance || 0) + totalLuck * 0.3 + totalDex * 0.1) / 100);
+      const critMultiplier = 1.5 + ((me.crit_dmg_pct || 0) / 100);
+      const bossDmgBase = d.boss_dmg || boss.dmg;
+      const memberDef = me.defense || 0;
+      const memberVit = me.vitality || 8;
+      const totalDefense = memberDef + memberVit * 0.5;
+      const memberEvasion = Math.min(0.4, (me.evasion || 0) / 100);
+      const memberBlock = Math.min(0.35, (me.block_chance || 0) / 100);
+
+      let bossHp = d.boss_hp ?? boss.hp;
+      let totalDmgDealt = 0;
+      let crits = 0;
+      let attacksDone = 0;
+      let bossDefeated = false;
+      d.combat_log = d.combat_log || [];
+
+      for (let i = 0; i < chosen.attacks; i++) {
+        if (bossHp <= 0 || me.hp <= 0) break;
+
+        // Cycle through skills, fall back to basic attack
+        let dmgMult = 1.0;
+        let skillName = "Basic Attack";
+        if (charSkillIds.length > 0) {
+          const sid = charSkillIds[i % charSkillIds.length];
+          const skillBase = SKILL_DATA[sid].damage || 1.0;
+          dmgMult = skillBase * skillBase;
+          skillName = sid.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+        }
+
+        const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
+        let playerDmg = Math.max(1, rawDmg - Math.floor((d.boss_armor || boss.armor) * 0.4));
+        if (elemBonusDmg > 0) playerDmg += elemBonusDmg;
+
+        const isCrit = Math.random() < effectiveCritChance;
+        const finalDmg = isCrit ? Math.floor(playerDmg * critMultiplier) : playerDmg;
+        if (isCrit) crits++;
+
+        bossHp = Math.max(0, bossHp - finalDmg);
+        totalDmgDealt += finalDmg;
+        me.totalDamage = (me.totalDamage || 0) + finalDmg;
+        me.attacks = (me.attacks || 0) + 1;
+        attacksDone++;
+
+        // Lifesteal
+        if ((me.lifesteal || 0) > 0 && finalDmg > 0) {
+          const healAmt = Math.min(Math.floor(finalDmg * me.lifesteal / 100), Math.floor(me.maxHp * 0.10));
+          if (healAmt > 0) me.hp = Math.min(me.maxHp, me.hp + healAmt);
+        }
+
+        // Boss counter-attack
+        const bDmg = Math.max(1, Math.floor(bossDmgBase * (0.8 + Math.random() * 0.4)));
+        const evaded = Math.random() < memberEvasion;
+        if (!evaded) {
+          const blocked = Math.random() < memberBlock;
+          const mitigated = Math.max(1, bDmg - Math.floor(totalDefense * 0.3));
+          const actualDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+          me.hp = Math.max(0, me.hp - actualDmg);
+        }
+
+        if (bossHp <= 0) { bossDefeated = true; break; }
+      }
+
+      // Summary log entry
+      d.combat_log.push({
+        type: "player_attack",
+        text: `${me.name} unleashes x${attacksDone} attacks for ${formatHp(totalDmgDealt)} total damage! (${crits} crits)`,
+      });
+      if (me.hp <= 0) {
+        d.combat_log.push({ type: "system", text: `${me.name} has been knocked out!` });
+      }
+
+      d.boss_hp = bossHp;
+      if (d.combat_log.length > 50) d.combat_log = d.combat_log.slice(-50);
       participants[meIdx] = me;
 
-      await db.update(worldBossSessionsTable).set({ participants }).where(eq(worldBossSessionsTable.id, session.id));
+      if (bossDefeated) {
+        d.boss_hp = 0;
+        d.combat_log.push({ type: "victory", text: `${d.boss_name || boss.name} has been defeated! All participants can claim rewards!` });
+        await db.update(worldBossSessionsTable).set({ status: "defeated", data: d, participants }).where(eq(worldBossSessionsTable.id, session.id));
+        sendSuccess(res, {
+          success: true,
+          message: `x${attacksDone} attacks — ${formatHp(totalDmgDealt)} total damage (${crits} crits)! Boss defeated!`,
+          session: { id: session.id, zone, status: "defeated", ...d, participants },
+          myEntry: me, bossDefeated: true, newGems: char.gems - chosen.gems,
+        });
+        return;
+      }
 
-      const d = (session.data as any) || {};
+      await db.update(worldBossSessionsTable).set({ data: d, participants }).where(eq(worldBossSessionsTable.id, session.id));
       sendSuccess(res, {
         success: true,
-        message: `Purchased ${chosen.attacks} extra attacks for ${chosen.gems} gems!`,
-        newGems: char.gems - chosen.gems,
-        myEntry: me,
-        session: { id: session.id, zone, status: session.status, ...d, participants },
+        message: `x${attacksDone} attacks — ${formatHp(totalDmgDealt)} total damage (${crits} crits)!`,
+        session: { id: session.id, zone, status: "active", ...d, participants },
+        myEntry: me, newGems: char.gems - chosen.gems,
       });
       return;
     }
