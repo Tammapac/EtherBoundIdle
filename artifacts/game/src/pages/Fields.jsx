@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +13,6 @@ import {
   ChevronUp, ChevronDown, Gem,
 } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
-import HealthBar from "@/components/game/HealthBar";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const ELEMENT_ICONS = {
@@ -24,15 +23,207 @@ const ELEMENT_COLORS = {
   fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-400",
   poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400", neutral: "text-gray-400",
 };
-const ELEMENT_BG = {
-  fire: "from-orange-900/40 to-red-900/30",
-  ice: "from-cyan-900/40 to-blue-900/30",
-  lightning: "from-yellow-900/40 to-amber-900/30",
-  poison: "from-green-900/40 to-emerald-900/30",
-  blood: "from-red-900/40 to-rose-900/30",
-  sand: "from-amber-900/40 to-yellow-900/30",
-  neutral: "from-gray-900/40 to-slate-900/30",
-};
+
+// ── Pixel art landscape SVG generator ──
+// Creates an inline SVG data URI with a pixelated landscape per element
+function generatePixelLandscape(element, width = 320, height = 200) {
+  const px = 8;
+  const cols = Math.ceil(width / px);
+  const rows = Math.ceil(height / px);
+
+  const themes = {
+    fire: {
+      sky1: "#1a0500", sky2: "#3d1000", sky3: "#5c1a00", sky4: "#7a2500",
+      cloud: "#4a2000", mountain1: "#2d0800", mountain2: "#451200",
+      field1: "#8b3000", field2: "#a64000", field3: "#c25000",
+      grass: "#3d1500", grassTip: "#5c2000",
+    },
+    ice: {
+      sky1: "#0a1628", sky2: "#1a3050", sky3: "#3a6090", sky4: "#5a8ab8",
+      cloud: "#c8dff0", mountain1: "#4a6a8a", mountain2: "#6a8aaa",
+      field1: "#b8d8f0", field2: "#d0e8f8", field3: "#e8f4ff",
+      grass: "#2a4a68", grassTip: "#4a6a88",
+    },
+    lightning: {
+      sky1: "#0a0a1a", sky2: "#1a1530", sky3: "#2d2545", sky4: "#403060",
+      cloud: "#3a3050", mountain1: "#252040", mountain2: "#352a50",
+      field1: "#8a7a30", field2: "#a89838", field3: "#c8b840",
+      grass: "#3a3520", grassTip: "#504a30",
+    },
+    poison: {
+      sky1: "#0a1a0a", sky2: "#0a2a10", sky3: "#103a18", sky4: "#185025",
+      cloud: "#1a3a20", mountain1: "#0a2a0a", mountain2: "#1a3a15",
+      field1: "#2a5a20", field2: "#3a7a2a", field3: "#4a9a34",
+      grass: "#1a3a10", grassTip: "#2a5a1a",
+    },
+    blood: {
+      sky1: "#1a0508", sky2: "#2d0a10", sky3: "#450f18", sky4: "#601520",
+      cloud: "#3a1520", mountain1: "#2d0a0a", mountain2: "#451515",
+      field1: "#5a1520", field2: "#7a2030", field3: "#9a2a3a",
+      grass: "#2d0a10", grassTip: "#451520",
+    },
+    sand: {
+      sky1: "#2a2010", sky2: "#4a3818", sky3: "#6a5028", sky4: "#8a6838",
+      cloud: "#d8c898", mountain1: "#6a5530", mountain2: "#8a7040",
+      field1: "#c8a850", field2: "#d8b860", field3: "#e8c870",
+      grass: "#5a4820", grassTip: "#7a6030",
+    },
+    neutral: {
+      sky1: "#6ab8e0", sky2: "#88ccee", sky3: "#a8ddf0", sky4: "#c8eeff",
+      cloud: "#ffffff", mountain1: "#6a8aaa", mountain2: "#8aaaca",
+      field1: "#c8b830", field2: "#d8c840", field3: "#b8a828",
+      grass: "#2a4a18", grassTip: "#3a5a20",
+    },
+  };
+
+  const t = themes[element] || themes.neutral;
+  let rects = [];
+
+  // Mountain shape function - returns height (0-1) at column position
+  const mountainAt = (col) => {
+    const x = col / cols;
+    // Three overlapping peaks
+    const p1 = Math.max(0, 1 - Math.abs(x - 0.2) * 5) * 0.7;
+    const p2 = Math.max(0, 1 - Math.abs(x - 0.5) * 4) * 0.9;
+    const p3 = Math.max(0, 1 - Math.abs(x - 0.78) * 4.5) * 0.8;
+    // Smaller bumps
+    const b1 = Math.max(0, 1 - Math.abs(x - 0.35) * 8) * 0.4;
+    const b2 = Math.max(0, 1 - Math.abs(x - 0.92) * 7) * 0.35;
+    return Math.max(p1, p2, p3, b1, b2);
+  };
+
+  // Cloud shapes
+  const clouds = [
+    { cx: 4, cy: 3, w: 7, h: 3 },   // left cloud
+    { cx: 15, cy: 2, w: 5, h: 2 },   // small center
+    { cx: 26, cy: 4, w: 9, h: 3 },   // right cloud
+    { cx: 35, cy: 2, w: 4, h: 2 },   // far right
+  ];
+  const isCloud = (col, row) => {
+    const c = col % 40;
+    const r = row;
+    for (const cloud of clouds) {
+      const dx = c - cloud.cx;
+      const dy = r - cloud.cy;
+      // Elliptical shape
+      if ((dx * dx) / (cloud.w * cloud.w / 4) + (dy * dy) / (cloud.h * cloud.h / 4) <= 1) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Grass blade heights (pre-computed)
+  const grassBlades = [];
+  for (let c = 0; c < cols; c++) {
+    grassBlades[c] = ((Math.sin(c * 0.8) + Math.sin(c * 1.7) * 0.5 + 1.5) / 3) * 4 + 1;
+  }
+
+  for (let row = 0; row < rows; row++) {
+    const y = row * px;
+    const rowPct = row / rows;
+
+    for (let col = 0; col < cols; col++) {
+      const x = col * px;
+      let color;
+
+      const skyEnd = 0.38;
+      const mountainStart = 0.30;
+      const mountainEnd = 0.52;
+      const fieldEnd = 0.82;
+
+      // Sky (top 38%)
+      if (rowPct < 0.10) color = t.sky1;
+      else if (rowPct < 0.20) color = t.sky2;
+      else if (rowPct < 0.30) color = t.sky3;
+      else if (rowPct < skyEnd) color = t.sky4;
+
+      // Clouds overlay (10%-30%)
+      if (rowPct >= 0.08 && rowPct <= 0.30) {
+        const cloudRow = Math.floor(row * 0.5);
+        if (isCloud(col, cloudRow)) {
+          color = t.cloud;
+        }
+      }
+
+      // Mountains zone (30%-52%)
+      if (rowPct >= mountainStart && rowPct < mountainEnd) {
+        const mh = mountainAt(col);
+        const mountainRowPct = (rowPct - mountainStart) / (mountainEnd - mountainStart);
+        const mountainThreshold = 1 - mh;
+        if (mountainRowPct > mountainThreshold) {
+          // How deep into the mountain
+          const depth = (mountainRowPct - mountainThreshold) / (1 - mountainThreshold);
+          color = depth < 0.5 ? t.mountain1 : t.mountain2;
+        } else if (rowPct >= skyEnd && !color) {
+          color = t.sky4;
+        }
+      }
+
+      // Fields (52%-82%)
+      if (rowPct >= mountainEnd && rowPct < fieldEnd) {
+        const fieldRow = (rowPct - mountainEnd) / (fieldEnd - mountainEnd);
+        // Horizontal stripe variation + checkerboard texture
+        const stripe = (row + col) % 3;
+        const vStripe = Math.floor(col / 4) % 2;
+        if (fieldRow < 0.25) {
+          color = vStripe ? t.field1 : t.field2;
+        } else if (fieldRow < 0.50) {
+          color = stripe === 0 ? t.field2 : t.field3;
+        } else if (fieldRow < 0.75) {
+          color = vStripe ? t.field3 : t.field1;
+        } else {
+          color = stripe === 0 ? t.field1 : t.field2;
+        }
+        // Darker patches for depth
+        if ((col * 7 + row * 13) % 23 === 0) color = t.field1;
+        // Green path/edge near bottom of field
+        if (fieldRow > 0.85) {
+          color = ((col + row) % 4 === 0) ? t.grass : color;
+        }
+      }
+
+      // Grass foreground (82%-100%)
+      if (rowPct >= fieldEnd) {
+        const grassZone = (rowPct - fieldEnd) / (1 - fieldEnd);
+        const bladeH = grassBlades[col] / rows;
+        // Grass blades extend upward with varying heights
+        if (grassZone < 0.3) {
+          // Blade tips area - mix of grass and field
+          const bladeReach = grassBlades[col] > 2.5;
+          color = bladeReach && (col % 2 === 0) ? t.grass : t.grassTip;
+          if ((col + row) % 3 === 0) color = t.field1; // some field showing through
+        } else {
+          // Solid grass
+          color = (col % 3 === 0) ? t.grassTip : t.grass;
+        }
+      }
+
+      if (!color) color = t.sky4;
+      rects.push(`<rect x="${x}" y="${y}" width="${px}" height="${px}" fill="${color}"/>`);
+    }
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" shape-rendering="crispEdges">${rects.join("")}</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+// ── Pixel art background component ──
+function PixelArtBackground({ element }) {
+  const bgUrl = useMemo(() => generatePixelLandscape(element), [element]);
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        backgroundImage: `url("${bgUrl}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center bottom",
+        imageRendering: "pixelated",
+        opacity: 0.6,
+      }}
+    />
+  );
+}
 
 // ─── Field Combat ─────────────────────────────────────────────────────────
 function FieldCombat({ session: initialSession, character, onLeave }) {
@@ -122,12 +313,13 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
   // Defeat screen
   if (isDefeated) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-gradient-to-b from-red-900/50 to-gray-900/80 border border-red-500/50 rounded-2xl p-6 max-w-lg w-full text-center space-y-4">
+      <div className="min-h-[80vh] flex items-center justify-center p-4 relative overflow-hidden">
+        <PixelArtBackground element={element} />
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 bg-black/80 backdrop-blur-sm border-2 border-red-500/50 p-6 max-w-lg w-full text-center space-y-4" style={{ imageRendering: "pixelated" }}>
           <Skull className="w-16 h-16 text-red-400 mx-auto" />
           <h2 className="text-2xl font-bold text-red-400">Defeated on Field {session?.fieldNumber}</h2>
           <p className="text-muted-foreground">Your party has fallen. Here are your total rewards:</p>
-          <div className="bg-black/30 rounded-xl p-4 space-y-2 text-left">
+          <div className="bg-black/50 border border-white/10 p-4 space-y-2 text-left">
             {rewards.gold > 0 && <div className="flex justify-between"><span className="text-yellow-400">Gold</span><span>+{rewards.gold.toLocaleString()}</span></div>}
             {rewards.exp > 0 && <div className="flex justify-between"><span className="text-blue-400">EXP</span><span>+{rewards.exp.toLocaleString()}</span></div>}
             {rewards.dublons > 0 && <div className="flex justify-between"><span className="text-purple-400">Dublons</span><span>+{rewards.dublons}</span></div>}
@@ -148,18 +340,19 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
   // Path choice screen
   if (isFieldClear && pendingPath) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center p-4">
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-gradient-to-b from-green-900/30 to-gray-900/80 border border-green-500/40 rounded-2xl p-6 max-w-lg w-full text-center space-y-4">
+      <div className="min-h-[80vh] flex items-center justify-center p-4 relative overflow-hidden">
+        <PixelArtBackground element={element} />
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 bg-black/80 backdrop-blur-sm border-2 border-green-500/40 p-6 max-w-lg w-full text-center space-y-4">
           <Sparkles className="w-12 h-12 text-green-400 mx-auto" />
           <h2 className="text-xl font-bold text-green-400">Field {session?.fieldNumber} Cleared!</h2>
           <p className="text-muted-foreground text-sm">Choose your path to the next field:</p>
           <div className="grid grid-cols-2 gap-4">
-            <button onClick={() => doAction("choose_path", { pathChoice: "safe" })} disabled={loading} className="p-4 rounded-xl bg-blue-600/20 border-2 border-blue-500/50 hover:border-blue-400 hover:bg-blue-600/30 transition-all text-center space-y-2 cursor-pointer">
+            <button onClick={() => doAction("choose_path", { pathChoice: "safe" })} disabled={loading} className="p-4 bg-blue-600/20 border-2 border-blue-500/50 hover:border-blue-400 hover:bg-blue-600/30 transition-all text-center space-y-2 cursor-pointer">
               <ShieldCheck className="w-10 h-10 text-blue-400 mx-auto" />
               <p className="font-bold text-blue-400">Safe Path</p>
               <p className="text-xs text-muted-foreground">Fewer enemies, standard modifiers</p>
             </button>
-            <button onClick={() => doAction("choose_path", { pathChoice: "risk" })} disabled={loading} className="p-4 rounded-xl bg-red-600/20 border-2 border-red-500/50 hover:border-red-400 hover:bg-red-600/30 transition-all text-center space-y-2 cursor-pointer">
+            <button onClick={() => doAction("choose_path", { pathChoice: "risk" })} disabled={loading} className="p-4 bg-red-600/20 border-2 border-red-500/50 hover:border-red-400 hover:bg-red-600/30 transition-all text-center space-y-2 cursor-pointer">
               <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
               <p className="font-bold text-red-400">Risk Path</p>
               <p className="text-xs text-muted-foreground">More elites, better rewards + extra buffs</p>
@@ -174,152 +367,160 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
   }
 
   return (
-    <div className={`min-h-[80vh] bg-gradient-to-b ${ELEMENT_BG[element] || ELEMENT_BG.neutral} p-2 space-y-2`}>
-      {/* Header */}
-      <div className="flex items-center justify-between bg-black/40 rounded-xl px-3 py-2">
-        <div className="flex items-center gap-2">
-          <ElemIcon className={`w-5 h-5 ${elemColor}`} />
-          <span className="font-bold text-sm">Field {session?.fieldNumber}</span>
-          <Badge variant="outline" className={`${elemColor} border-current text-xs`}>{element}</Badge>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-purple-400 border-purple-500/50 text-xs">{rewards.dublons || 0} Dublons</Badge>
-          <Button size="sm" variant={autoFight ? "destructive" : "outline"} onClick={() => setAutoFight(!autoFight)} className="h-7 text-xs">
-            {autoFight ? "Stop" : "Auto"}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={handleLeave} className="h-7 text-xs text-red-400 hover:text-red-300">
-            <LogOut className="w-3 h-3 mr-1" /> Leave
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-[80vh] relative overflow-hidden">
+      {/* Pixel art landscape background */}
+      <PixelArtBackground element={element} />
 
-      {/* Modifiers bar */}
-      <div className="flex gap-1 flex-wrap bg-black/20 rounded-lg px-2 py-1">
-        {modifiers.map((mod, i) => (
-          <Badge key={i} variant="outline" className={`text-[10px] ${mod.type === "buff" ? "text-green-400 border-green-500/40" : "text-red-400 border-red-500/40"}`} title={mod.description}>
-            {mod.type === "buff" ? <ChevronUp className="w-2.5 h-2.5 mr-0.5" /> : <ChevronDown className="w-2.5 h-2.5 mr-0.5" />}
-            {mod.name}
-          </Badge>
-        ))}
-      </div>
-
-      {/* Enemies (top section) */}
-      <div className="bg-black/30 rounded-xl p-2">
-        <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Skull className="w-3 h-3" /> Enemies ({enemies.filter(e => e.hp > 0).length}/{enemies.length})</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
-          {enemies.map((enemy, i) => {
-            const dead = enemy.hp <= 0;
-            const hpPct = enemy.max_hp > 0 ? (enemy.hp / enemy.max_hp * 100) : 0;
-            const isSelected = selectedTarget === enemy.id;
-            const EIcon = ELEMENT_ICONS[enemy.element] || Star;
-            const eColor = ELEMENT_COLORS[enemy.element] || "text-gray-400";
-            return (
-              <div
-                key={enemy.id}
-                onClick={() => !dead && setSelectedTarget(enemy.id)}
-                className={`relative rounded-lg p-1.5 border cursor-pointer transition-all ${dead ? "opacity-30 border-gray-700" : isSelected ? "border-yellow-500 bg-yellow-500/10 ring-1 ring-yellow-500/30" : "border-white/10 hover:border-white/30 bg-black/20"}`}
-              >
-                <div className="flex items-center gap-1 mb-0.5">
-                  <EIcon className={`w-3 h-3 ${eColor}`} />
-                  <span className={`text-[10px] font-bold truncate ${dead ? "line-through" : ""} ${enemy.isElite ? "text-yellow-400" : enemy.isBoss ? "text-red-400" : "text-foreground"}`}>
-                    {enemy.name}
-                  </span>
-                </div>
-                {enemy.isElite && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-yellow-600">ELITE</Badge>}
-                {enemy.isBoss && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-red-600">BOSS</Badge>}
-                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${hpPct > 50 ? "bg-red-500" : hpPct > 25 ? "bg-orange-500" : "bg-red-700"}`} style={{ width: `${hpPct}%` }} />
-                </div>
-                <p className="text-[9px] text-muted-foreground text-center">{dead ? "DEAD" : `${enemy.hp}/${enemy.max_hp}`}</p>
-                {(enemy.attackers || []).length >= 3 && <span className="text-[8px] text-yellow-400">x{enemy.attackers.length} co-op!</span>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Action buttons */}
-      {session?.status === "combat" && me?.alive && me?.hp > 0 && (
-        <div className="flex gap-1 flex-wrap bg-black/20 rounded-lg p-2">
-          <Button size="sm" onClick={() => doAction("attack", { targetEnemyId: selectedTarget })} disabled={loading} className="bg-red-600 hover:bg-red-700 h-8 text-xs">
-            <Swords className="w-3 h-3 mr-1" /> Attack
-          </Button>
-          {mySkills.slice(0, 6).map(skill => (
-            <Button key={skill.id} size="sm" variant="outline" onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} className="h-8 text-xs" title={skill.description}>
-              {skill.name}
+      {/* Content overlay */}
+      <div className="relative z-10 p-2 space-y-2">
+        {/* Header */}
+        <div className="flex items-center justify-between bg-black/70 backdrop-blur-sm border border-white/10 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <ElemIcon className={`w-5 h-5 ${elemColor}`} />
+            <span className="font-bold text-sm">Field {session?.fieldNumber}</span>
+            <Badge variant="outline" className={`${elemColor} border-current text-xs`}>{element}</Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-purple-400 border-purple-500/50 text-xs">{rewards.dublons || 0} Dublons</Badge>
+            <Button size="sm" variant={autoFight ? "destructive" : "outline"} onClick={() => setAutoFight(!autoFight)} className="h-7 text-xs">
+              {autoFight ? "Stop" : "Auto"}
             </Button>
+            <Button size="sm" variant="ghost" onClick={handleLeave} className="h-7 text-xs text-red-400 hover:text-red-300">
+              <LogOut className="w-3 h-3 mr-1" /> Leave
+            </Button>
+          </div>
+        </div>
+
+        {/* Modifiers bar */}
+        {modifiers.length > 0 && (
+          <div className="flex gap-1 flex-wrap bg-black/50 backdrop-blur-sm border border-white/5 px-2 py-1">
+            {modifiers.map((mod, i) => (
+              <Badge key={i} variant="outline" className={`text-[10px] ${mod.type === "buff" ? "text-green-400 border-green-500/40" : "text-red-400 border-red-500/40"}`} title={mod.description}>
+                {mod.type === "buff" ? <ChevronUp className="w-2.5 h-2.5 mr-0.5" /> : <ChevronDown className="w-2.5 h-2.5 mr-0.5" />}
+                {mod.name}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Enemies (top section) */}
+        <div className="bg-black/60 backdrop-blur-sm border border-white/10 p-2">
+          <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Skull className="w-3 h-3" /> Enemies ({enemies.filter(e => e.hp > 0).length}/{enemies.length})</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
+            {enemies.map((enemy, i) => {
+              const dead = enemy.hp <= 0;
+              const hpPct = enemy.max_hp > 0 ? (enemy.hp / enemy.max_hp * 100) : 0;
+              const isSelected = selectedTarget === enemy.id;
+              const EIcon = ELEMENT_ICONS[enemy.element] || Star;
+              const eColor = ELEMENT_COLORS[enemy.element] || "text-gray-400";
+              return (
+                <div
+                  key={enemy.id}
+                  onClick={() => !dead && setSelectedTarget(enemy.id)}
+                  className={`relative p-1.5 border cursor-pointer transition-all ${dead ? "opacity-30 border-gray-700" : isSelected ? "border-yellow-500 bg-yellow-500/10 ring-1 ring-yellow-500/30" : "border-white/10 hover:border-white/30 bg-black/30"}`}
+                >
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <EIcon className={`w-3 h-3 ${eColor}`} />
+                    <span className={`text-[10px] font-bold truncate ${dead ? "line-through" : ""} ${enemy.isElite ? "text-yellow-400" : enemy.isBoss ? "text-red-400" : "text-foreground"}`}>
+                      {enemy.name}
+                    </span>
+                  </div>
+                  {enemy.isElite && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-yellow-600">ELITE</Badge>}
+                  {enemy.isBoss && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-red-600">BOSS</Badge>}
+                  <div className="h-1.5 bg-gray-800 overflow-hidden">
+                    <div className={`h-full transition-all ${hpPct > 50 ? "bg-red-500" : hpPct > 25 ? "bg-orange-500" : "bg-red-700"}`} style={{ width: `${hpPct}%` }} />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground text-center">{dead ? "DEAD" : `${enemy.hp}/${enemy.max_hp}`}</p>
+                  {(enemy.attackers || []).length >= 3 && <span className="text-[8px] text-yellow-400">x{enemy.attackers.length} co-op!</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        {session?.status === "combat" && me?.alive && me?.hp > 0 && (
+          <div className="flex gap-1 flex-wrap bg-black/60 backdrop-blur-sm border border-white/10 p-2">
+            <Button size="sm" onClick={() => doAction("attack", { targetEnemyId: selectedTarget })} disabled={loading} className="bg-red-600 hover:bg-red-700 h-8 text-xs">
+              <Swords className="w-3 h-3 mr-1" /> Attack
+            </Button>
+            {mySkills.slice(0, 6).map(skill => (
+              <Button key={skill.id} size="sm" variant="outline" onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} className="h-8 text-xs" title={skill.description}>
+                {skill.name}
+              </Button>
+            ))}
+            {character?.class === "warrior" && (
+              <Button size="sm" variant="outline" onClick={() => doAction("aggro")} disabled={loading} className="h-8 text-xs border-orange-500/50 text-orange-400">
+                <Shield className="w-3 h-3 mr-1" /> Taunt
+              </Button>
+            )}
+            {character?.class === "mage" && (
+              <>
+                {members.filter(m => m.characterId !== character.id && m.alive && m.hp > 0 && m.hp < m.max_hp).map(m => (
+                  <Button key={m.characterId} size="sm" variant="outline" onClick={() => doAction("heal_ally", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-green-500/50 text-green-400">
+                    <Heart className="w-3 h-3 mr-1" /> Heal {m.name}
+                  </Button>
+                ))}
+              </>
+            )}
+            {/* Revive dead allies */}
+            {members.filter(m => (m.characterId || m.character_id) !== character.id && (!m.alive || m.hp <= 0)).map(m => (
+              <Button key={`rev-${m.characterId || m.character_id}`} size="sm" variant="outline" onClick={() => doAction("revive", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-cyan-500/50 text-cyan-400">
+                <RefreshCw className="w-3 h-3 mr-1" /> Revive {m.name} {m.reviveTimer > 0 ? `(${m.reviveTimer}/3)` : ""}
+              </Button>
+            ))}
+          </div>
+        )}
+
+        {session?.status === "waiting" && (
+          <div className="text-center p-4">
+            <Button onClick={() => doAction("start")} className="bg-green-600 hover:bg-green-700">
+              <Play className="w-4 h-4 mr-2" /> Start Battle
+            </Button>
+          </div>
+        )}
+
+        {/* Players (bottom section) */}
+        <div className="bg-black/60 backdrop-blur-sm border border-white/10 p-2">
+          <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Users className="w-3 h-3" /> Players ({members.length}/10)</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
+            {members.map((m, i) => {
+              const isMe = (m.characterId || m.character_id) === character.id;
+              const dead = !m.alive || m.hp <= 0;
+              const hpPct = m.max_hp > 0 ? (m.hp / m.max_hp * 100) : 0;
+              const mpPct = m.max_mp > 0 ? ((m.mp || 0) / m.max_mp * 100) : 0;
+              return (
+                <div key={m.characterId || m.character_id || i} className={`p-1.5 border transition-all ${dead ? "opacity-50 border-gray-700" : isMe ? "border-blue-500 bg-blue-500/10" : "border-white/10 bg-black/30"}`}>
+                  <div className="flex items-center gap-1 mb-0.5">
+                    {isMe && <Crown className="w-3 h-3 text-yellow-400" />}
+                    <span className={`text-[10px] font-bold truncate ${dead ? "line-through text-gray-500" : ""}`}>{m.name}</span>
+                    <span className="text-[8px] text-muted-foreground">Lv{m.level}</span>
+                  </div>
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 mb-0.5">{m.class}</Badge>
+                  {/* HP bar */}
+                  <div className="h-1.5 bg-gray-800 overflow-hidden mb-0.5">
+                    <div className={`h-full transition-all ${hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${hpPct}%` }} />
+                  </div>
+                  <p className="text-[8px] text-muted-foreground">{dead ? "KO'd" : `${m.hp}/${m.max_hp}`}</p>
+                  {/* MP bar */}
+                  <div className="h-1 bg-gray-800 overflow-hidden">
+                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${mpPct}%` }} />
+                  </div>
+                  {m.reviveTimer > 0 && <p className="text-[8px] text-cyan-400 mt-0.5">Reviving... ({m.reviveTimer}/3)</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Combat Log */}
+        <div ref={logRef} className="bg-black/70 backdrop-blur-sm border border-white/10 p-2 h-32 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700">
+          {combatLog.map((log, i) => (
+            <p key={i} className={`text-[10px] ${log.type === "victory" ? "text-green-400 font-bold" : log.type === "defeat" ? "text-red-400 font-bold" : log.type === "player_attack" ? "text-blue-300" : log.type === "enemy_attack" ? "text-red-300" : "text-gray-400"}`}>
+              {log.text}
+            </p>
           ))}
-          {character?.class === "warrior" && (
-            <Button size="sm" variant="outline" onClick={() => doAction("aggro")} disabled={loading} className="h-8 text-xs border-orange-500/50 text-orange-400">
-              <Shield className="w-3 h-3 mr-1" /> Taunt
-            </Button>
-          )}
-          {character?.class === "mage" && (
-            <>
-              {members.filter(m => m.characterId !== character.id && m.alive && m.hp > 0 && m.hp < m.max_hp).map(m => (
-                <Button key={m.characterId} size="sm" variant="outline" onClick={() => doAction("heal_ally", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-green-500/50 text-green-400">
-                  <Heart className="w-3 h-3 mr-1" /> Heal {m.name}
-                </Button>
-              ))}
-            </>
-          )}
-          {/* Revive dead allies */}
-          {members.filter(m => (m.characterId || m.character_id) !== character.id && (!m.alive || m.hp <= 0)).map(m => (
-            <Button key={`rev-${m.characterId || m.character_id}`} size="sm" variant="outline" onClick={() => doAction("revive", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-cyan-500/50 text-cyan-400">
-              <RefreshCw className="w-3 h-3 mr-1" /> Revive {m.name} {m.reviveTimer > 0 ? `(${m.reviveTimer}/3)` : ""}
-            </Button>
-          ))}
         </div>
-      )}
-
-      {session?.status === "waiting" && (
-        <div className="text-center p-4">
-          <Button onClick={() => doAction("start")} className="bg-green-600 hover:bg-green-700">
-            <Play className="w-4 h-4 mr-2" /> Start Battle
-          </Button>
-        </div>
-      )}
-
-      {/* Players (bottom section) */}
-      <div className="bg-black/30 rounded-xl p-2">
-        <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Users className="w-3 h-3" /> Players ({members.length}/10)</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
-          {members.map((m, i) => {
-            const isMe = (m.characterId || m.character_id) === character.id;
-            const dead = !m.alive || m.hp <= 0;
-            const hpPct = m.max_hp > 0 ? (m.hp / m.max_hp * 100) : 0;
-            const mpPct = m.max_mp > 0 ? ((m.mp || 0) / m.max_mp * 100) : 0;
-            return (
-              <div key={m.characterId || m.character_id || i} className={`rounded-lg p-1.5 border transition-all ${dead ? "opacity-50 border-gray-700" : isMe ? "border-blue-500 bg-blue-500/10" : "border-white/10 bg-black/20"}`}>
-                <div className="flex items-center gap-1 mb-0.5">
-                  {isMe && <Crown className="w-3 h-3 text-yellow-400" />}
-                  <span className={`text-[10px] font-bold truncate ${dead ? "line-through text-gray-500" : ""}`}>{m.name}</span>
-                  <span className="text-[8px] text-muted-foreground">Lv{m.level}</span>
-                </div>
-                <Badge variant="outline" className="text-[8px] px-1 py-0 mb-0.5">{m.class}</Badge>
-                {/* HP bar */}
-                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden mb-0.5">
-                  <div className={`h-full rounded-full transition-all ${hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${hpPct}%` }} />
-                </div>
-                <p className="text-[8px] text-muted-foreground">{dead ? "KO'd" : `${m.hp}/${m.max_hp}`}</p>
-                {/* MP bar */}
-                <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${mpPct}%` }} />
-                </div>
-                {m.reviveTimer > 0 && <p className="text-[8px] text-cyan-400 mt-0.5">Reviving... ({m.reviveTimer}/3)</p>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Combat Log */}
-      <div ref={logRef} className="bg-black/40 rounded-xl p-2 h-32 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700">
-        {combatLog.map((log, i) => (
-          <p key={i} className={`text-[10px] ${log.type === "victory" ? "text-green-400 font-bold" : log.type === "defeat" ? "text-red-400 font-bold" : log.type === "player_attack" ? "text-blue-300" : log.type === "enemy_attack" ? "text-red-300" : "text-gray-400"}`}>
-            {log.text}
-          </p>
-        ))}
       </div>
     </div>
   );
@@ -381,8 +582,9 @@ export default function Fields({ character, onCharacterUpdate }) {
 
   if (loading) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading The Fields...</div>
+      <div className="min-h-[80vh] flex items-center justify-center relative overflow-hidden">
+        <PixelArtBackground element="neutral" />
+        <div className="relative z-10 animate-pulse text-muted-foreground">Loading The Fields...</div>
       </div>
     );
   }
@@ -400,61 +602,65 @@ export default function Fields({ character, onCharacterUpdate }) {
 
   // Lobby
   return (
-    <div className="min-h-[80vh] p-4 space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent">The Fields</h1>
-          <p className="text-muted-foreground text-sm">Battle endless waves of enemies with up to 10 players. Fight until you fall!</p>
-        </motion.div>
-      </div>
+    <div className="min-h-[80vh] relative overflow-hidden">
+      <PixelArtBackground element="neutral" />
 
-      {/* Enter Button */}
-      <div className="text-center">
-        <Button onClick={enterFields} size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-lg px-8 py-6">
-          <Swords className="w-5 h-5 mr-2" /> Enter The Fields
-        </Button>
-      </div>
+      <div className="relative z-10 p-4 space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-lg">The Fields</h1>
+            <p className="text-muted-foreground text-sm">Battle endless waves of enemies with up to 10 players. Fight until you fall!</p>
+          </motion.div>
+        </div>
 
-      {/* Active Sessions to Join */}
-      {lobbySessions.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-lg font-bold flex items-center gap-2"><Users className="w-5 h-5" /> Active Sessions</h2>
-          <div className="grid gap-2">
-            {lobbySessions.map(s => {
-              const EIcon = ELEMENT_ICONS[s.element] || Star;
-              return (
-                <div key={s.id} className="flex items-center justify-between bg-black/30 border border-white/10 rounded-xl p-3">
-                  <div className="flex items-center gap-3">
-                    <EIcon className={`w-5 h-5 ${ELEMENT_COLORS[s.element] || "text-gray-400"}`} />
-                    <div>
-                      <p className="text-sm font-bold">Field {s.fieldNumber} <Badge variant="outline" className="ml-1 text-[10px]">{s.element}</Badge></p>
-                      <p className="text-xs text-muted-foreground">{s.members.map(m => m.name).join(", ")} ({s.memberCount}/{s.maxPlayers})</p>
+        {/* Enter Button */}
+        <div className="text-center">
+          <Button onClick={enterFields} size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-lg px-8 py-6 shadow-lg shadow-green-900/30">
+            <Swords className="w-5 h-5 mr-2" /> Enter The Fields
+          </Button>
+        </div>
+
+        {/* Active Sessions to Join */}
+        {lobbySessions.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold flex items-center gap-2"><Users className="w-5 h-5" /> Active Sessions</h2>
+            <div className="grid gap-2">
+              {lobbySessions.map(s => {
+                const EIcon = ELEMENT_ICONS[s.element] || Star;
+                return (
+                  <div key={s.id} className="flex items-center justify-between bg-black/60 backdrop-blur-sm border border-white/10 p-3">
+                    <div className="flex items-center gap-3">
+                      <EIcon className={`w-5 h-5 ${ELEMENT_COLORS[s.element] || "text-gray-400"}`} />
+                      <div>
+                        <p className="text-sm font-bold">Field {s.fieldNumber} <Badge variant="outline" className="ml-1 text-[10px]">{s.element}</Badge></p>
+                        <p className="text-xs text-muted-foreground">{s.members.map(m => m.name).join(", ")} ({s.memberCount}/{s.maxPlayers})</p>
+                      </div>
                     </div>
+                    <Button size="sm" onClick={() => joinSession(s.id)} disabled={s.memberCount >= s.maxPlayers}>
+                      <LogIn className="w-3 h-3 mr-1" /> Join
+                    </Button>
                   </div>
-                  <Button size="sm" onClick={() => joinSession(s.id)} disabled={s.memberCount >= s.maxPlayers}>
-                    <LogIn className="w-3 h-3 mr-1" /> Join
-                  </Button>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-black/30 border border-white/10 rounded-xl p-3 space-y-1">
-          <h3 className="text-sm font-bold text-green-400 flex items-center gap-1"><Shield className="w-4 h-4" /> Class Roles</h3>
-          <p className="text-xs text-muted-foreground">Warriors can taunt enemies. Mages can heal allies. Any player can revive KO'd teammates (3 turns).</p>
-        </div>
-        <div className="bg-black/30 border border-white/10 rounded-xl p-3 space-y-1">
-          <h3 className="text-sm font-bold text-purple-400 flex items-center gap-1"><Gem className="w-4 h-4" /> Rewards</h3>
-          <p className="text-xs text-muted-foreground">Earn Dublons, Crystals, Sqrizzscrolls, Boss Stones, gold, EXP, and gear. Teamwork on enemies = bonus loot!</p>
-        </div>
-        <div className="bg-black/30 border border-white/10 rounded-xl p-3 space-y-1">
-          <h3 className="text-sm font-bold text-red-400 flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Risk vs Safe</h3>
-          <p className="text-xs text-muted-foreground">After each field, choose Risk Path (harder + better rewards) or Safe Path (easier). Fields get harder with more debuffs!</p>
+        {/* Info */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-black/60 backdrop-blur-sm border border-white/10 p-3 space-y-1">
+            <h3 className="text-sm font-bold text-green-400 flex items-center gap-1"><Shield className="w-4 h-4" /> Class Roles</h3>
+            <p className="text-xs text-muted-foreground">Warriors can taunt enemies. Mages can heal allies. Any player can revive KO'd teammates (3 turns).</p>
+          </div>
+          <div className="bg-black/60 backdrop-blur-sm border border-white/10 p-3 space-y-1">
+            <h3 className="text-sm font-bold text-purple-400 flex items-center gap-1"><Gem className="w-4 h-4" /> Rewards</h3>
+            <p className="text-xs text-muted-foreground">Earn Dublons, Crystals, Sqrizzscrolls, Boss Stones, gold, EXP, and gear. Teamwork on enemies = bonus loot!</p>
+          </div>
+          <div className="bg-black/60 backdrop-blur-sm border border-white/10 p-3 space-y-1">
+            <h3 className="text-sm font-bold text-red-400 flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Risk vs Safe</h3>
+            <p className="text-xs text-muted-foreground">After each field, choose Risk Path (harder + better rewards) or Safe Path (easier). Fields get harder with more debuffs!</p>
+          </div>
         </div>
       </div>
     </div>
