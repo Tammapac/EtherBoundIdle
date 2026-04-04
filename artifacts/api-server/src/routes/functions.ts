@@ -485,6 +485,20 @@ router.post("/functions/managePlayer", async (req: Request, res: Response) => {
       }
       sendSuccess(res, { success: false, message: "No valid stats to update" }); return;
     }
+    if (action === "grant_item" && characterId) {
+      const { itemData } = req.body;
+      if (!itemData || !itemData.name || !itemData.type) { sendError(res, 400, "itemData with name and type required"); return; }
+      const [inserted] = await db.insert(itemsTable).values({
+        ownerId: characterId,
+        name: itemData.name,
+        type: itemData.type,
+        rarity: itemData.rarity || "common",
+        level: itemData.level || 1,
+        stats: itemData.stats || {},
+        extraData: itemData.extraData || {},
+      }).returning();
+      sendSuccess(res, { granted: inserted }); return;
+    }
     if (action === "delete_guild" && guildId) {
       await db.update(charactersTable).set({ guildId: null }).where(eq(charactersTable.guildId, guildId));
       await db.delete(guildsTable).where(eq(guildsTable.id, guildId));
@@ -613,19 +627,31 @@ router.post("/functions/useItem", async (req: Request, res: Response) => {
     }
     // --- HOURGLASS: refill dungeon entries ---
     else if (consumableType === "hourglass") {
-      // Reset dungeon entries in gameConfigTable (the actual tracking location)
+      // Reset dungeon entries
       const dungeonConfigKey = `dungeon_entries_${char.id}`;
       await db.insert(gameConfigTable).values({ id: dungeonConfigKey, config: { entries: [], windowStart: Date.now() } })
         .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: { entries: [], windowStart: Date.now() } } });
-      message = "Hourglass of Eternity used! Dungeon entries have been reset.";
+      // Reset guild boss attack cooldown
+      const guildBossKey = `guild_boss_attacks_${char.id}`;
+      await db.insert(gameConfigTable).values({ id: guildBossKey, config: { attacks: [], windowStart: Date.now() } })
+        .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: { attacks: [], windowStart: Date.now() } } });
+      message = "Hourglass of Eternity used! All timed entries have been reset (Dungeons, Guild Raids).";
       effectApplied = { type: "dungeon_reset" };
     }
-    // --- DUNGEON TICKET: add bonus dungeon entry ---
+    // --- DUNGEON TICKET: refill 1 dungeon entry ---
     else if (consumableType === "dungeon_ticket") {
-      const bonusEntries = (charExtra.bonus_dungeon_entries || 0) + 1;
-      await db.update(charactersTable).set({ extraData: { ...charExtra, bonus_dungeon_entries: bonusEntries } }).where(eq(charactersTable.id, char.id));
-      message = "Dungeon Ticket used! You have 1 extra dungeon entry.";
-      effectApplied = { type: "dungeon_entry", entries: bonusEntries };
+      const dungeonConfigKey = `dungeon_entries_${char.id}`;
+      const [dungeonEntry] = await db.select().from(gameConfigTable).where(eq(gameConfigTable.id, dungeonConfigKey));
+      let entryData: any = dungeonEntry?.config || { entries: [], windowStart: Date.now() };
+      if (entryData.entries.length > 0) {
+        entryData.entries.pop(); // Remove one entry to free up a slot
+      }
+      await db.insert(gameConfigTable).values({ id: dungeonConfigKey, config: entryData })
+        .onConflictDoUpdate({ target: gameConfigTable.id, set: { config: entryData } });
+      const entriesUsed = entryData.entries.length;
+      const entriesLeft = Math.max(0, 5 - entriesUsed);
+      message = `Dungeon Ticket used! You now have ${entriesLeft}/5 entries available.`;
+      effectApplied = { type: "dungeon_entry", entriesLeft };
     }
     // --- PET EGG: start incubation (requires incubator item) ---
     else if (consumableType === "pet_egg" || consumableType === "pet_egg_shiny") {
@@ -2152,14 +2178,10 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       if (now - (entryData.windowStart || 0) >= DUNGEON_WINDOW_MS) {
         entryData = { entries: [], windowStart: now };
       }
-      // Check bonus entries from dungeon tickets + hourglass resets
-      const charExtraD = (char.extraData as any) || {};
-      const bonusEntries = charExtraD.bonus_dungeon_entries || 0;
-      const maxEntries = DUNGEON_MAX_ENTRIES + bonusEntries;
-      if (entryData.entries.length >= maxEntries) {
+      if (entryData.entries.length >= DUNGEON_MAX_ENTRIES) {
         const windowRemaining = Math.max(0, DUNGEON_WINDOW_MS - (now - (entryData.windowStart || 0)));
         const minutesLeft = Math.ceil(windowRemaining / 60000);
-        sendError(res, 400, `Dungeon limit reached (${maxEntries} per 8 hours). Resets in ${minutesLeft} minutes.`);
+        sendError(res, 400, `Dungeon limit reached (${DUNGEON_MAX_ENTRIES} per 8 hours). Resets in ${minutesLeft} minutes. Use a Dungeon Ticket to refill!`);
         return;
       }
       entryData.entries.push(now);
@@ -2877,9 +2899,19 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
                 name: loot.name,
                 type: loot.type,
                 rarity: loot.rarity,
-                level: Math.max(1, Math.floor(floor / 10)),
+                level: loot.item_level || Math.max(1, Math.floor(floor / 10)),
                 stats: loot.stats || {},
-                extraData: { source: "tower", floor, rune_slots: loot.rune_slots || 0 },
+                extraData: {
+                  source: "tower", floor,
+                  subtype: loot.subtype || null,
+                  level_req: loot.level_req || Math.max(1, Math.floor(floor / 10)),
+                  sell_price: loot.sell_price || 0,
+                  proc_effects: loot.proc_effects || null,
+                  rune_slots: loot.rune_slots || 0,
+                  set_name: loot.set_name || null,
+                  class_restriction: loot.class_restriction || null,
+                  is_unique: loot.is_unique || false,
+                },
               });
               d.combat_log.push({ type: "system", text: `Loot: ${loot.name} (${loot.rarity})` });
             }
@@ -6123,16 +6155,26 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
           try {
             const loot = generateLoot(wave + portalLevel * 2, char.luck || 5, true, null, char.class);
             if (loot) {
+              const portalRarity = loot.rarity === "mythic" || loot.rarity === "shiny" ? loot.rarity : "legendary";
               await db.insert(itemsTable).values({
                 ownerId: characterId,
                 name: loot.name,
                 type: loot.type,
-                rarity: "legendary",
-                level: Math.max(1, Math.floor((wave + portalLevel) / 5)),
+                rarity: portalRarity,
+                level: loot.item_level || Math.max(1, Math.floor((wave + portalLevel) / 5)),
                 stats: loot.stats || {},
-                extraData: { source: "portal", wave, portal_level: portalLevel, rune_slots: loot.rune_slots || 0, unique: true },
+                extraData: {
+                  source: "portal", wave, portal_level: portalLevel,
+                  subtype: loot.subtype || null,
+                  level_req: loot.level_req || Math.max(1, Math.floor((wave + portalLevel) / 5)),
+                  sell_price: loot.sell_price || 0,
+                  proc_effects: loot.proc_effects || null,
+                  rune_slots: loot.rune_slots || 0,
+                  is_unique: true,
+                  class_restriction: loot.class_restriction || null,
+                },
               });
-              d.combat_log.push({ type: "system", text: `Unique Loot: ${loot.name} (legendary)` });
+              d.combat_log.push({ type: "system", text: `Unique Loot: ${loot.name} (${portalRarity})` });
               d.totalRewards.loot.push(loot.name);
             }
           } catch {}
@@ -6995,16 +7037,23 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
         rewardItems.push("Pet Incubator");
       }
 
-      // Boss Gear — top 10% get unique boss gear
+      // Boss Gear — top 10% get unique boss gear (shiny for top 3 MVP, mythic for rest)
       if (percentile < 0.1) {
         const gearPool = WORLD_BOSS_GEAR[zone] || [];
         if (gearPool.length > 0) {
           const gear = gearPool[Math.floor(Math.random() * gearPool.length)];
-          const gearRarity = myRank < 3 ? "mythic" : "legendary";
+          const isTopMVP = myRank < 3;
+          const gearRarity = isTopMVP ? "shiny" : "mythic";
+          const statMult = isTopMVP ? 2.0 : 1.4;
+          const boostedStats: Record<string, number> = {};
+          for (const [k, v] of Object.entries(gear.stats)) {
+            boostedStats[k] = Math.floor((v as number) * statMult);
+          }
+          const gearLevel = Math.max(char.level || 1, tier * 15);
           await db.insert(itemsTable).values({
             ownerId: characterId, name: gear.name, type: gear.type, rarity: gearRarity,
-            level: Math.max(1, tier * 15), stats: gear.stats,
-            extraData: { source: "world_boss", boss: zone, unique: true, rune_slots: myRank < 3 ? 3 : 2 },
+            level: gearLevel, stats: boostedStats,
+            extraData: { source: "world_boss", boss: zone, unique: true, is_unique: true, rune_slots: isTopMVP ? 3 : 2, subtype: gear.type === "weapon" ? "blade" : undefined },
           });
           rewardItems.push(`${gear.name} (${gearRarity})`);
         }

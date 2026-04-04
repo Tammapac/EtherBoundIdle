@@ -437,6 +437,44 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
               );
             })()}
 
+            {/* Active Scroll Buffs */}
+            {(() => {
+              const extra = character?.extraData || character?.extra_data || {};
+              const activeBuffs = (extra.active_buffs || []).filter(
+                b => new Date(b.expires_at).getTime() > Date.now()
+              );
+              if (activeBuffs.length === 0) return null;
+              const BUFF_LABELS = { exp_bonus: "EXP Bonus", gold_bonus: "Gold Bonus", dmg_bonus: "Damage Bonus", loot_bonus: "Loot Bonus" };
+              const BUFF_COLORS = { exp_bonus: "text-blue-400", gold_bonus: "text-yellow-400", dmg_bonus: "text-red-400", loot_bonus: "text-purple-400" };
+              const BUFF_ICONS = { exp_bonus: Zap, gold_bonus: Coins, dmg_bonus: Swords, loot_bonus: Sparkles };
+              return (
+                <div className="bg-muted/30 rounded-xl p-4">
+                  <h3 className="font-semibold text-sm mb-3 text-cyan-400">Active Scroll Buffs</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {activeBuffs.map((buff, i) => {
+                      const BIcon = BUFF_ICONS[buff.type] || Zap;
+                      const timeLeft = Math.max(0, new Date(buff.expires_at).getTime() - Date.now());
+                      const h = Math.floor(timeLeft / 3600000);
+                      const m = Math.floor((timeLeft % 3600000) / 60000);
+                      const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                      return (
+                        <div key={i} className="flex items-center justify-between bg-background/50 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <BIcon className={`w-3.5 h-3.5 ${BUFF_COLORS[buff.type] || "text-cyan-400"}`} />
+                            <span className="text-xs text-muted-foreground">{BUFF_LABELS[buff.type] || buff.type}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-sm font-bold font-mono ${BUFF_COLORS[buff.type] || "text-cyan-400"}`}>+{buff.value}%</span>
+                            <span className="text-[10px] text-muted-foreground ml-1">({timeStr})</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Elemental Damage */}
             <div className="bg-muted/30 rounded-xl p-4">
               <h3 className="font-semibold text-sm mb-3 text-orange-400">Elemental Damage</h3>

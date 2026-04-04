@@ -35,6 +35,11 @@ function invalidateCacheForEntity(entityType) {
   }
 }
 
+// Invalidate all cached responses (used after function calls that can modify any entity)
+function invalidateAllCache() {
+  responseCache.clear();
+}
+
 async function rawApiFetch(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -87,8 +92,14 @@ export async function apiFetch(path, options = {}) {
       if (isRead) {
         responseCache.set(cacheKey, { data, timestamp: Date.now() });
       } else {
-        // Mutation — invalidate cached entries for this entity type
-        invalidateCacheForEntity(extractEntityType(path));
+        // Mutation — invalidate cached entries
+        const entityType = extractEntityType(path);
+        if (entityType) {
+          invalidateCacheForEntity(entityType);
+        } else if (path.startsWith("/functions/")) {
+          // Function calls can modify any entity — clear all cache
+          invalidateAllCache();
+        }
       }
       return data;
     })

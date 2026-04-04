@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Users, Shield, AlertCircle, Check, X, ChevronRight, Backpack, Lock, Volume2, Trash2, Edit, Globe, RefreshCw, Swords, LogOut } from "lucide-react";
+import { Users, Shield, AlertCircle, Check, X, ChevronRight, Backpack, Lock, Volume2, Trash2, Edit, Globe, RefreshCw, Swords, LogOut, Gift } from "lucide-react";
 import { ROLES } from "@/lib/roleSystem";
 import { useAuth } from "@/lib/AuthContext";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
@@ -22,6 +22,7 @@ export default function AdminPanel() {
   const [tempStats, setTempStats] = useState({});
   const [deleteConfirmChar, setDeleteConfirmChar] = useState(null);
   const [deleteConfirmGuild, setDeleteConfirmGuild] = useState(null);
+  const [grantItemType, setGrantItemType] = useState("");
   const [banDuration, setBanDuration] = useState("permanent");
   const [muteDuration, setMuteDuration] = useState("24");
   const queryClient = useQueryClient();
@@ -137,6 +138,34 @@ export default function AdminPanel() {
       queryClient.invalidateQueries({ queryKey: ["allCharacters"] });
       setEditStats(null);
       setTempStats({});
+    },
+  });
+
+  const GRANTABLE_ITEMS = [
+    { label: "Hourglass of Eternity", data: { name: "Hourglass of Eternity", type: "consumable", rarity: "epic", level: 1, stats: {}, extraData: { consumableType: "hourglass" } } },
+    { label: "Dungeon Ticket", data: { name: "Dungeon Ticket", type: "consumable", rarity: "uncommon", level: 1, stats: {}, extraData: { consumableType: "dungeon_ticket" } } },
+    { label: "Scroll of Experience (+50%)", data: { name: "Scroll of Experience", type: "consumable", rarity: "rare", level: 1, stats: { bonus_value: 50, duration: 7200 }, extraData: { consumableType: "scroll_exp" } } },
+    { label: "Scroll of Wealth (+50%)", data: { name: "Scroll of Wealth", type: "consumable", rarity: "rare", level: 1, stats: { bonus_value: 50, duration: 7200 }, extraData: { consumableType: "scroll_gold" } } },
+    { label: "Scroll of Power (+25%)", data: { name: "Scroll of Power", type: "consumable", rarity: "rare", level: 1, stats: { bonus_value: 25, duration: 7200 }, extraData: { consumableType: "scroll_dmg" } } },
+    { label: "Scroll of Fortune (+25%)", data: { name: "Scroll of Fortune", type: "consumable", rarity: "rare", level: 1, stats: { bonus_value: 25, duration: 7200 }, extraData: { consumableType: "scroll_loot" } } },
+    { label: "Upgrade Stone", data: { name: "Upgrade Stone", type: "material", rarity: "epic", level: 1, stats: {}, extraData: { materialType: "upgrade_stone" } } },
+    { label: "Pet Incubator", data: { name: "Pet Incubator", type: "consumable", rarity: "rare", level: 1, stats: {}, extraData: { consumableType: "pet_incubator" } } },
+    { label: "Pet Egg (Common)", data: { name: "Cracked Egg", type: "consumable", rarity: "common", level: 1, stats: {}, extraData: { consumableType: "pet_egg", eggRarity: "common" } } },
+    { label: "Pet Egg (Rare)", data: { name: "Glowing Egg", type: "consumable", rarity: "rare", level: 1, stats: {}, extraData: { consumableType: "pet_egg", eggRarity: "rare" } } },
+    { label: "Pet Egg (Epic)", data: { name: "Radiant Egg", type: "consumable", rarity: "epic", level: 1, stats: {}, extraData: { consumableType: "pet_egg", eggRarity: "epic" } } },
+    { label: "Pet Egg (Legendary)", data: { name: "Celestial Egg", type: "consumable", rarity: "legendary", level: 1, stats: {}, extraData: { consumableType: "pet_egg", eggRarity: "legendary" } } },
+    { label: "Shiny Pet Egg", data: { name: "Shiny Pet Egg", type: "consumable", rarity: "shiny", level: 1, stats: {}, extraData: { consumableType: "pet_egg_shiny", guaranteed_shiny: true } } },
+  ];
+
+  const grantItemMutation = useMutation({
+    mutationFn: ({ characterId, itemData }) => base44.functions.invoke("managePlayer", {
+      action: "grant_item",
+      target_character_id: characterId,
+      itemData,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["charItems", selectedCharacter?.id] });
+      setGrantItemType("");
     },
   });
 
@@ -513,7 +542,7 @@ export default function AdminPanel() {
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
-              className="bg-card border-2 border-border rounded-xl p-6 w-full max-w-2xl max-h-96 overflow-y-auto"
+              className="bg-card border-2 border-border rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
@@ -679,6 +708,31 @@ export default function AdminPanel() {
                     )}
                   </div>
                 </details>
+
+                {/* Grant Item */}
+                <div className="flex gap-2 items-center">
+                  <select
+                    value={grantItemType}
+                    onChange={(e) => setGrantItemType(e.target.value)}
+                    className="h-8 rounded-md border border-border bg-muted/50 px-2 text-xs flex-1 min-w-0"
+                  >
+                    <option value="">Select item to grant...</option>
+                    {GRANTABLE_ITEMS.map((item, i) => (
+                      <option key={i} value={i}>{item.label}</option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    className="gap-1 flex-shrink-0"
+                    onClick={() => {
+                      const item = GRANTABLE_ITEMS[parseInt(grantItemType)];
+                      if (item) grantItemMutation.mutate({ characterId: selectedCharacter.id, itemData: item.data });
+                    }}
+                    disabled={!grantItemType || grantItemMutation.isPending}
+                  >
+                    <Gift className="w-3.5 h-3.5" /> Grant
+                  </Button>
+                </div>
 
                 {selectedCharacter.is_banned ? (
                   <Button

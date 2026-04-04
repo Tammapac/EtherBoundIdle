@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -380,6 +381,7 @@ function CharacterStatsPanel({ character, equippedItems, equippedRunes = [] }) {
 // ─── Main Inventory ─────────────────────────────────────────────────────────
 
 export default function Inventory({ character, onCharacterUpdate }) {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState("all");
   const [selectedItem, setSelectedItem] = useState(null);
   const [seenItems, setSeenItems] = useState(() => {
@@ -747,16 +749,28 @@ export default function Inventory({ character, onCharacterUpdate }) {
                           </Button>
                         )
                       )}
-                      {selectedItem.type === "consumable" && (
-                        <Button
-                          size="sm"
-                          className="flex-1 gap-1 bg-emerald-600 hover:bg-emerald-700"
-                          disabled={useItemMutation.isPending}
-                          onClick={() => useItemMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}
-                        >
-                          <Sparkles className="w-3.5 h-3.5" /> Use
-                        </Button>
-                      )}
+                      {selectedItem.type === "consumable" && (() => {
+                        const selExtra = selectedItem.extraData || selectedItem.extra_data || {};
+                        const isPetEgg = selExtra.consumableType === "pet_egg" || selExtra.consumableType === "pet_egg_shiny";
+                        return isPetEgg ? (
+                          <Button
+                            size="sm"
+                            className="flex-1 gap-1 bg-amber-600 hover:bg-amber-700"
+                            onClick={() => { setSelectedItem(null); navigate("/pets"); }}
+                          >
+                            <Egg className="w-3.5 h-3.5" /> Hatch in Pets
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="flex-1 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                            disabled={useItemMutation.isPending}
+                            onClick={() => useItemMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" /> Use
+                          </Button>
+                        );
+                      })()}
                       <Button variant="destructive" size="sm" onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}>
                         <Coins className="w-3.5 h-3.5 mr-1" /> Sell {selectedItem.stackIds ? "1" : ""} ({selectedItem.sell_price || 5}g)
                       </Button>
