@@ -235,6 +235,184 @@ export const PROC_TYPES = {
     color: "text-red-400",
     description: "12% chance to counter-attack for 150% damage when hit",
   },
+
+  // ── Shiny Unique Effects ──────────────────────────────────────────────────
+  // These only appear on shiny-rarity gear as guaranteed unique procs.
+
+  // Weapon uniques
+  elemental_amplifier: {
+    id: "elemental_amplifier",
+    name: "Elemental Amplifier",
+    type: "passive",
+    trigger: "passive",
+    icon: "🌈",
+    color: "text-pink-400",
+    description: "Elemental skills deal 30% more damage",
+  },
+  cleave_strike: {
+    id: "cleave_strike",
+    name: "Cleave Strike",
+    type: "aoe",
+    trigger: "every_n",
+    every: 3,
+    damageMultiplier: 1.0,
+    icon: "🌀",
+    color: "text-orange-300",
+    description: "Every 3rd hit damages ALL enemies",
+  },
+  executioner: {
+    id: "executioner",
+    name: "Executioner's Edge",
+    type: "passive",
+    trigger: "passive",
+    icon: "⚰️",
+    color: "text-red-500",
+    description: "Deals 50% more damage to enemies below 30% HP",
+  },
+  berserker_fury: {
+    id: "berserker_fury",
+    name: "Berserker's Fury",
+    type: "passive",
+    trigger: "passive",
+    icon: "🔥",
+    color: "text-red-400",
+    description: "Gain +2% ATK for each 10% HP missing",
+  },
+
+  // Armor uniques
+  parry_master: {
+    id: "parry_master",
+    name: "Parry Master",
+    type: "reflect",
+    trigger: "on_hit_taken",
+    chance: 0.15,
+    reflectPercent: 2.5,
+    icon: "🤺",
+    color: "text-yellow-300",
+    description: "15% chance to parry attacks, reflecting 250% damage",
+  },
+  undying_will: {
+    id: "undying_will",
+    name: "Undying Will",
+    type: "passive",
+    trigger: "passive",
+    icon: "💫",
+    color: "text-cyan-300",
+    description: "Survive a killing blow once per fight with 20% HP",
+  },
+  fortification: {
+    id: "fortification",
+    name: "Fortification",
+    type: "passive",
+    trigger: "passive",
+    icon: "🏰",
+    color: "text-blue-300",
+    description: "Take 20% less damage when above 80% HP",
+  },
+
+  // Helmet uniques
+  wisdom_aura: {
+    id: "wisdom_aura",
+    name: "Wisdom Aura",
+    type: "passive",
+    trigger: "passive",
+    icon: "📚",
+    color: "text-blue-400",
+    description: "+25% EXP from all sources",
+  },
+  third_eye: {
+    id: "third_eye",
+    name: "Third Eye",
+    type: "passive",
+    trigger: "passive",
+    icon: "👁️",
+    color: "text-purple-400",
+    description: "+15% chance to find rare loot",
+  },
+
+  // Gloves uniques
+  rapid_strikes: {
+    id: "rapid_strikes",
+    name: "Rapid Strikes",
+    type: "extra_hits",
+    trigger: "on_hit",
+    chance: 0.20,
+    extraHits: 1,
+    icon: "👊",
+    color: "text-orange-400",
+    description: "20% chance for attacks to hit twice",
+  },
+  mana_siphon: {
+    id: "mana_siphon",
+    name: "Mana Siphon",
+    type: "passive",
+    trigger: "passive",
+    icon: "💧",
+    color: "text-blue-400",
+    description: "Restore 5% MP on hit",
+  },
+
+  // Boots uniques
+  phantom_step: {
+    id: "phantom_step",
+    name: "Phantom Step",
+    type: "passive",
+    trigger: "passive",
+    icon: "👻",
+    color: "text-indigo-300",
+    description: "+20% Evasion for 3s after being hit",
+  },
+  gold_magnet: {
+    id: "gold_magnet",
+    name: "Gold Magnet",
+    type: "passive",
+    trigger: "passive",
+    icon: "🧲",
+    color: "text-yellow-400",
+    description: "+30% gold from all sources",
+  },
+
+  // Ring uniques
+  soul_collector: {
+    id: "soul_collector",
+    name: "Soul Collector",
+    type: "heal",
+    trigger: "on_kill",
+    chance: 1.0,
+    healPercent: 0.08,
+    icon: "👤",
+    color: "text-purple-300",
+    description: "Killing an enemy heals 8% of max HP",
+  },
+  lucky_star: {
+    id: "lucky_star",
+    name: "Lucky Star",
+    type: "passive",
+    trigger: "passive",
+    icon: "🌟",
+    color: "text-yellow-300",
+    description: "+10% to all drop rates",
+  },
+
+  // Amulet uniques
+  life_link: {
+    id: "life_link",
+    name: "Life Link",
+    type: "passive",
+    trigger: "passive",
+    icon: "💖",
+    color: "text-pink-400",
+    description: "5% of damage dealt heals HP",
+  },
+  elemental_shield: {
+    id: "elemental_shield",
+    name: "Elemental Shield",
+    type: "passive",
+    trigger: "passive",
+    icon: "🔮",
+    color: "text-cyan-400",
+    description: "Reduce elemental damage taken by 25%",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

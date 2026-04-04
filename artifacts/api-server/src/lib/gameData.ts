@@ -838,13 +838,48 @@ const PROC_POOLS_BY_TYPE: Record<string, { pool: string[]; maxProcs: Record<stri
   amulet:  { pool: [...PROC_IDS_DEFENSIVE, ...PROC_IDS_KILL], maxProcs: { epic: 1, legendary: 1, mythic: 1, shiny: 2 } },
 };
 
+// Shiny-exclusive unique effects — powerful procs only on shiny gear
+const SHINY_UNIQUE_EFFECTS: Record<string, Array<{ id: string; name: string; description: string }>> = {
+  weapon: [
+    { id: "elemental_amplifier", name: "Elemental Amplifier", description: "Elemental skills deal 30% more damage" },
+    { id: "cleave_strike", name: "Cleave Strike", description: "Every 3rd hit damages ALL enemies" },
+    { id: "executioner", name: "Executioner's Edge", description: "Deals 50% more damage to enemies below 30% HP" },
+    { id: "berserker_fury", name: "Berserker's Fury", description: "Gain +2% ATK for each 10% HP missing" },
+  ],
+  armor: [
+    { id: "parry_master", name: "Parry Master", description: "15% chance to parry attacks, reflecting 250% damage" },
+    { id: "undying_will", name: "Undying Will", description: "Survive a killing blow once per fight with 20% HP" },
+    { id: "fortification", name: "Fortification", description: "Take 20% less damage when above 80% HP" },
+  ],
+  helmet: [
+    { id: "wisdom_aura", name: "Wisdom Aura", description: "+25% EXP from all sources" },
+    { id: "third_eye", name: "Third Eye", description: "+15% chance to find rare loot" },
+  ],
+  gloves: [
+    { id: "rapid_strikes", name: "Rapid Strikes", description: "20% chance for attacks to hit twice" },
+    { id: "mana_siphon", name: "Mana Siphon", description: "Restore 5% MP on hit" },
+  ],
+  boots: [
+    { id: "phantom_step", name: "Phantom Step", description: "+20% Evasion for 3s after being hit" },
+    { id: "gold_magnet", name: "Gold Magnet", description: "+30% gold from all sources" },
+  ],
+  ring: [
+    { id: "soul_collector", name: "Soul Collector", description: "Killing an enemy heals 8% of max HP" },
+    { id: "lucky_star", name: "Lucky Star", description: "+10% to all drop rates" },
+  ],
+  amulet: [
+    { id: "life_link", name: "Life Link", description: "5% of damage dealt heals HP" },
+    { id: "elemental_shield", name: "Elemental Shield", description: "Reduce elemental damage taken by 25%" },
+  ],
+};
+
 function generateItemProcs(itemType: string, rarity: string, itemLevel: number): any[] {
   const config = PROC_POOLS_BY_TYPE[itemType];
   if (!config) return [];
   const maxProcs = (config.maxProcs as any)[rarity] || 0;
   if (maxProcs === 0) return [];
 
-  const procChance = Math.min(0.9, 0.3 + (itemLevel / 100) * 0.4);
+  const procChance = rarity === "shiny" ? 1.0 : Math.min(0.9, 0.3 + (itemLevel / 100) * 0.4);
   const procs: any[] = [];
   const pool = [...config.pool];
 
@@ -854,6 +889,14 @@ function generateItemProcs(itemType: string, rarity: string, itemLevel: number):
     const procId = pool.splice(idx, 1)[0];
     procs.push({ id: procId });
   }
+
+  // Shiny items get a guaranteed unique effect
+  if (rarity === "shiny") {
+    const shinyPool = SHINY_UNIQUE_EFFECTS[itemType] || SHINY_UNIQUE_EFFECTS.weapon;
+    const shinyEffect = shinyPool[Math.floor(Math.random() * shinyPool.length)];
+    procs.push({ id: shinyEffect.id, unique: true, name: shinyEffect.name, description: shinyEffect.description });
+  }
+
   return procs;
 }
 
