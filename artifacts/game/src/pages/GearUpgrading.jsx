@@ -35,7 +35,7 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
         <div className="w-10 h-10 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
           <Wrench className="w-5 h-5 text-purple-400" />
         </div>
-        <h2 className="font-orbitron text-xl font-bold">Gear Upgrading</h2>
+        <h2 className="font-orbitron text-xl font-bold">Forge</h2>
       </div>
 
       {/* Info Cards */}

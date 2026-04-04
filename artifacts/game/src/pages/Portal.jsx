@@ -892,6 +892,31 @@ export default function Portal({ character, onCharacterUpdate }) {
             </div>
           )}
 
+          {/* Reset Portal Level */}
+          {portalLevel > 1 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 gap-1.5"
+              disabled={loading}
+              onClick={async () => {
+                if (!confirm("Reset portal to Level 1? You'll get back 50% of shards spent.")) return;
+                setLoading(true);
+                try {
+                  const res = await base44.functions.invoke("portalAction", { action: "reset_level", characterId: character.id });
+                  if (res?.success) {
+                    toast({ title: "Portal reset to Level 1", description: res.shardsRefunded > 0 ? `Refunded ${res.shardsRefunded} shards` : undefined });
+                    refetch();
+                  }
+                } catch (err) {
+                  toast({ title: err.message || "Reset failed", variant: "destructive" });
+                } finally { setLoading(false); }
+              }}
+            >
+              Reset Portal to Level 1
+            </Button>
+          )}
+
           {/* Max Level Banner */}
           {portalLevel >= 100 && (
             <div className="bg-gradient-to-r from-amber-500/10 via-violet-500/10 to-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center space-y-2">

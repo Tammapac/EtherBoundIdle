@@ -740,7 +740,7 @@ function PetsInner({ character, onCharacterUpdate }) {
   // Pets not currently on an expedition
   const availablePetsForExpedition = useMemo(() => {
     const onExpedition = new Set(expeditions.filter(e => !e.claimedAt).map(e => e.petId));
-    return pets.filter(p => !onExpedition.has(p.id));
+    return pets.filter(p => !onExpedition.has(p.id)).sort((a, b) => (b.level || 1) - (a.level || 1));
   }, [pets, expeditions]);
 
   // Equipped items for a given pet

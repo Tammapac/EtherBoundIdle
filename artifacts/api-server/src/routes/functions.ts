@@ -684,6 +684,22 @@ router.post("/functions/useItem", async (req: Request, res: Response) => {
       message = `${item.name} is now incubating! It will hatch in ${hours} hours. Check the Pets tab!`;
       effectApplied = { type: "incubation_started", eggRarity, hatchesAt, hours };
     }
+    // --- HEALTH / MANA POTIONS ---
+    else if (consumableType === "health_potion" || consumableType === "mana_potion") {
+      const stats = (item.stats as any) || {};
+      const healAmount = stats.heal_amount || 200;
+      if (consumableType === "health_potion") {
+        const newHp = Math.min((char.maxHp || char.max_hp || 1000), (char.hp || 0) + healAmount);
+        await db.update(charactersTable).set({ hp: newHp }).where(eq(charactersTable.id, char.id));
+        message = `${item.name} used! Restored ${healAmount} HP.`;
+        effectApplied = { type: "heal_hp", amount: healAmount, newHp };
+      } else {
+        const newMp = Math.min((char.maxMp || char.max_mp || 500), (char.mp || 0) + healAmount);
+        await db.update(charactersTable).set({ mp: newMp }).where(eq(charactersTable.id, char.id));
+        message = `${item.name} used! Restored ${healAmount} MP.`;
+        effectApplied = { type: "heal_mp", amount: healAmount, newMp };
+      }
+    }
     else {
       sendError(res, 400, `Unknown consumable type: ${consumableType}`);
       return;
@@ -942,7 +958,9 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
     }
 
     const activeQuests = existing.filter(q => q.status === "active");
-    if (activeQuests.length >= 3) {
+    const activeDailyCount = activeQuests.filter(q => (q as any).type === "daily").length;
+    const activeWeeklyCount = activeQuests.filter(q => (q as any).type === "weekly").length;
+    if (activeDailyCount >= 5 && activeWeeklyCount >= 2) {
       sendSuccess(res, { quests: activeQuests }); return;
     }
 
@@ -951,29 +969,62 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     tomorrow.setUTCHours(0, 0, 0, 0);
 
-    const questTemplates = [
-      { title: "Monster Slayer", description: "Kill 10 enemies", type: "daily", objectiveType: "combat_kills", target: 10, reward: { gold: 200, exp: 100 } },
-      { title: "Gold Hoarder", description: "Earn 500 gold", type: "daily", objectiveType: "gold_earned", target: 500, reward: { gold: 300, gems: 1 } },
-      { title: "Level Up", description: "Gain a level", type: "daily", objectiveType: "level_up", target: 1, reward: { gold: 500, gems: 2 } },
+    // Daily quest pool — randomly pick 5 per day
+    const dailyPool = [
+      { title: "Monster Slayer", description: "Kill 10 enemies", objectiveType: "combat_kills", target: 10, reward: { gold: 200, exp: 100 } },
+      { title: "Gold Hoarder", description: "Earn 500 gold", objectiveType: "gold_earned", target: 500, reward: { gold: 300, gems: 1 } },
+      { title: "Level Up", description: "Gain a level", objectiveType: "level_up", target: 1, reward: { gold: 500, gems: 2 } },
+      { title: "Elite Hunter", description: "Kill 3 bosses or elites", objectiveType: "boss_kills", target: 3, reward: { gold: 400, gems: 2, exp: 200 } },
+      { title: "Dungeon Crawler", description: "Complete 2 dungeons", objectiveType: "dungeon_complete", target: 2, reward: { gold: 600, gems: 3 } },
+      { title: "Potion Brewer", description: "Craft 3 items in Life Skills", objectiveType: "craft_items", target: 3, reward: { gold: 300, exp: 150 } },
+      { title: "Rune Collector", description: "Obtain 2 runes", objectiveType: "rune_drops", target: 2, reward: { gold: 250, gems: 1 } },
+      { title: "Tower Climber", description: "Clear 5 tower floors", objectiveType: "tower_floors", target: 5, reward: { gold: 500, gems: 2, exp: 300 } },
+      { title: "Portal Explorer", description: "Survive 3 portal waves", objectiveType: "portal_waves", target: 3, reward: { gold: 400, gems: 2 } },
+      { title: "Skill Master", description: "Use 10 skills in combat", objectiveType: "skills_used", target: 10, reward: { gold: 200, exp: 200 } },
     ];
+
+    // Weekly quest pool — check for weeklies too
+    const nextWeek = new Date(now);
+    nextWeek.setUTCDate(nextWeek.getUTCDate() + (7 - nextWeek.getUTCDay()));
+    nextWeek.setUTCHours(0, 0, 0, 0);
+    const weeklyPool = [
+      { title: "Weekly Slaughter", description: "Kill 100 enemies this week", objectiveType: "combat_kills", target: 100, reward: { gold: 2000, gems: 10, exp: 1000 } },
+      { title: "Weekly Wealth", description: "Earn 10,000 gold this week", objectiveType: "gold_earned", target: 10000, reward: { gold: 5000, gems: 5 } },
+      { title: "Weekly Dungeoneer", description: "Complete 10 dungeons this week", objectiveType: "dungeon_complete", target: 10, reward: { gold: 3000, gems: 8 } },
+      { title: "Weekly Tower Master", description: "Clear 25 tower floors this week", objectiveType: "tower_floors", target: 25, reward: { gold: 3000, gems: 10, exp: 2000 } },
+    ];
+
     const existingTitles = new Set(activeQuests.map(q => q.title));
+    const activeDailies = activeQuests.filter(q => (q as any).type === "daily").length;
+    const activeWeeklies = activeQuests.filter(q => (q as any).type === "weekly").length;
     const newQuests = [];
-    for (const template of questTemplates) {
-      if (activeQuests.length + newQuests.length >= 3) break;
+
+    // Generate dailies (up to 5)
+    const shuffledDaily = [...dailyPool].sort(() => Math.random() - 0.5);
+    for (const template of shuffledDaily) {
+      if (activeDailies + newQuests.filter(q => q.type === "daily").length >= 5) break;
       if (existingTitles.has(template.title)) continue;
       const [quest] = await db.insert(questsTable).values({
-        characterId,
-        type: template.type,
-        title: template.title,
-        description: template.description,
-        objective: { type: template.objectiveType },
-        target: template.target,
-        reward: template.reward,
-        status: "active",
-        expiresAt: tomorrow,
+        characterId, type: "daily", title: template.title, description: template.description,
+        objective: { type: template.objectiveType }, target: template.target, reward: template.reward,
+        status: "active", expiresAt: tomorrow,
       }).returning();
       newQuests.push(quest);
     }
+
+    // Generate weeklies (up to 2)
+    const shuffledWeekly = [...weeklyPool].sort(() => Math.random() - 0.5);
+    for (const template of shuffledWeekly) {
+      if (activeWeeklies + newQuests.filter(q => q.type === "weekly").length >= 2) break;
+      if (existingTitles.has(template.title)) continue;
+      const [quest] = await db.insert(questsTable).values({
+        characterId, type: "weekly", title: template.title, description: template.description,
+        objective: { type: template.objectiveType }, target: template.target, reward: template.reward,
+        status: "active", expiresAt: nextWeek,
+      }).returning();
+      newQuests.push(quest);
+    }
+
     sendSuccess(res, { quests: [...activeQuests, ...newQuests] });
   } catch (err: any) {
     req.log.error({ err }, "manageDailyQuests error");
@@ -3640,6 +3691,25 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         }
       } catch {}
 
+      // 4b. Health/Mana potion drops (small chance from any enemy)
+      try {
+        const potionDropChance = serverIsBoss ? 0.25 : 0.04;
+        if (Math.random() < potionDropChance) {
+          const isHealthPotion = Math.random() < 0.6;
+          const charLevel = char.level || 1;
+          const potionTier = charLevel < 15 ? "Minor" : charLevel < 35 ? "Standard" : charLevel < 60 ? "Greater" : "Supreme";
+          const healAmount = { Minor: 200, Standard: 600, Greater: 1500, Supreme: 4000 }[potionTier] || 200;
+          const potionRarity = { Minor: "common", Standard: "uncommon", Greater: "rare", Supreme: "epic" }[potionTier] || "common";
+          const potionName = isHealthPotion ? `${potionTier} Health Potion` : `${potionTier} Mana Potion`;
+          const potionType = isHealthPotion ? "health_potion" : "mana_potion";
+          await db.insert(itemsTable).values({
+            ownerId: characterId, name: potionName, type: "consumable", rarity: potionRarity,
+            level: 1, stats: { heal_amount: healAmount },
+            extraData: { consumableType: potionType, potionTier, source: "enemy_drop" },
+          });
+        }
+      } catch {}
+
       // 4. Pet eggs ONLY drop from bosses (not regular monsters)
       // Regular battle screen monsters do NOT drop pet eggs
       try {
@@ -5289,11 +5359,37 @@ const RUNE_SUB_VALUE: Record<string, [number, number]> = {
   common: [1, 2], uncommon: [1, 3], rare: [2, 4], epic: [2, 5], legendary: [3, 6], mythic: [4, 8],
 };
 
-const RUNE_NAMES: Record<string, string[]> = {
-  offensive:  ["Fury Rune", "Wrath Rune", "Rage Rune", "Storm Rune", "Havoc Rune", "Slayer Rune"],
-  defensive:  ["Ward Rune", "Bastion Rune", "Aegis Rune", "Fortitude Rune", "Sentinel Rune", "Guardian Rune"],
-  utility:    ["Fortune Rune", "Insight Rune", "Prosperity Rune", "Wisdom Rune", "Discovery Rune"],
-  elemental:  ["Ember Rune", "Frost Rune", "Spark Rune", "Venom Rune", "Crimson Rune", "Dust Rune"],
+// Each rune name maps to a FIXED main stat — so players can "build" their character
+const RUNE_NAME_STAT_MAP: Record<string, { name: string; mainStat: string }[]> = {
+  offensive: [
+    { name: "Fury Rune", mainStat: "attack_pct" },
+    { name: "Wrath Rune", mainStat: "crit_chance" },
+    { name: "Rage Rune", mainStat: "crit_dmg_pct" },
+    { name: "Storm Rune", mainStat: "attack_speed" },
+    { name: "Havoc Rune", mainStat: "boss_dmg_pct" },
+    { name: "Slayer Rune", mainStat: "lifesteal" },
+  ],
+  defensive: [
+    { name: "Ward Rune", mainStat: "defense_pct" },
+    { name: "Bastion Rune", mainStat: "hp_flat" },
+    { name: "Aegis Rune", mainStat: "block_chance" },
+    { name: "Fortitude Rune", mainStat: "hp_regen" },
+    { name: "Sentinel Rune", mainStat: "evasion" },
+    { name: "Guardian Rune", mainStat: "mp_flat" },
+  ],
+  utility: [
+    { name: "Fortune Rune", mainStat: "gold_pct" },
+    { name: "Insight Rune", mainStat: "exp_pct" },
+    { name: "Prosperity Rune", mainStat: "drop_chance" },
+  ],
+  elemental: [
+    { name: "Ember Rune", mainStat: "fire_dmg" },
+    { name: "Frost Rune", mainStat: "ice_dmg" },
+    { name: "Spark Rune", mainStat: "lightning_dmg" },
+    { name: "Venom Rune", mainStat: "poison_dmg" },
+    { name: "Crimson Rune", mainStat: "blood_dmg" },
+    { name: "Dust Rune", mainStat: "sand_dmg" },
+  ],
 };
 
 // Max rune level: base 1 + 6 upgrades = level 7
@@ -5317,9 +5413,14 @@ const RUNE_UPGRADE_RATE: Record<number, number> = {
 const RUNE_LEVEL_STAT_MULT = 0.08;
 
 function generateRune(characterLevel: number, rarity: string): any {
-  // Pick random main stat
-  const mainStat = RUNE_STAT_KEYS[Math.floor(Math.random() * RUNE_STAT_KEYS.length)];
-  const category = RUNE_STATS[mainStat as keyof typeof RUNE_STATS].category;
+  // Pick random category, then a random rune from that category (each name has a fixed main stat)
+  const categories = Object.keys(RUNE_NAME_STAT_MAP);
+  const category = categories[Math.floor(Math.random() * categories.length)];
+  const runePool = RUNE_NAME_STAT_MAP[category];
+  const pick = runePool[Math.floor(Math.random() * runePool.length)];
+  const mainStat = pick.mainStat;
+  const name = pick.name;
+
   const mainBase = RUNE_MAIN_STAT_BASE[rarity] || 3;
   const levelScale = 1 + characterLevel * 0.02;
   const mainValue = Math.round(mainBase * levelScale);
@@ -5335,9 +5436,6 @@ function generateRune(characterLevel: number, rarity: string): any {
     const value = Math.floor(Math.random() * (max - min + 1)) + min;
     subStats.push({ stat, value });
   }
-
-  const names = RUNE_NAMES[category] || RUNE_NAMES.offensive;
-  const name = names[Math.floor(Math.random() * names.length)];
 
   return { runeType: category, mainStat, mainValue, subStats, rarity, level: 1, name };
 }
@@ -5560,6 +5658,47 @@ router.post("/functions/runes", async (req: Request, res: Response) => {
 
       sendSuccess(res, { salvaged: true, dustGained: rewards });
       return;
+    }
+
+    // === SALVAGE ALL RUNES BY RARITY ===
+    if (action === "salvage_all") {
+      const { rarity: targetRarity } = req.body;
+      if (!targetRarity) { sendError(res, 400, "rarity required"); return; }
+      const runesToSalvage = await db.select().from(runesTable).where(
+        and(eq(runesTable.characterId, characterId), eq(runesTable.rarity, targetRarity), sql`${runesTable.itemId} IS NULL`)
+      );
+      if (runesToSalvage.length === 0) { sendError(res, 400, `No unsocketed ${targetRarity} runes to salvage`); return; }
+
+      const dustReward: Record<string, Record<string, number>> = {
+        common:    { magic_dust: 2 },
+        uncommon:  { magic_dust: 4 },
+        rare:      { magic_dust: 6, heavens_dust: 1 },
+        epic:      { magic_dust: 8, heavens_dust: 3 },
+        legendary: { heavens_dust: 6, void_dust: 1 },
+        mythic:    { heavens_dust: 8, void_dust: 3 },
+      };
+      const totalDust: Record<string, number> = {};
+      for (const rune of runesToSalvage) {
+        const rewards = { ...(dustReward[rune.rarity || "common"] || { magic_dust: 1 }) };
+        const levelBonus = Math.floor(((rune.level || 1) - 1) * 1.5);
+        if (levelBonus > 0) {
+          const primaryDust = Object.keys(rewards)[0];
+          rewards[primaryDust] = (rewards[primaryDust] || 0) + levelBonus;
+        }
+        for (const [k, v] of Object.entries(rewards)) totalDust[k] = (totalDust[k] || 0) + v;
+      }
+
+      for (const rune of runesToSalvage) {
+        await db.delete(runesTable).where(eq(runesTable.id, rune.id));
+      }
+
+      const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
+      if (char) {
+        const extra = (char.extraData as any) || {};
+        for (const [k, v] of Object.entries(totalDust)) extra[k] = (extra[k] || 0) + v;
+        await db.update(charactersTable).set({ extraData: extra }).where(eq(charactersTable.id, characterId));
+      }
+      sendSuccess(res, { salvaged: runesToSalvage.length, dustGained: totalDust }); return;
     }
 
     sendError(res, 400, `Unknown rune action: ${action}`);
@@ -5846,6 +5985,20 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         shardsRemaining: portalData.shards,
         nextUpgradeCost: portalData.level < PORTAL_MAX_LEVEL ? PORTAL_SHARD_UPGRADE_COST[portalData.level] : null,
       });
+      return;
+    }
+
+    // === RESET PORTAL LEVEL TO 1 ===
+    if (action === "reset_level") {
+      if ((portalData.level || 1) <= 1) { sendError(res, 400, "Portal is already at level 1"); return; }
+      // Refund half of shards spent (rounded down)
+      const shardRefund = Math.floor((portalData.shards_spent || 0) * 0.5);
+      portalData.level = 1;
+      portalData.shards = (portalData.shards || 0) + shardRefund;
+      portalData.shards_spent = 0;
+      extraData.portal = portalData;
+      await db.update(charactersTable).set({ extraData }).where(eq(charactersTable.id, characterId));
+      sendSuccess(res, { success: true, newLevel: 1, shardsRefunded: shardRefund, shardsRemaining: portalData.shards });
       return;
     }
 
@@ -6545,34 +6698,51 @@ function formatHp(n: number): string {
   return `${n}`;
 }
 
-// Boss-specific unique gear definitions
-const WORLD_BOSS_GEAR: Record<string, Array<{ name: string; type: string; stats: any }>> = {
+// Boss-specific unique gear definitions — class_restriction limits who can equip
+const WORLD_BOSS_GEAR: Record<string, Array<{ name: string; type: string; stats: any; class_restriction?: string[]; subtype?: string }>> = {
   verdant_forest: [
-    { name: "Gaia's Verdant Blade", type: "weapon", stats: { damage: 120, strength: 40, vitality: 25, hp_bonus: 500 } },
+    // Weapons per class
+    { name: "Gaia's Verdant Blade", type: "weapon", subtype: "sword", class_restriction: ["warrior"], stats: { damage: 120, strength: 40, vitality: 25, hp_bonus: 500 } },
+    { name: "Gaia's Nature Staff", type: "weapon", subtype: "staff", class_restriction: ["mage"], stats: { damage: 100, intelligence: 50, vitality: 20, mp_bonus: 400 } },
+    { name: "Gaia's Thornbow", type: "weapon", subtype: "bow", class_restriction: ["ranger"], stats: { damage: 110, dexterity: 45, vitality: 20, crit_chance: 5 } },
+    { name: "Gaia's Root Dagger", type: "weapon", subtype: "dagger", class_restriction: ["rogue"], stats: { damage: 115, dexterity: 40, crit_chance: 8, lifesteal: 3 } },
+    // Shared armor/accessories
     { name: "Bark of the Ancient", type: "armor", stats: { defense: 80, vitality: 50, hp_bonus: 800, evasion: 5 } },
     { name: "Canopy Crown", type: "helmet", stats: { defense: 40, intelligence: 30, mp_bonus: 200, hp_bonus: 300 } },
     { name: "Ring of Roots", type: "ring", stats: { vitality: 35, defense: 25, hp_bonus: 400, lifesteal: 3 } },
   ],
   scorched_desert: [
-    { name: "Ignis Flamecleaver", type: "weapon", stats: { damage: 250, strength: 60, fire_dmg: 40, crit_chance: 8 } },
+    { name: "Ignis Flamecleaver", type: "weapon", subtype: "sword", class_restriction: ["warrior"], stats: { damage: 250, strength: 60, fire_dmg: 40, crit_chance: 8 } },
+    { name: "Ignis Blazestaff", type: "weapon", subtype: "staff", class_restriction: ["mage"], stats: { damage: 200, intelligence: 80, fire_dmg: 55, mp_bonus: 300 } },
+    { name: "Ignis Scorchbow", type: "weapon", subtype: "bow", class_restriction: ["ranger"], stats: { damage: 230, dexterity: 65, fire_dmg: 35, crit_chance: 10 } },
+    { name: "Ignis Emberfang", type: "weapon", subtype: "dagger", class_restriction: ["rogue"], stats: { damage: 240, dexterity: 55, fire_dmg: 45, crit_dmg_pct: 15 } },
     { name: "Inferno Carapace", type: "armor", stats: { defense: 130, vitality: 65, fire_dmg: 20, hp_bonus: 1000 } },
     { name: "Scorched Diadem", type: "helmet", stats: { defense: 60, intelligence: 50, fire_dmg: 30, mp_bonus: 350 } },
     { name: "Ember Loop", type: "ring", stats: { fire_dmg: 35, crit_dmg_pct: 15, damage: 80, strength: 30 } },
   ],
   frozen_peaks: [
-    { name: "Cryos Frostfang", type: "weapon", stats: { damage: 400, dexterity: 80, ice_dmg: 50, crit_chance: 12 } },
+    { name: "Cryos Frostfang", type: "weapon", subtype: "sword", class_restriction: ["warrior"], stats: { damage: 400, strength: 90, ice_dmg: 40, block_chance: 5 } },
+    { name: "Cryos Blizzard Orb", type: "weapon", subtype: "staff", class_restriction: ["mage"], stats: { damage: 350, intelligence: 100, ice_dmg: 60, mp_bonus: 500 } },
+    { name: "Cryos Icicle Longbow", type: "weapon", subtype: "bow", class_restriction: ["ranger"], stats: { damage: 380, dexterity: 85, ice_dmg: 50, crit_chance: 12 } },
+    { name: "Cryos Frost Stiletto", type: "weapon", subtype: "dagger", class_restriction: ["rogue"], stats: { damage: 390, dexterity: 80, ice_dmg: 45, crit_dmg_pct: 20 } },
     { name: "Glacial Aegis", type: "armor", stats: { defense: 200, vitality: 90, ice_dmg: 30, block_chance: 10 } },
     { name: "Frostmantle Hood", type: "helmet", stats: { defense: 90, intelligence: 70, ice_dmg: 40, mp_bonus: 500 } },
     { name: "Permafrost Seal", type: "ring", stats: { ice_dmg: 45, defense: 50, evasion: 8, hp_bonus: 600 } },
   ],
   shadow_realm: [
-    { name: "Nyx Voidreaver", type: "weapon", stats: { damage: 650, intelligence: 100, poison_dmg: 60, crit_dmg_pct: 25 } },
+    { name: "Nyx Voidreaver", type: "weapon", subtype: "sword", class_restriction: ["warrior"], stats: { damage: 650, strength: 110, poison_dmg: 50, lifesteal: 5 } },
+    { name: "Nyx Shadow Scepter", type: "weapon", subtype: "staff", class_restriction: ["mage"], stats: { damage: 580, intelligence: 130, poison_dmg: 60, blood_dmg: 30 } },
+    { name: "Nyx Whisper Bow", type: "weapon", subtype: "bow", class_restriction: ["ranger"], stats: { damage: 620, dexterity: 110, poison_dmg: 55, crit_dmg_pct: 25 } },
+    { name: "Nyx Phantom Blade", type: "weapon", subtype: "dagger", class_restriction: ["rogue"], stats: { damage: 640, dexterity: 100, poison_dmg: 60, crit_chance: 12 } },
     { name: "Umbral Vestments", type: "armor", stats: { defense: 300, vitality: 120, evasion: 12, poison_dmg: 35 } },
     { name: "Crown of Shadows", type: "helmet", stats: { defense: 130, intelligence: 90, blood_dmg: 45, mp_bonus: 700 } },
     { name: "Voidheart Band", type: "ring", stats: { blood_dmg: 55, lifesteal: 8, crit_chance: 10, damage: 200 } },
   ],
   celestial_spire: [
-    { name: "Solaris, Light Eternal", type: "weapon", stats: { damage: 1000, strength: 150, lightning_dmg: 80, crit_chance: 15, crit_dmg_pct: 30 } },
+    { name: "Solaris, Light Eternal", type: "weapon", subtype: "sword", class_restriction: ["warrior"], stats: { damage: 1000, strength: 150, lightning_dmg: 80, crit_chance: 15, crit_dmg_pct: 30 } },
+    { name: "Solaris, Cosmic Catalyst", type: "weapon", subtype: "staff", class_restriction: ["mage"], stats: { damage: 900, intelligence: 180, lightning_dmg: 90, mp_bonus: 800, crit_dmg_pct: 20 } },
+    { name: "Solaris, Starfall Bow", type: "weapon", subtype: "bow", class_restriction: ["ranger"], stats: { damage: 950, dexterity: 160, lightning_dmg: 75, crit_chance: 18, crit_dmg_pct: 25 } },
+    { name: "Solaris, Eclipse Fang", type: "weapon", subtype: "dagger", class_restriction: ["rogue"], stats: { damage: 980, dexterity: 140, lightning_dmg: 85, crit_chance: 15, lifesteal: 6 } },
     { name: "Radiant Divinity Plate", type: "armor", stats: { defense: 450, vitality: 180, hp_bonus: 3000, block_chance: 12 } },
     { name: "Halo of the Cosmos", type: "helmet", stats: { defense: 200, intelligence: 130, lightning_dmg: 60, mp_bonus: 1000 } },
     { name: "Stellar Convergence", type: "ring", stats: { damage: 350, crit_chance: 12, crit_dmg_pct: 35, lightning_dmg: 70, lifesteal: 5 } },
@@ -7040,8 +7210,11 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       // Boss Gear — top 10% get unique boss gear (shiny for top 3 MVP, mythic for rest)
       if (percentile < 0.1) {
         const gearPool = WORLD_BOSS_GEAR[zone] || [];
-        if (gearPool.length > 0) {
-          const gear = gearPool[Math.floor(Math.random() * gearPool.length)];
+        const playerClass = char.class || "warrior";
+        // Filter: class-restricted items must match player class, non-restricted items available to all
+        const eligible = gearPool.filter((g: any) => !g.class_restriction || g.class_restriction.includes(playerClass));
+        if (eligible.length > 0) {
+          const gear = eligible[Math.floor(Math.random() * eligible.length)] as any;
           const isTopMVP = myRank < 3;
           const gearRarity = isTopMVP ? "shiny" : "mythic";
           const statMult = isTopMVP ? 2.0 : 1.4;
@@ -7053,7 +7226,13 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
           await db.insert(itemsTable).values({
             ownerId: characterId, name: gear.name, type: gear.type, rarity: gearRarity,
             level: gearLevel, stats: boostedStats,
-            extraData: { source: "world_boss", boss: zone, unique: true, is_unique: true, rune_slots: isTopMVP ? 3 : 2, subtype: gear.type === "weapon" ? "blade" : undefined },
+            extraData: {
+              source: "world_boss", boss: zone, unique: true, is_unique: true,
+              rune_slots: isTopMVP ? 3 : 2,
+              subtype: gear.subtype || undefined,
+              class_restriction: gear.class_restriction || null,
+              level_req: gearLevel,
+            },
           });
           rewardItems.push(`${gear.name} (${gearRarity})`);
         }

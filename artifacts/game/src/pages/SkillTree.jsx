@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Zap, Shield, Lock, CheckCircle2, ChevronDown, ChevronRight, Star, Flame, Snowflake, Swords, Sparkles } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { CLASS_SKILLS, SKILL_TIERS, ELEMENT_CONFIG, SKILL_SYNERGIES, getActiveSynergies } from "@/lib/skillData";
+import { CLASS_SKILLS, SKILL_TIERS, ELEMENT_CONFIG, SKILL_SYNERGIES, getActiveSynergies, ELEMENT_STACK_BONUSES, getElementStackBonuses } from "@/lib/skillData";
 import SkillHotbar from "@/components/game/SkillHotbar";
 
 export default function SkillTree({ character, onCharacterUpdate }) {
@@ -300,6 +300,46 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           </div>
         </div>
       )}
+      {/* Element Stack Bonuses */}
+      {(() => {
+        const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
+        const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
+        const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
+        const allElements = Object.keys(ELEMENT_STACK_BONUSES);
+        return (
+          <div className="border border-violet-500/30 bg-violet-500/5 rounded-xl p-4 space-y-3">
+            <h3 className="font-orbitron font-bold text-sm text-violet-400 flex items-center gap-2">
+              <Flame className="w-4 h-4" /> Element Stack Bonuses
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Equip multiple skills of the same element for stacking bonuses. 2/3/4 of a kind unlocks increasing power.
+            </p>
+            <div className="grid md:grid-cols-2 gap-2">
+              {allElements.map(element => {
+                const tiers = ELEMENT_STACK_BONUSES[element];
+                const activeStack = activeStacks.find(s => s.element === element);
+                const activeTier = activeStack?.tier || 0;
+                return (
+                  <div key={element} className={`border rounded-lg p-2.5 ${activeTier > 0 ? `border-${element === "fire" ? "orange" : element === "ice" ? "cyan" : element === "lightning" ? "yellow" : element === "poison" ? "green" : element === "blood" ? "red" : "amber"}-500/40 bg-${element}-500/5` : "border-gray-700/50 bg-gray-800/20 opacity-60"}`}>
+                    <p className={`text-xs font-bold mb-1.5 ${ELEM_COLORS[element] || "text-gray-400"}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
+                    {[2, 3, 4].map(tier => {
+                      const bonus = tiers[tier];
+                      if (!bonus) return null;
+                      const isActive = activeTier >= tier;
+                      const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
+                      return (
+                        <p key={tier} className={`text-[10px] ${isActive ? ELEM_COLORS[element] : "text-gray-500"}`}>
+                          {isActive ? "✓" : "○"} {tier} skills: {bonusStr}
+                        </p>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
