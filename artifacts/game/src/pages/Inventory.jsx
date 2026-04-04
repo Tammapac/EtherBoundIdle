@@ -582,7 +582,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
     const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
     let result;
     if (filter === "all") {
-      result = [...items.filter(i => gearTypes.includes(i.type) && i.type !== "consumable"), ...stackedConsumables];
+      result = items.filter(i => gearTypes.includes(i.type));
     } else {
       result = items.filter(i => i.type === filter);
     }

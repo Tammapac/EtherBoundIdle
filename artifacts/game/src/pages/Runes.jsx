@@ -164,6 +164,21 @@ export default function Runes({ character, onCharacterUpdate }) {
     onError: (err) => toast({ title: "Salvage failed", description: err?.message, variant: "destructive" }),
   });
 
+  const salvageAllMutation = useMutation({
+    mutationFn: (rarity) =>
+      base44.functions.invoke("runes", { characterId: character.id, action: "salvage_all", rarity }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["runes"] });
+      if (onCharacterUpdate) onCharacterUpdate();
+      setSelectedRune(null);
+      const dustStr = Object.entries(data?.dustGained || {})
+        .map(([k, v]) => `${v} ${DUST_INFO[k]?.label || k}`)
+        .join(", ");
+      toast({ title: `Salvaged ${data?.salvaged || 0} runes: ${dustStr}`, duration: 3000 });
+    },
+    onError: (err) => toast({ title: "Salvage all failed", description: err?.message, variant: "destructive" }),
+  });
+
   // ── Render rune mini-card ──
   const renderRuneCard = (rune, compact = false) => {
     const rarity = RARITY_COLORS[rune.rarity] || RARITY_COLORS.common;
@@ -520,6 +535,30 @@ export default function Runes({ character, onCharacterUpdate }) {
               ))}
             </select>
           </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {["common", "uncommon", "rare", "epic", "legendary", "mythic"].map(r => {
+            const count = allRunes.filter(rn => rn.rarity === r && !rn.itemId && !rn.item_id).length;
+            if (count === 0) return null;
+            const colors = { common: "text-gray-400", uncommon: "text-green-400", rare: "text-blue-400", epic: "text-purple-400", legendary: "text-yellow-400", mythic: "text-red-400" };
+            return (
+              <Button
+                key={r}
+                size="sm"
+                variant="outline"
+                className={`h-6 text-[10px] px-2 ${colors[r]} border-current/30 hover:bg-current/10 gap-1`}
+                onClick={() => setConfirmModal({
+                  title: `Salvage All ${r.charAt(0).toUpperCase() + r.slice(1)} Runes`,
+                  message: `Salvage ${count} unsocketed ${r} runes for dust? This cannot be undone!`,
+                  onConfirm: () => { salvageAllMutation.mutate(r); setConfirmModal(null); },
+                  variant: "destructive",
+                })}
+                disabled={salvageAllMutation.isPending}
+              >
+                <Trash2 className="w-2.5 h-2.5" /> Salvage All {r} ({count})
+              </Button>
+            );
+          })}
         </div>
 
         {filteredInventory.length === 0 ? (

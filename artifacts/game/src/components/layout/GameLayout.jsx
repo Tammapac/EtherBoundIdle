@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { path: "/dashboard", icon: BarChart3, label: "Dashboard" },
   { path: "/social", icon: MessageCircle, label: "Social" },
   { path: "/lifeskills", icon: Leaf, label: "Life Skills" },
-  { path: "/gearupgrading", icon: Wrench, label: "Gear Upgrading" },
+  { path: "/gearupgrading", icon: Wrench, label: "Forge" },
   { path: "/dungeons", icon: Skull, label: "Dungeons" },
   { path: "/skilltree", icon: Zap, label: "Skill Tree" },
   { path: "/runes", icon: Gem, label: "Runes" },

@@ -1004,6 +1004,44 @@ export function getActiveSynergies(charClass, learnedSkills = [], equippedSkills
   });
 }
 
+// Element stacking bonuses: when N skills of the same element are equipped
+export const ELEMENT_STACK_BONUSES = {
+  fire:      { 2: { fire_dmg: 5 }, 3: { fire_dmg: 12, crit_chance: 3 }, 4: { fire_dmg: 20, crit_chance: 5, boss_dmg_pct: 5 } },
+  ice:       { 2: { ice_dmg: 5 }, 3: { ice_dmg: 12, defense_pct: 5 }, 4: { ice_dmg: 20, defense_pct: 8, evasion: 3 } },
+  lightning: { 2: { lightning_dmg: 5 }, 3: { lightning_dmg: 12, attack_speed: 3 }, 4: { lightning_dmg: 20, attack_speed: 6, crit_dmg_pct: 8 } },
+  poison:    { 2: { poison_dmg: 5 }, 3: { poison_dmg: 12, lifesteal: 2 }, 4: { poison_dmg: 20, lifesteal: 5, drop_chance: 3 } },
+  blood:     { 2: { blood_dmg: 5 }, 3: { blood_dmg: 12, lifesteal: 3 }, 4: { blood_dmg: 20, lifesteal: 6, hp_flat: 200 } },
+  sand:      { 2: { sand_dmg: 5 }, 3: { sand_dmg: 12, evasion: 3 }, 4: { sand_dmg: 20, evasion: 6, attack_speed: 3 } },
+};
+
+// Get active element stacking bonuses from equipped skills
+export function getElementStackBonuses(charClass, equippedSkills = []) {
+  if (!equippedSkills || equippedSkills.length === 0) return { bonuses: {}, activeStacks: [] };
+  const allSkills = CLASS_SKILLS[charClass] || [];
+  const elementCounts = {};
+  for (const skillId of equippedSkills) {
+    const skill = allSkills.find(s => s.id === skillId);
+    if (skill?.element) {
+      elementCounts[skill.element] = (elementCounts[skill.element] || 0) + 1;
+    }
+  }
+  const bonuses = {};
+  const activeStacks = [];
+  for (const [element, count] of Object.entries(elementCounts)) {
+    const tiers = ELEMENT_STACK_BONUSES[element];
+    if (!tiers) continue;
+    // Apply highest qualifying tier
+    const tier = count >= 4 ? 4 : count >= 3 ? 3 : count >= 2 ? 2 : 0;
+    if (tier > 0 && tiers[tier]) {
+      for (const [stat, val] of Object.entries(tiers[tier])) {
+        bonuses[stat] = (bonuses[stat] || 0) + val;
+      }
+      activeStacks.push({ element, count, tier, bonuses: tiers[tier] });
+    }
+  }
+  return { bonuses, activeStacks };
+}
+
 // Helper to get total synergy bonuses
 // equippedSkills: array of skill IDs currently in hotbar
 export function getSynergyBonuses(charClass, learnedSkills = [], equippedSkills = null) {

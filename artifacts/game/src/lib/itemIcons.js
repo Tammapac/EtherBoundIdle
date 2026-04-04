@@ -52,6 +52,8 @@ const CONSUMABLE_ICONS = {
   pet_egg:         Egg,
   upgrade_stone:   Wrench,
   pet_incubator:   Sparkles,
+  health_potion:   FlaskConical,
+  mana_potion:     FlaskConical,
 };
 
 // Type -> fallback icon (when no subtype)

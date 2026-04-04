@@ -349,15 +349,26 @@ export default function DungeonCombat({ session: initialSession, character, onLe
 
           {/* Result panel */}
           {(session.status === 'victory' || session.status === 'defeat') && (
-            <div className={`bg-card border-2 rounded-xl p-4 text-center space-y-2 ${
+            <div className={`bg-card border-2 rounded-xl p-4 text-center space-y-3 ${
               session.status === 'victory' ? "border-yellow-500/50" : "border-destructive/50"
             }`}>
               <p className={`font-orbitron text-xl font-bold ${session.status === 'victory' ? "text-yellow-400" : "text-destructive"}`}>
                 {session.status === 'victory' ? '🏆 VICTORY!' : '💀 DEFEAT'}
               </p>
-              {session.status === 'victory' && (
-                <p className="text-xs text-muted-foreground">Rewards sent to your character!</p>
-              )}
+              {session.status === 'victory' && (() => {
+                const rewardLogs = (session.combat_log || []).filter(e =>
+                  e.type === "system" && (e.text?.includes("gold") || e.text?.includes("exp") || e.text?.includes("found") || e.text?.includes("Egg"))
+                );
+                return (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-yellow-400">Rewards</p>
+                    {rewardLogs.map((r, i) => (
+                      <p key={i} className="text-xs text-muted-foreground">{r.text}</p>
+                    ))}
+                    {rewardLogs.length === 0 && <p className="text-xs text-muted-foreground">Rewards sent to your character!</p>}
+                  </div>
+                );
+              })()}
               <Button size="sm" variant="outline" className="w-full" onClick={doLeave}>
                 Return to Dungeons
               </Button>
