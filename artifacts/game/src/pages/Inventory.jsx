@@ -67,10 +67,29 @@ function HoverTooltip({ item, character, equipped, triggerRef, allRunes = [] }) 
 
 // ─── Item Card ──────────────────────────────────────────────────────────────
 
+const CONSUMABLE_DESCRIPTIONS = {
+  hourglass: "Resets all dungeon entries",
+  scroll_exp: "Boosts EXP gain for 2 hours",
+  scroll_gold: "Boosts gold gain for 2 hours",
+  scroll_dmg: "Boosts damage for 2 hours",
+  scroll_loot: "Boosts loot drops for 2 hours",
+  dungeon_ticket: "Grants 1 bonus dungeon entry",
+  pet_egg: "Hatch to receive a pet",
+  pet_egg_shiny: "Hatch to receive a shiny pet",
+  upgrade_stone: "Used to upgrade equipment",
+};
+
+function getConsumableDesc(item) {
+  const extra = item.extraData || item.extra_data || {};
+  const cType = extra.consumableType || extra.materialType || "";
+  return CONSUMABLE_DESCRIPTIONS[cType] || "";
+}
+
 function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew, onMarkSeen, allRunes = [] }) {
   const [hovered, setHovered] = useState(false);
   const ref = useRef(null);
   const Icon = getItemIcon(item);
+  const isConsumableOrMaterial = item.type === "consumable" || item.type === "material";
   const levelOk = character.level >= (item.level_req || 1);
   const classOk = canEquipItem(character.class, item).allowed;
   const isStack = item.stackCount > 1;
@@ -79,6 +98,42 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
   const isUnique = !!item.is_unique || !!getUniqueItemDef(item.name) || (item.proc_effects && item.proc_effects.length > 0);
   const extraData = item.extraData || item.extra_data || {};
   const runeSlots = extraData.rune_slots || 0;
+
+  // Clean card for consumables/materials
+  if (isConsumableOrMaterial) {
+    const desc = getConsumableDesc(item);
+    return (
+      <motion.button
+        ref={ref}
+        whileHover={{ scale: 1.02 }}
+        onClick={() => onSelect(item)}
+        onMouseEnter={() => { setHovered(true); if (isNew && onMarkSeen) onMarkSeen(item.id); }}
+        onMouseLeave={() => setHovered(false)}
+        className={`relative bg-card border rounded-lg p-3 text-left transition-all hover:bg-muted/50 border-border ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""}`}
+      >
+        {isStack && (
+          <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+            x{item.stackCount}
+          </span>
+        )}
+        {isNew && (
+          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none animate-pulse">
+            NEW
+          </span>
+        )}
+        <div className="flex items-center gap-2 mb-1">
+          <Icon className={`w-5 h-5 ${rarity.color} flex-shrink-0`} />
+          <div className="flex-1 min-w-0">
+            <span className={`text-xs font-semibold ${rarity.color} truncate block`}>{item.name}</span>
+            {desc && <span className="text-[10px] text-muted-foreground leading-tight block">{desc}</span>}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1 mt-1">
+          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>{rarity.label}</Badge>
+        </div>
+      </motion.button>
+    );
+  }
 
   return (
     <>
@@ -140,7 +195,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
             </Badge>
           )}
           {!levelOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Req. {item.level_req}</Badge>}
-          {levelOk && !classOk && item.type !== "consumable" && item.type !== "material" && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Wrong Class</Badge>}
+          {levelOk && !classOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Wrong Class</Badge>}
         </div>
         {isUnique && (
           <span className="absolute bottom-1 right-1 bg-orange-500 text-white text-[9px] font-bold rounded w-[16px] h-[16px] flex items-center justify-center leading-none">

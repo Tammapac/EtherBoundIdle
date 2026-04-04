@@ -626,20 +626,16 @@ router.post("/functions/useItem", async (req: Request, res: Response) => {
       message = "Dungeon Ticket used! You have 1 extra dungeon entry.";
       effectApplied = { type: "dungeon_entry", entries: bonusEntries };
     }
-    // --- PET EGG: hatch a pet ---
+    // --- PET EGG: hatch directly into a pet ---
     else if (consumableType === "pet_egg" || consumableType === "pet_egg_shiny") {
-      // Store egg for pet system to handle — add to pending_eggs
-      const pendingEggs = charExtra.pending_eggs || [];
-      pendingEggs.push({
-        type: consumableType,
-        guaranteed_shiny: extra.guaranteed_shiny || false,
-        source: extra.source || "unknown",
-      });
-      await db.update(charactersTable).set({ extraData: { ...charExtra, pending_eggs: pendingEggs } }).where(eq(charactersTable.id, char.id));
-      message = consumableType === "pet_egg_shiny"
-        ? "Shiny Pet Egg cracked open! Check your Pets page to see your new companion!"
-        : "Pet Egg cracked open! Check your Pets page to see your new companion!";
-      effectApplied = { type: "pet_egg", shiny: consumableType === "pet_egg_shiny" };
+      const isShiny = consumableType === "pet_egg_shiny" || extra.guaranteed_shiny;
+      const eggRarity = isShiny ? "shiny" : (extra.eggRarity || item.rarity || "common");
+      const petData = hatchPetFromEgg(eggRarity, char.id, isShiny);
+      const [newPet] = await db.insert(petsTable).values(petData).returning();
+      message = isShiny
+        ? `A Shiny ${newPet.species} hatched from the egg! Check your Pets page!`
+        : `A ${newPet.rarity} ${newPet.species} hatched from the egg! Check your Pets page!`;
+      effectApplied = { type: "pet_hatched", petName: newPet.species, petRarity: newPet.rarity, shiny: isShiny };
     }
     else {
       sendError(res, 400, `Unknown consumable type: ${consumableType}`);
@@ -2333,6 +2329,20 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
           } catch {}
         }
         d.combat_log.push({ type: "system", text: `Each player earned ${goldReward} gold and ${expReward} exp!` });
+        // Pet egg drop chance from dungeon boss (10% per member)
+        for (const m of members) {
+          try {
+            if (Math.random() < 0.10) {
+              const eggRarity = rollPetEggRarity(0);
+              const eggDef = PET_EGG_TIERS[eggRarity] || PET_EGG_TIERS.common;
+              await db.insert(itemsTable).values({
+                ownerId: m.character_id, name: eggDef.name, type: "consumable", rarity: eggRarity,
+                level: 1, stats: {}, extraData: { consumableType: "pet_egg", eggRarity, source: "dungeon" },
+              });
+              d.combat_log.push({ type: "system", text: `${m.name} found a ${eggDef.name}!` });
+            }
+          } catch {}
+        }
         await db.update(dungeonSessionsTable).set({ status: "completed", data: d }).where(eq(dungeonSessionsTable.id, session.id));
         sendSuccess(res, { success: true, session: buildSessionResponse({ ...session, data: d }) });
         return;
@@ -3569,33 +3579,19 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         }
       } catch {}
 
-      // 4. Pet egg drop chance (from any kill, boosted by boss/luck)
+      // 4. Pet eggs ONLY drop from bosses (not regular monsters)
+      // Regular battle screen monsters do NOT drop pet eggs
       try {
-        const petDropChance = (serverIsBoss ? 0.15 : 0.05) + (charLuck + petLuckBonus) * 0.0005;
-        if (Math.random() < petDropChance) {
-          const speciesData = PET_SPECIES[Math.floor(Math.random() * PET_SPECIES.length)];
-          // Rarity based on luck
-          const luckRoll = Math.random() * 100 + (charLuck + petLuckBonus) * 0.5;
-          let petRarity = "common";
-          if (luckRoll > 98) petRarity = "legendary";
-          else if (luckRoll > 92) petRarity = "epic";
-          else if (luckRoll > 80) petRarity = "rare";
-          else if (luckRoll > 60) petRarity = "uncommon";
-          const petLevel = 1;
-          await db.insert(petsTable).values({
-            characterId,
-            name: speciesData.species,
-            species: speciesData.species,
-            rarity: petRarity,
-            level: petLevel,
-            xp: 0,
-            passiveType: speciesData.passiveType,
-            passiveValue: getPetPassiveValue(petLevel, petRarity),
-            skillType: speciesData.skillType,
-            skillValue: getPetSkillValue(petLevel, petRarity),
-            traits: rollTraits(petRarity),
-          });
-          // We'll notify the client via a field in the response
+        if (serverIsBoss) {
+          const petDropChance = 0.15 + (charLuck + petLuckBonus) * 0.0005;
+          if (Math.random() < petDropChance) {
+            const eggRarity = rollPetEggRarity(charLuck + petLuckBonus);
+            const eggDef = PET_EGG_TIERS[eggRarity];
+            await db.insert(itemsTable).values({
+              ownerId: characterId, name: eggDef.name, type: "consumable", rarity: eggRarity,
+              level: 1, stats: {}, extraData: { consumableType: "pet_egg", eggRarity, source: "boss_drop" },
+            });
+          }
         }
       } catch {}
     } catch (lootErr: any) {
@@ -4286,6 +4282,49 @@ function rollTraits(rarity: string): any[] {
   return picked.map(t => ({ key: t.key, name: t.name, desc: t.desc }));
 }
 
+// === PET EGG TIERS ===
+// Eggs come in different rarities — each hatches into a pet of that rarity
+// Species pool narrows by rarity: common eggs hatch common pets, legendary eggs hatch powerful pets
+const PET_EGG_TIERS: Record<string, { name: string; species: string[] }> = {
+  common:    { name: "Cracked Egg",     species: ["Slime", "Cat"] },
+  uncommon:  { name: "Spotted Egg",     species: ["Wolf", "Owl", "Cat"] },
+  rare:      { name: "Glowing Egg",     species: ["Turtle", "Fairy", "Serpent"] },
+  epic:      { name: "Radiant Egg",     species: ["Phoenix", "Golem", "Fairy"] },
+  legendary: { name: "Celestial Egg",   species: ["Dragon", "Phoenix"] },
+  mythic:    { name: "Primordial Egg",  species: ["Dragon"] },
+  shiny:     { name: "Shiny Pet Egg",   species: ["Dragon", "Phoenix", "Fairy", "Wolf"] },
+};
+
+function rollPetEggRarity(luck: number): string {
+  const roll = Math.random() * 100 + luck * 0.5;
+  if (roll > 99) return "legendary";
+  if (roll > 95) return "epic";
+  if (roll > 85) return "rare";
+  if (roll > 65) return "uncommon";
+  return "common";
+}
+
+function hatchPetFromEgg(eggRarity: string, characterId: string, isShiny: boolean): any {
+  const tier = PET_EGG_TIERS[eggRarity] || PET_EGG_TIERS.common;
+  const speciesName = tier.species[Math.floor(Math.random() * tier.species.length)];
+  const speciesData = PET_SPECIES.find(s => s.species === speciesName) || PET_SPECIES[0];
+  const petRarity = isShiny ? "mythic" : eggRarity;
+  const petLevel = 1;
+  return {
+    characterId,
+    name: speciesData.species,
+    species: speciesData.species,
+    rarity: petRarity,
+    level: petLevel,
+    xp: 0,
+    passiveType: speciesData.passiveType,
+    passiveValue: getPetPassiveValue(petLevel, petRarity),
+    skillType: speciesData.skillType,
+    skillValue: getPetSkillValue(petLevel, petRarity),
+    traits: rollTraits(petRarity),
+  };
+}
+
 const EXPEDITION_REGIONS = [
   { key: "forest", name: "Enchanted Forest", element: "nature", minLevel: 1, baseRewards: { gold: 200, exp: 100 }, rareDrop: "herb_bundle" },
   { key: "volcano", name: "Volcanic Depths", element: "fire", minLevel: 5, baseRewards: { gold: 400, exp: 200 }, rareDrop: "fire_crystal" },
@@ -4966,19 +5005,13 @@ router.post("/functions/petExpedition", async (req: Request, res: Response) => {
         }).where(eq(petsTable.id, pet.id));
       }
 
-      // Generate pet egg if rewarded
+      // Generate pet egg item if rewarded (not direct pet)
       if (rewards.petEgg) {
-        const speciesData = PET_SPECIES[Math.floor(Math.random() * PET_SPECIES.length)];
-        const petRarity = Math.random() > 0.8 ? "rare" : Math.random() > 0.5 ? "uncommon" : "common";
-        const eggLevel = 1;
-        await db.insert(petsTable).values({
-          characterId, name: speciesData.species, species: speciesData.species,
-          rarity: petRarity, level: eggLevel, xp: 0,
-          passiveType: speciesData.passiveType,
-          passiveValue: getPetPassiveValue(eggLevel, petRarity),
-          skillType: speciesData.skillType,
-          skillValue: getPetSkillValue(eggLevel, petRarity),
-          traits: rollTraits(petRarity),
+        const eggRarity = Math.random() > 0.8 ? "rare" : Math.random() > 0.5 ? "uncommon" : "common";
+        const eggDef = PET_EGG_TIERS[eggRarity] || PET_EGG_TIERS.common;
+        await db.insert(itemsTable).values({
+          ownerId: characterId, name: eggDef.name, type: "consumable", rarity: eggRarity,
+          level: 1, stats: {}, extraData: { consumableType: "pet_egg", eggRarity, source: "expedition" },
         });
       }
 
