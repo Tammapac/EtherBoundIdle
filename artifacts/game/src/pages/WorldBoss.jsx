@@ -232,9 +232,27 @@ function WorldBossCombat({ boss, character, onLeave }) {
                 transition={{ duration: 0.5 }}
               />
             </div>
-            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+            <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
               <span>{((bossHp / bossMaxHp) * 100).toFixed(2)}% HP</span>
-              {myEntry && <span>Your DMG: {formatHp(myEntry.totalDamage || 0)} | Attacks: {myEntry.attacks || 0}/{myMaxAttacks}</span>}
+              {myEntry && (
+                <div className="flex items-center gap-2">
+                  <span>Your DMG: {formatHp(myEntry.totalDamage || 0)} | Attacks: {myEntry.attacks || 0}/{myMaxAttacks}</span>
+                  {isActive && (
+                    <div className="flex gap-1">
+                      {ATTACK_PACKS.map(pack => (
+                        <button
+                          key={pack.id}
+                          onClick={(e) => { e.stopPropagation(); buyAttacks(pack.id); }}
+                          className="px-1.5 py-0.5 rounded border border-violet-500/40 bg-violet-600/20 hover:bg-violet-600/40 transition-colors text-[9px] flex items-center gap-0.5"
+                          title={`Buy ${pack.attacks} attacks for ${pack.gems} gems`}
+                        >
+                          +{pack.attacks}<Gem className="w-2.5 h-2.5 text-violet-400" />{pack.gems}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -295,23 +313,10 @@ function WorldBossCombat({ boss, character, onLeave }) {
         </div>
       )}
       {attacksLeft <= 0 && isActive && !isDead && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center space-y-2">
-          <Timer className="w-6 h-6 text-amber-400 mx-auto mb-1" />
-          <p className="text-sm text-amber-400 font-bold">Max attacks reached ({myMaxAttacks}/{myMaxAttacks})</p>
-          <p className="text-xs text-muted-foreground">Buy more attacks with gems to keep fighting!</p>
-          <div className="flex flex-wrap justify-center gap-2 mt-2">
-            {ATTACK_PACKS.map(pack => (
-              <button
-                key={pack.id}
-                onClick={() => buyAttacks(pack.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-500/40 bg-violet-600/20 hover:bg-violet-600/40 transition-colors text-xs"
-              >
-                <Swords className="w-3 h-3 text-violet-400" />
-                <span className="font-semibold">{pack.label}</span>
-                <span className="text-violet-300 flex items-center gap-0.5"><Gem className="w-3 h-3" />{pack.gems}</span>
-              </button>
-            ))}
-          </div>
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-center">
+          <Timer className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+          <p className="text-sm text-amber-400 font-bold">Max attacks reached!</p>
+          <p className="text-xs text-muted-foreground">Use the buy buttons above to get more attacks.</p>
         </div>
       )}
 
