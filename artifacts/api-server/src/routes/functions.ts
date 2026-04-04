@@ -6696,7 +6696,7 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       const sessions = await db.select().from(worldBossSessionsTable).where(
         and(eq(worldBossSessionsTable.zone, zone), sql`${worldBossSessionsTable.spawnCycle} >= ${cycle - 1}`)
       );
-      const session = sessions.find(s => s.status === "defeated");
+      const session = sessions.find(s => s.status === "defeated" || s.status === "expired");
       if (!session) { sendError(res, 400, "No defeated boss to claim from"); return; }
 
       const participants = (session.participants as any[]) || [];

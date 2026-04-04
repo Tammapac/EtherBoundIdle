@@ -141,6 +141,20 @@ function WorldBossCombat({ boss, character, onLeave }) {
     if (session?.status !== "active") setAutoFight(false);
   }, [session?.status]);
 
+  // Auto-show defeat summary popup when boss transitions to defeated/expired
+  const prevStatusRef = useRef(null);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = session?.status;
+    if (!prev || prev === session?.status) return;
+    if ((session?.status === "defeated" || session?.status === "expired") && myEntry && !myEntry.claimed) {
+      toast({
+        title: session.status === "defeated" ? "Boss Defeated!" : "Boss Session Expired",
+        description: `You dealt ${formatHp(myEntry.totalDamage || 0)} damage in ${myEntry.attacks || 0} attacks. Claim your rewards!`,
+      });
+    }
+  }, [session?.status, myEntry]);
+
   const handleClaim = async () => {
     try {
       const res = await base44.functions.invoke("worldBossAction", {
@@ -327,7 +341,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
       )}
 
       {/* Claim Button */}
-      {isDefeated && myEntry && !myEntry.claimed && (
+      {(isDefeated || isExpired) && myEntry && !myEntry.claimed && (
         <Button onClick={handleClaim} className="w-full h-12 font-orbitron gap-3 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 border border-amber-500/30 shadow-lg shadow-amber-500/20">
           <Sparkles className="w-5 h-5" /> Claim Rewards
         </Button>
@@ -519,7 +533,7 @@ export default function WorldBoss({ character }) {
           const isInactive = boss.status === "inactive";
           const isCurrent = boss.isCurrentBoss;
           const locked = !boss.meetsLevel;
-          const canClick = isCurrent && !locked && (isActive || isDefeated);
+          const canClick = isCurrent && !locked && (isActive || isDefeated || isExpired);
           const hpPercent = boss.bossMaxHp > 0 ? (boss.bossHp / boss.bossMaxHp) * 100 : 100;
 
           return (
@@ -533,7 +547,7 @@ export default function WorldBoss({ character }) {
               onClick={() => {
                 if (isInactive) { toast({ title: `Next in ${formatTime(boss.nextActiveAt)}` }); return; }
                 if (locked) { toast({ title: `Level ${boss.minLevel} required`, variant: "destructive" }); return; }
-                if (isExpired) { toast({ title: "Boss has expired, next one spawns soon" }); return; }
+                // Allow entering expired bosses to claim rewards
                 if (!isCurrent) return;
                 setSelectedBoss(boss);
               }}
@@ -557,7 +571,7 @@ export default function WorldBoss({ character }) {
                   <p className="text-xs text-muted-foreground">{theme.label} · Lv.{boss.minLevel}+ · {boss.bossElement}</p>
 
                   {/* HP Bar — only for current boss */}
-                  {isCurrent && (isActive || isDefeated) && (
+                  {isCurrent && (isActive || isDefeated || isExpired) && (
                     <div className="mt-1.5">
                       <div className="flex justify-between text-[10px] mb-0.5">
                         <span className={theme.text}>{formatHp(Math.max(0, boss.bossHp))}</span>
