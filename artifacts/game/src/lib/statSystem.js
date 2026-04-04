@@ -22,12 +22,12 @@ const BASE_HP_REGEN     = 0.3;   // everyone starts with 0.3 HP/s
 const BASE_MP_REGEN     = 0.3;   // everyone starts with 0.3 MP/s
 
 const EVASION_DEX_RATE  = 0.06;  // 1 DEX → +0.06% evasion (50 DEX = 3%)
-const EVASION_SOFT_CAP  = 12;    // diminishing returns after 12%
-const EVASION_HARD_CAP  = 50;    // absolute max 50%
+const EVASION_SOFT_CAP  = 18;    // diminishing returns after 18%
+const EVASION_HARD_CAP  = 65;    // absolute max 65% (can't reach 100%)
 
 const BLOCK_STR_RATE    = 0.02;  // 1 STR → +0.02% block
 const BLOCK_VIT_RATE    = 0.02;  // 1 VIT → +0.02% block
-const BLOCK_HARD_CAP    = 50;    // max 50%
+const BLOCK_HARD_CAP    = 65;    // max 65% (can't reach 100%)
 const BLOCK_DAMAGE_REDUCTION = 0.50; // blocking reduces damage by 50%
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,10 +37,10 @@ const BLOCK_DAMAGE_REDUCTION = 0.50; // blocking reduces damage by 50%
 // crit_dmg_pct: base 150% (1.5x), each point of crit_dmg_pct stat = +1%
 export const BASE_ATTACK_SPEED    = 1.0;
 export const DEX_ATTACK_SPEED     = 0.0015; // 50 DEX = +0.075 speed
-export const ATTACK_SPEED_CAP     = 2.5;    // max 2.5x base speed
+export const ATTACK_SPEED_CAP     = 3.5;    // max 3.5x base speed
 export const BASE_CRIT_DMG_PCT    = 115;    // 115% = 1.15x multiplier on crit
 export const CRIT_DMG_LUK_RATE    = 0.10;   // 1 LUK → +0.10% crit dmg
-export const CRIT_DMG_CAP         = 400;    // max 400%
+export const CRIT_DMG_CAP         = 600;    // max 600%
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DAMAGE SCALING
@@ -58,8 +58,8 @@ export const CLASS_DAMAGE_SCALING = {
 export const CRIT_BASE      = 1;
 export const CRIT_DEX_RATE  = 0.03;
 export const CRIT_LUK_RATE  = 0.05;
-export const CRIT_SOFT_CAP  = 18;
-export const CRIT_HARD_CAP  = 30;
+export const CRIT_SOFT_CAP  = 25;
+export const CRIT_HARD_CAP  = 50;
 
 function calcCritChance(dex, luck) {
   const raw = CRIT_BASE + dex * CRIT_DEX_RATE + luck * CRIT_LUK_RATE;
@@ -283,9 +283,9 @@ export function calculateFinalStats(character, equippedItems = [], extraSetStats
     calcBlockChance(total.strength, total.vitality, total.block_chance).toFixed(1)
   );
 
-  // Gold/EXP gain: capped at +200% each (3× max)
-  const goldGainPct = Math.min(200, total.gold_gain_pct);
-  const expGainPct  = Math.min(200, total.exp_gain_pct);
+  // Gold/EXP gain: capped at +300% each (4× max)
+  const goldGainPct = Math.min(300, total.gold_gain_pct);
+  const expGainPct  = Math.min(300, total.exp_gain_pct);
 
   // Attack Speed: base + DEX scaling + gear bonus, capped
   const attackSpeed = parseFloat(
@@ -298,18 +298,18 @@ export function calculateFinalStats(character, equippedItems = [], extraSetStats
   );
 
   // Elemental bonuses: character base (equipment/gems) + item stats
-  const fireDmg      = Math.min(200, (character.fire_dmg      || 0) + total.fire_dmg);
-  const iceDmg       = Math.min(200, (character.ice_dmg       || 0) + total.ice_dmg);
-  const lightningDmg = Math.min(200, (character.lightning_dmg || 0) + total.lightning_dmg);
-  const poisonDmg    = Math.min(200, (character.poison_dmg    || 0) + total.poison_dmg);
-  const bloodDmg     = Math.min(200, (character.blood_dmg     || 0) + total.blood_dmg);
-  const sandDmg      = Math.min(200, (character.sand_dmg      || 0) + total.sand_dmg);
+  const fireDmg      = Math.min(300, (character.fire_dmg      || 0) + total.fire_dmg);
+  const iceDmg       = Math.min(300, (character.ice_dmg       || 0) + total.ice_dmg);
+  const lightningDmg = Math.min(300, (character.lightning_dmg || 0) + total.lightning_dmg);
+  const poisonDmg    = Math.min(300, (character.poison_dmg    || 0) + total.poison_dmg);
+  const bloodDmg     = Math.min(300, (character.blood_dmg     || 0) + total.blood_dmg);
+  const sandDmg      = Math.min(300, (character.sand_dmg      || 0) + total.sand_dmg);
 
   // Boss damage bonus: capped at 200%
   const bossDmgPct = Math.min(200, total.boss_dmg_pct);
 
-  // Drop chance bonus: capped at 75%
-  const dropChance = Math.min(75, total.drop_chance);
+  // Drop chance bonus: capped at 100%
+  const dropChance = Math.min(100, total.drop_chance);
 
   const derived = {
     attackPower,

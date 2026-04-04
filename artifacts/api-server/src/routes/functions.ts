@@ -3497,8 +3497,48 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       }
     }
 
-    const expGain = Math.round(enemyData.expReward * empoweredMult * (combatCfg.EXP_GAIN_MULTIPLIER || 1) * (1 + partyExpBonus + guildExpBonus + buffExpBonus + petExpBonus));
-    const goldGain = Math.round(enemyData.goldReward * empoweredMult * (combatCfg.GOLD_GAIN_MULTIPLIER || 1) * (1 + partyGoldBonus + guildGoldBonus + buffGoldBonus + petGoldBonus));
+    // Load equipped items' shiny unique proc bonuses
+    let shinyExpBonus = 0;
+    let shinyGoldBonus = 0;
+    let shinyDmgBonus = 0;
+    let shinyLootBonus = 0;
+    let shinyLifestealPct = 0;
+    const triggeredShinyProcs: Array<{ id: string; name: string; description: string }> = [];
+    try {
+      const equippedItems = await db.select().from(itemsTable).where(
+        and(eq(itemsTable.ownerId, characterId), eq((itemsTable as any).equipped, true))
+      );
+      for (const item of equippedItems) {
+        const extra = (item.extraData as any) || {};
+        const procs = extra.proc_effects || [];
+        for (const proc of procs) {
+          if (!proc.unique) continue; // only process shiny unique effects
+          switch (proc.id) {
+            case "elemental_amplifier": shinyDmgBonus += 0.30; break;
+            case "cleave_strike": shinyDmgBonus += 0.20; break; // simplified: bonus damage representing AoE
+            case "executioner": shinyDmgBonus += 0.25; break; // avg bonus across fight
+            case "berserker_fury": shinyDmgBonus += 0.10; break; // avg HP missing bonus
+            case "parry_master": shinyDmgBonus += 0.15; break; // reflected damage as avg bonus
+            case "undying_will": break; // survival effect — no direct bonus
+            case "fortification": break; // defense effect — no direct bonus
+            case "wisdom_aura": shinyExpBonus += 0.25; break;
+            case "third_eye": shinyLootBonus += 0.15; break;
+            case "rapid_strikes": shinyDmgBonus += 0.20; break; // 20% double-hit
+            case "mana_siphon": break; // mana regen
+            case "phantom_step": break; // evasion buff
+            case "gold_magnet": shinyGoldBonus += 0.30; break;
+            case "soul_collector": shinyLifestealPct += 0.08; break;
+            case "lucky_star": shinyLootBonus += 0.10; break;
+            case "life_link": shinyLifestealPct += 0.05; break;
+            case "elemental_shield": break; // defense effect
+          }
+          triggeredShinyProcs.push({ id: proc.id, name: proc.name || proc.id, description: proc.description || "" });
+        }
+      }
+    } catch {}
+
+    const expGain = Math.round(enemyData.expReward * empoweredMult * (combatCfg.EXP_GAIN_MULTIPLIER || 1) * (1 + partyExpBonus + guildExpBonus + buffExpBonus + petExpBonus + shinyExpBonus));
+    const goldGain = Math.round(enemyData.goldReward * empoweredMult * (combatCfg.GOLD_GAIN_MULTIPLIER || 1) * (1 + partyGoldBonus + guildGoldBonus + buffGoldBonus + petGoldBonus + shinyGoldBonus));
 
     let newExp = (char.exp || 0) + expGain;
     let newLevel = char.level || 1;
@@ -3521,7 +3561,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
     const newMaxMp = (char.maxMp || 50) + levelDiff * (progCfg.MP_PER_LEVEL || 3);
     const newGold = (char.gold || 0) + goldGain;
     const newTotalKills = (char.totalKills || 0) + 1;
-    const damageDealt = Math.floor((enemyData.hp || Math.floor((char.strength || 10) * 2)) * (1 + buffDmgBonus));
+    const damageDealt = Math.floor((enemyData.hp || Math.floor((char.strength || 10) * 2)) * (1 + buffDmgBonus + shinyDmgBonus + petDmgBonus));
     const newTotalDamage = (char.totalDamage || 0) + damageDealt;
 
     const [updated] = await db.update(charactersTable).set({
@@ -3631,7 +3671,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       if (!loot) {
         loot = generateLoot(
           char.level || 1,
-          charLuck + Math.floor(buffLootBonus * 50),
+          charLuck + Math.floor((buffLootBonus + shinyLootBonus) * 50),
           serverIsBoss,
           serverRegionKey,
           char.class || null
@@ -3788,6 +3828,7 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         newGold,
         petInfo: equippedPet ? { id: equippedPet.id, species: equippedPet.species, name: equippedPet.name, level: equippedPet.level, xp: equippedPet.xp, rarity: equippedPet.rarity, skillType: equippedPet.skillType, skillValue: equippedPet.skillValue, evolution: equippedPet.evolution || 0, traits: equippedPet.traits || [], skillTree: equippedPet.skillTree || {} } : null,
         petSkillResult,
+        shinyProcs: triggeredShinyProcs.length > 0 ? triggeredShinyProcs : null,
       });
   } catch (err: any) {
     req.log.error({ err }, "fight error");
