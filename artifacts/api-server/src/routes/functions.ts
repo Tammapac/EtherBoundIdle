@@ -6487,7 +6487,9 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
       let dmgMult = 1.0;
       let skillName = "Basic Attack";
       if (action === "skill" && skillId && SKILL_DATA[skillId]) {
-        dmgMult = SKILL_DATA[skillId].damage || 1.0;
+        // Match battle formula: skill multiplier is applied twice (once for base scaling, once for skill power)
+        const skillBase = SKILL_DATA[skillId].damage || 1.0;
+        dmgMult = skillBase * skillBase;
         skillName = skillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
       }
       const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
