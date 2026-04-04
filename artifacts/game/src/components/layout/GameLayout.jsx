@@ -242,8 +242,8 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto relative">
-          {/* Feature quick-access icons — global, shown on all pages */}
-          <div className="fixed top-16 left-4 md:left-[17rem] z-30 flex gap-2">
+          {/* Feature quick-access icons — hidden on immersive pages */}
+          {!["/fields", "/portal", "/tower"].includes(location.pathname) && <div className="fixed top-16 left-4 md:left-[17rem] z-30 flex gap-2">
             <div
               onClick={() => navigate("/tower")}
               className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
@@ -292,7 +292,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
               <Skull className="w-6 h-6 text-red-400 group-hover:text-red-300 transition-colors" />
               <span className="text-[8px] font-bold text-red-400/80 group-hover:text-red-300 mt-0.5 tracking-wide">BOSS</span>
             </div>
-          </div>
+          </div>}
           <Outlet />
         </main>
       </div>
