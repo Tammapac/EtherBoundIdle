@@ -7061,6 +7061,68 @@ router.post("/functions/worldBossAction", async (req: Request, res: Response) =>
   }
 });
 
+// ── Batched player state endpoint (replaces 3-5 separate API calls) ─────────
+router.post("/functions/getPlayerFullState", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const { characterId } = req.body;
+    if (!characterId) { sendError(res, 400, "characterId required"); return; }
+
+    // Fetch character with only needed columns
+    const [char] = await db.select({
+      id: charactersTable.id,
+      name: charactersTable.name,
+      class: charactersTable.class,
+      level: charactersTable.level,
+      exp: charactersTable.exp,
+      expToNext: charactersTable.expToNext,
+      gold: charactersTable.gold,
+      gems: charactersTable.gems,
+      hp: charactersTable.hp,
+      maxHp: charactersTable.maxHp,
+      mp: charactersTable.mp,
+      maxMp: charactersTable.maxMp,
+      strength: charactersTable.strength,
+      dexterity: charactersTable.dexterity,
+      intelligence: charactersTable.intelligence,
+      vitality: charactersTable.vitality,
+      luck: charactersTable.luck,
+      statPoints: charactersTable.statPoints,
+      skillPoints: charactersTable.skillPoints,
+      skills: charactersTable.skills,
+      hotbarSkills: charactersTable.hotbarSkills,
+      currentRegion: charactersTable.currentRegion,
+      idleMode: charactersTable.idleMode,
+      guildId: charactersTable.guildId,
+      prestigeLevel: charactersTable.prestigeLevel,
+      extraData: charactersTable.extraData,
+      updatedAt: charactersTable.updatedAt,
+    }).from(charactersTable).where(eq(charactersTable.id, characterId));
+
+    if (!char) { sendError(res, 404, "Character not found"); return; }
+
+    // Fetch equipped items with only needed columns
+    const items = await db.select({
+      id: itemsTable.id,
+      name: itemsTable.name,
+      type: itemsTable.type,
+      rarity: itemsTable.rarity,
+      stats: itemsTable.stats,
+      equipped: itemsTable.equipped,
+      level: itemsTable.level,
+      upgradeLevel: itemsTable.upgradeLevel,
+      starLevel: itemsTable.starLevel,
+      awakened: itemsTable.awakened,
+    }).from(itemsTable).where(
+      and(eq(itemsTable.ownerId, characterId), eq(itemsTable.equipped, true))
+    );
+
+    sendSuccess(res, { character: char, equippedItems: items });
+  } catch (err: any) {
+    sendError(res, 500, err.message);
+  }
+});
+
 // Catch-all for unknown functions — MUST be the last route
 router.post("/functions/:name", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
