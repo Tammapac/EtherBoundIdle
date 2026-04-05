@@ -2997,6 +2997,8 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
                   set_name: loot.set_name || null,
                   class_restriction: loot.class_restriction || null,
                   is_unique: loot.is_unique || false,
+                  uniqueEffect: loot.uniqueEffect || null,
+                  lore: loot.lore || null,
                 },
               });
               d.combat_log.push({ type: "system", text: `Loot: ${loot.name} (${loot.rarity})` });
@@ -6410,7 +6412,9 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
                   sell_price: loot.sell_price || 0,
                   proc_effects: loot.proc_effects || null,
                   rune_slots: loot.rune_slots || 0,
-                  is_unique: true,
+                  is_unique: loot.is_unique || false,
+                  uniqueEffect: loot.uniqueEffect || null,
+                  lore: loot.lore || null,
                   class_restriction: loot.class_restriction || null,
                 },
               });

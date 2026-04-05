@@ -1129,7 +1129,7 @@ export function generateLoot(
     if (allUniques.length > 0) {
       const luckBonus = 1 + Math.min(0.5, (luck || 0) * 0.005);
       const uniqueRoll = Math.random();
-      const uniqueChance = rarity === "shiny" ? 0.5 : rarity === "mythic" ? 0.25 : 0.1;
+      const uniqueChance = rarity === "shiny" ? 1.0 : rarity === "mythic" ? 0.4 : 0.15;
       if (uniqueRoll < uniqueChance * luckBonus) {
         const pick = allUniques[Math.floor(Math.random() * allUniques.length)];
         return {
