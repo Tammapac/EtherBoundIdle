@@ -277,7 +277,7 @@ export default function TowerCombat({ session: initialSession, character, onLeav
               <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 flex items-center justify-center">
-                  <span className="text-sm font-bold text-primary font-orbitron">{(me.name || "?")[0]}</span>
+                  <img src={`/sprites/class_${me.class || "warrior"}.png`} alt={me.class} className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">{me.name} <span className="text-muted-foreground">Lv.{me.level}</span></p>

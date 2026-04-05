@@ -1204,7 +1204,7 @@ export default function Battle({ character, onCharacterUpdate }) {
           {playerNumNode}
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
+              <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
             <div>
               <p className="font-bold">{character.name}</p>

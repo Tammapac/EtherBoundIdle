@@ -224,7 +224,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
                 className={`bg-card border rounded-xl p-4 ${isTurnPlayer ? "border-emerald-500/60 ring-1 ring-emerald-500/30" : isMe ? "border-violet-500/40" : "border-border/30"}`}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <Shield className={`w-5 h-5 ${isTurnPlayer ? "text-emerald-400" : isMe ? "text-violet-400" : "text-muted-foreground"}`} />
+                  <img src={`/sprites/class_${member.class || "warrior"}.png`} alt={member.class} className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
                   <div className="flex-1">
                     <p className="font-semibold text-sm">
                       {member.name} {isMe && <span className="text-muted-foreground text-xs">(You)</span>}
@@ -587,7 +587,7 @@ function PortalLobby({ session: initialSession, character, onLeave, onStart }) {
           const isOwner = i === 0;
           return (
             <div key={m.characterId} className={`flex items-center gap-3 bg-card border rounded-xl p-3 ${isMe ? "border-violet-500/40" : "border-border/30"}`}>
-              <Shield className={`w-5 h-5 ${isOwner ? "text-amber-400" : "text-muted-foreground"}`} />
+              <img src={`/sprites/class_${m.class || "warrior"}.png`} alt={m.class} className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
               <div className="flex-1">
                 <p className="font-semibold text-sm">{m.name} {isMe && <span className="text-muted-foreground text-xs">(You)</span>}</p>
                 <p className="text-[10px] text-muted-foreground capitalize">{m.class} · Lv.{m.level}</p>

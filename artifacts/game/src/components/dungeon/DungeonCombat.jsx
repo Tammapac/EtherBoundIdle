@@ -248,7 +248,7 @@ export default function DungeonCombat({ session: initialSession, character, onLe
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
                       m.hp <= 0 ? "bg-muted/30 text-muted-foreground" : "bg-primary/20 text-primary"
                     }`}>
-                      {m.name[0].toUpperCase()}
+                      <img src={`/sprites/class_${m.class || "warrior"}.png`} alt={m.class} className="w-6 h-6" style={{ imageRendering: "pixelated", opacity: m.hp <= 0 ? 0.4 : 1 }} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">

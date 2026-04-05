@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import {
-  Swords, Skull, Heart, Shield, Zap,
+  Swords, Skull, Heart, Zap,
 } from "lucide-react";
 import HealthBar from "@/components/game/HealthBar";
 import { REGIONS, ENEMIES, CLASSES } from "@/lib/gameData";
@@ -101,7 +101,7 @@ export default function BattleRefactored({ character, onCharacterUpdate }) {
         <motion.div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
+              <img src={`/sprites/class_${displayChar.class || "warrior"}.png`} alt={displayChar.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
             <div>
               <p className="font-bold">{displayChar.name}</p>

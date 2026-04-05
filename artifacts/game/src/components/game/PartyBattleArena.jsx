@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Crown, Shield, Zap } from "lucide-react";
+import { Crown, Zap } from "lucide-react";
 import HealthBar from "@/components/game/HealthBar";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -67,7 +67,7 @@ export default function PartyBattleArena({ party, selfId, selfZone }) {
             >
               <div className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${CLASS_BG[member.class] || "bg-muted"}`}>
-                  <Shield className={`w-4 h-4 ${CLASS_COLORS[member.class] || "text-foreground"}`} />
+                  <img src={`/sprites/class_${member.class || "warrior"}.png`} alt={member.class} className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1">
