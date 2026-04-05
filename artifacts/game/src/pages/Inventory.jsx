@@ -94,9 +94,10 @@ const CONSUMABLE_DETAILS = {
   pet_incubator:  { effect: "Required to start hatching a pet egg in the Pets tab", icon: "🔬" },
 };
 
-function getConsumableDesc(item) {
+function getConsumableDesc(item, forCard = false) {
   const extra = item.extraData || item.extra_data || {};
-  if (extra.is_currency && extra.description) return extra.description;
+  // For currency items, only show description in the detail modal (not on the small card)
+  if (extra.is_currency && extra.description) return forCard ? "" : extra.description;
   const cType = extra.consumableType || extra.materialType || "";
   return CONSUMABLE_DESCRIPTIONS[cType] || "";
 }
@@ -137,7 +138,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
 
   // Clean card for consumables/materials
   if (isConsumableOrMaterial) {
-    const desc = getConsumableDesc(item);
+    const desc = getConsumableDesc(item, true);
     return (
       <motion.button
         ref={ref}
@@ -766,8 +767,11 @@ export default function Inventory({ character, onCharacterUpdate }) {
                     )}
                     <div className="flex gap-2 mt-5">
                       {selectedItem._isCurrency && (
-                        <div className="flex-1 text-center text-xs text-muted-foreground py-2">
-                          You have <span className="font-bold text-foreground">{selectedItem.stackCount?.toLocaleString()}</span> {selectedItem.name}
+                        <div className="flex-1 text-center text-xs text-muted-foreground py-2 space-y-2">
+                          {(selectedItem.extraData || selectedItem.extra_data || {}).description && (
+                            <p className="text-sm text-foreground/80 text-left">{(selectedItem.extraData || selectedItem.extra_data).description}</p>
+                          )}
+                          <p>You have <span className="font-bold text-foreground">{selectedItem.stackCount?.toLocaleString()}</span> {selectedItem.name}</p>
                         </div>
                       )}
                       {!selectedItem._isCurrency && SLOT_ORDER.includes(selectedItem.type) && (
