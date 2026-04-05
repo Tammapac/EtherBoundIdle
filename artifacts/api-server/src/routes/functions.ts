@@ -7900,7 +7900,7 @@ router.post("/functions/fieldAction", async (req: Request, res: Response) => {
         status: "waiting",
         fieldNumber: 1,
         element,
-        members: [{ ...memberStats, alive: true, reviveTimer: 0, skillsUsed: 0 }],
+        members: [{ ...memberStats, characterId, alive: true, reviveTimer: 0, skillsUsed: 0 }],
         enemies,
         modifiers,
         rewards: { dublons: 0, gold: 0, exp: 0, crystals: 0, ascension_shards: 0, celestial_stones: 0, incubators: 0, sqrizzscrolls: 0, boss_stones: 0, loot: [] },
@@ -7929,7 +7929,7 @@ router.post("/functions/fieldAction", async (req: Request, res: Response) => {
       if (existing.length > 0) { sendError(res, 400, "Already in another Fields session"); return; }
 
       const memberStats = await calculateDungeonMemberStats(characterId, char);
-      members.push({ ...memberStats, alive: true, reviveTimer: 0, skillsUsed: 0 });
+      members.push({ ...memberStats, characterId, alive: true, reviveTimer: 0, skillsUsed: 0 });
       const combatLog = (session.combatLog as any[]) || [];
       combatLog.push({ type: "system", text: `${char.name} has joined The Fields!`, ts: Date.now() });
 

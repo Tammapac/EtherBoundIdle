@@ -96,6 +96,7 @@ const CONSUMABLE_DETAILS = {
 
 function getConsumableDesc(item) {
   const extra = item.extraData || item.extra_data || {};
+  if (extra.is_currency && extra.description) return extra.description;
   const cType = extra.consumableType || extra.materialType || "";
   return CONSUMABLE_DESCRIPTIONS[cType] || "";
 }
@@ -574,9 +575,37 @@ export default function Inventory({ character, onCharacterUpdate }) {
     i.name?.toLowerCase().includes("egg")
   );
 
+  // Virtual currency items from character.extraData — displayed in Special tab
+  const extraData = character?.extraData || character?.extra_data || {};
+  const CURRENCY_DEFS = [
+    { key: "dublons", name: "Dublons", rarity: "epic", description: "Premium currency earned in The Fields. Used for special upgrades and purchases." },
+    { key: "crystals", name: "Crystals", rarity: "legendary", description: "Rare crystals obtained from deep Field runs. Used for high-tier crafting." },
+    { key: "ascension_shards", name: "Ascension Shards", rarity: "legendary", description: "Mystical shards that power ascension rituals." },
+    { key: "celestial_stones", name: "Celestial Stones", rarity: "mythic", description: "Fragments of celestial power, dropped by mighty foes." },
+    { key: "incubators", name: "Incubators", rarity: "rare", description: "Used to hatch pet eggs. Found in The Fields." },
+    { key: "sqrizzscrolls", name: "Sqrizzscrolls", rarity: "epic", description: "Ancient scrolls of power. Used for special enchantments." },
+    { key: "boss_stones", name: "Boss Stones", rarity: "mythic", description: "Trophies from world boss encounters. Extremely valuable." },
+    { key: "tammablocks", name: "Tammablocks", rarity: "rare", description: "Building blocks of the realm. Used for construction and upgrades." },
+    { key: "tower_shards", name: "Tower Shards", rarity: "epic", description: "Shards collected from the Tower of Trials." },
+  ];
+  const currencyItems = CURRENCY_DEFS
+    .filter(c => (extraData[c.key] || 0) > 0)
+    .map(c => ({
+      id: `currency_${c.key}`,
+      name: c.name,
+      type: "material",
+      rarity: c.rarity,
+      level: 1,
+      stats: {},
+      extraData: { description: c.description, is_currency: true, quantity: extraData[c.key] },
+      stackCount: extraData[c.key],
+      _isCurrency: true,
+    }));
+  const allSpecialItems = [...currencyItems, ...specialItems];
+
   const getFilteredItems = () => {
     if (filter === "sets") return null; // handled separately
-    if (filter === "special") return specialItems;
+    if (filter === "special") return allSpecialItems;
     if (filter === "consumable") return stackedConsumables;
 
     const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
@@ -612,40 +641,6 @@ export default function Inventory({ character, onCharacterUpdate }) {
           </Button>
         )}
       </div>
-
-      {/* Currencies from Fields & other content */}
-      {(() => {
-        const extra = character?.extraData || character?.extra_data || {};
-        const currencies = [
-          { key: "dublons", label: "Dublons", color: "text-purple-400", icon: "💎" },
-          { key: "crystals", label: "Crystals", color: "text-cyan-400", icon: "🔮" },
-          { key: "ascension_shards", label: "Ascension Shards", color: "text-amber-400", icon: "⭐" },
-          { key: "celestial_stones", label: "Celestial Stones", color: "text-pink-400", icon: "🌟" },
-          { key: "incubators", label: "Incubators", color: "text-green-400", icon: "🥚" },
-          { key: "sqrizzscrolls", label: "Sqrizzscrolls", color: "text-orange-400", icon: "📜" },
-          { key: "boss_stones", label: "Boss Stones", color: "text-red-400", icon: "💀" },
-        ];
-        const hasCurrencies = currencies.some(c => (extra[c.key] || 0) > 0);
-        if (!hasCurrencies) return null;
-        return (
-          <div className="bg-card border border-border rounded-xl p-3">
-            <h3 className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Special Currencies</h3>
-            <div className="flex flex-wrap gap-3">
-              {currencies.map(c => {
-                const val = extra[c.key] || 0;
-                if (val <= 0) return null;
-                return (
-                  <div key={c.key} className="flex items-center gap-1.5 text-xs">
-                    <span>{c.icon}</span>
-                    <span className={`font-bold ${c.color}`}>{val.toLocaleString()}</span>
-                    <span className="text-muted-foreground">{c.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Top: Equipment Grid + Stats (compact side-by-side) */}
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-3">
@@ -765,7 +760,12 @@ export default function Inventory({ character, onCharacterUpdate }) {
                       </div>
                     )}
                     <div className="flex gap-2 mt-5">
-                      {SLOT_ORDER.includes(selectedItem.type) && (
+                      {selectedItem._isCurrency && (
+                        <div className="flex-1 text-center text-xs text-muted-foreground py-2">
+                          You have <span className="font-bold text-foreground">{selectedItem.stackCount?.toLocaleString()}</span> {selectedItem.name}
+                        </div>
+                      )}
+                      {!selectedItem._isCurrency && SLOT_ORDER.includes(selectedItem.type) && (
                         selectedItem.equipped ? (
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => unequipMutation.mutate(selectedItem)}>
                             Unequip
@@ -805,9 +805,11 @@ export default function Inventory({ character, onCharacterUpdate }) {
                           </Button>
                         );
                       })()}
-                      <Button variant="destructive" size="sm" onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}>
-                        <Coins className="w-3.5 h-3.5 mr-1" /> Sell {selectedItem.stackIds ? "1" : ""} ({selectedItem.sell_price || 5}g)
-                      </Button>
+                      {!selectedItem._isCurrency && (
+                        <Button variant="destructive" size="sm" onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}>
+                          <Coins className="w-3.5 h-3.5 mr-1" /> Sell {selectedItem.stackIds ? "1" : ""} ({selectedItem.sell_price || 5}g)
+                        </Button>
+                      )}
                     </div>
                     <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => setSelectedItem(null)}>
                       Close
