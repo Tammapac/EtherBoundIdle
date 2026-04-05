@@ -8,7 +8,7 @@ import {
   Hammer, Zap, Sparkles, ArrowUpRight, Wrench
 } from "lucide-react";
 import { RARITY_CONFIG } from "@/lib/gameData";
-import { getItemIcon } from "@/lib/itemIcons";
+import { getItemIcon, getItemSprite } from "@/lib/itemIcons";
 import EquipmentUpgradePanel from "@/components/inventory/EquipmentUpgradePanel";
 
 const SLOT_ORDER = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
@@ -79,7 +79,11 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Icon className={`w-5 h-5 ${rarity.color}`} />
+                      {getItemSprite(item) ? (
+                        <img src={getItemSprite(item)} alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
+                      ) : (
+                        <Icon className={`w-5 h-5 ${rarity.color}`} />
+                      )}
                       <div>
                         <p className={`font-semibold text-sm ${rarity.color}`}>{item.name}</p>
                         <p className="text-xs text-muted-foreground">Lvl {item.item_level || 1}</p>

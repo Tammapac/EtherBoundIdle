@@ -11,6 +11,7 @@ import {
   ShieldCheck, Crown, Footprints, CircleDot, Gem, FlaskConical, Package, Play, Pause, Star
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getItemSprite } from "@/lib/itemIcons";
 
 const LOOT_TYPE_ICONS = {
   weapon: Swords, armor: ShieldCheck, helmet: Crown,
@@ -1416,7 +1417,9 @@ export default function Battle({ character, onCharacterUpdate }) {
             exit={{ opacity: 0, y: 10 }}
             className={`bg-card border rounded-xl p-3 flex items-center gap-3 ${RARITY_CONFIG[lootDrop.rarity]?.border}`}
           >
-            {(() => { const Icon = LOOT_TYPE_ICONS[lootDrop.type] || Sparkles; return <Icon className={`w-5 h-5 ${RARITY_CONFIG[lootDrop.rarity]?.color}`} />; })()}
+            {getItemSprite(lootDrop) ? (
+              <img src={getItemSprite(lootDrop)} alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
+            ) : (() => { const Icon = LOOT_TYPE_ICONS[lootDrop.type] || Sparkles; return <Icon className={`w-5 h-5 ${RARITY_CONFIG[lootDrop.rarity]?.color}`} />; })()}
             <div>
               <p className={`font-semibold text-sm ${RARITY_CONFIG[lootDrop.rarity]?.color}`}>{lootDrop.name}</p>
               <p className="text-xs text-muted-foreground capitalize">{lootDrop.rarity} · {lootDrop.type}</p>

@@ -200,7 +200,11 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         )}
         <div className="flex items-center gap-2 mb-1">
           <div className="relative flex-shrink-0">
-            <Icon className={`w-5 h-5 ${rarity.color}`} />
+            {getItemSprite(item) ? (
+              <img src={getItemSprite(item)} alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
+            ) : (
+              <Icon className={`w-5 h-5 ${rarity.color}`} />
+            )}
             {itemLevel && (
               <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold leading-none px-0.5 rounded ${rarity.color} bg-background border border-current`}>
                 {itemLevel}
