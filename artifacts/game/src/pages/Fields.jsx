@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+import { getPlayerSprite, getEnemySpriteUrl, getDeadSprite } from "@/lib/pixelSprites";
 
 const ELEMENT_ICONS = {
   fire: Flame, ice: Snowflake, lightning: Zap, poison: Droplets,
@@ -411,28 +412,40 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
               const dead = enemy.hp <= 0;
               const hpPct = enemy.max_hp > 0 ? (enemy.hp / enemy.max_hp * 100) : 0;
               const isSelected = selectedTarget === enemy.id;
-              const EIcon = ELEMENT_ICONS[enemy.element] || Star;
-              const eColor = ELEMENT_COLORS[enemy.element] || "text-gray-400";
+              const spriteUrl = dead
+                ? getDeadSprite(3)
+                : getEnemySpriteUrl(enemy.element || element, enemy.name, enemy.isBoss, enemy.isElite, 3);
               return (
-                <div
+                <motion.div
                   key={enemy.id}
                   onClick={() => !dead && setSelectedTarget(enemy.id)}
+                  whileHover={!dead ? { y: -2 } : {}}
+                  whileTap={!dead ? { scale: 0.95 } : {}}
                   className={`relative p-1.5 border cursor-pointer transition-all ${dead ? "opacity-30 border-gray-700" : isSelected ? "border-yellow-500 bg-yellow-500/10 ring-1 ring-yellow-500/30" : "border-white/10 hover:border-white/30 bg-black/30"}`}
                 >
-                  <div className="flex items-center gap-1 mb-0.5">
-                    <EIcon className={`w-3 h-3 ${eColor}`} />
-                    <span className={`text-[10px] font-bold truncate ${dead ? "line-through" : ""} ${enemy.isElite ? "text-yellow-400" : enemy.isBoss ? "text-red-400" : "text-foreground"}`}>
-                      {enemy.name}
-                    </span>
+                  {enemy.isElite && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-yellow-600 z-10">ELITE</Badge>}
+                  {enemy.isBoss && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-red-600 z-10">BOSS</Badge>}
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <motion.img
+                      src={spriteUrl}
+                      alt={enemy.name}
+                      className="w-10 h-10"
+                      style={{ imageRendering: "pixelated" }}
+                      animate={!dead && isSelected ? { y: [0, -3, 0] } : {}}
+                      transition={{ repeat: Infinity, duration: 0.6 }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-[10px] font-bold truncate block ${dead ? "line-through" : ""} ${enemy.isElite ? "text-yellow-400" : enemy.isBoss ? "text-red-400" : "text-foreground"}`}>
+                        {enemy.name}
+                      </span>
+                      <div className="h-1.5 bg-gray-800 overflow-hidden mt-0.5">
+                        <div className={`h-full transition-all ${hpPct > 50 ? "bg-red-500" : hpPct > 25 ? "bg-orange-500" : "bg-red-700"}`} style={{ width: `${hpPct}%` }} />
+                      </div>
+                      <p className="text-[8px] text-muted-foreground">{dead ? "DEAD" : `${enemy.hp}/${enemy.max_hp}`}</p>
+                    </div>
                   </div>
-                  {enemy.isElite && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-yellow-600">ELITE</Badge>}
-                  {enemy.isBoss && <Badge className="absolute -top-1 -right-1 text-[7px] px-1 py-0 bg-red-600">BOSS</Badge>}
-                  <div className="h-1.5 bg-gray-800 overflow-hidden">
-                    <div className={`h-full transition-all ${hpPct > 50 ? "bg-red-500" : hpPct > 25 ? "bg-orange-500" : "bg-red-700"}`} style={{ width: `${hpPct}%` }} />
-                  </div>
-                  <p className="text-[9px] text-muted-foreground text-center">{dead ? "DEAD" : `${enemy.hp}/${enemy.max_hp}`}</p>
                   {(enemy.attackers || []).length >= 3 && <span className="text-[8px] text-yellow-400">x{enemy.attackers.length} co-op!</span>}
-                </div>
+                </motion.div>
               );
             })}
           </div>
@@ -489,14 +502,19 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
               const dead = !m.alive || m.hp <= 0;
               const hpPct = m.max_hp > 0 ? (m.hp / m.max_hp * 100) : 0;
               const mpPct = m.max_mp > 0 ? ((m.mp || 0) / m.max_mp * 100) : 0;
+              const playerSprite = dead ? getDeadSprite(3) : getPlayerSprite(m.class, 3);
               return (
                 <div key={m.characterId || m.character_id || i} className={`p-1.5 border transition-all ${dead ? "opacity-50 border-gray-700" : isMe ? "border-blue-500 bg-blue-500/10" : "border-white/10 bg-black/30"}`}>
-                  <div className="flex items-center gap-1 mb-0.5">
-                    {isMe && <Crown className="w-3 h-3 text-yellow-400" />}
-                    <span className={`text-[10px] font-bold truncate ${dead ? "line-through text-gray-500" : ""}`}>{m.name}</span>
-                    <span className="text-[8px] text-muted-foreground">Lv{m.level}</span>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <img src={playerSprite} alt={m.class} className="w-10 h-10" style={{ imageRendering: "pixelated" }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        {isMe && <Crown className="w-3 h-3 text-yellow-400 shrink-0" />}
+                        <span className={`text-[10px] font-bold truncate ${dead ? "line-through text-gray-500" : ""}`}>{m.name}</span>
+                      </div>
+                      <span className="text-[8px] text-muted-foreground">Lv{m.level} {m.class}</span>
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-[8px] px-1 py-0 mb-0.5">{m.class}</Badge>
                   {/* HP bar */}
                   <div className="h-1.5 bg-gray-800 overflow-hidden mb-0.5">
                     <div className={`h-full transition-all ${hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${hpPct}%` }} />
