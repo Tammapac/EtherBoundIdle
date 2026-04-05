@@ -50,9 +50,9 @@ const RARITY_COLORS = {
 };
 
 const DUST_INFO = {
-  magic_dust:   { label: "Magic Dust",   color: "text-blue-400",   bg: "bg-blue-500/15",   icon: "✨" },
-  heavens_dust: { label: "Heavens Dust",  color: "text-amber-400",  bg: "bg-amber-500/15",  icon: "🌟" },
-  void_dust:    { label: "Void Dust",     color: "text-purple-400", bg: "bg-purple-500/15",  icon: "🔮" },
+  magic_dust:   { label: "Magic Dust",   color: "text-blue-400",   bg: "bg-blue-500/15",   icon: "✨", sprite: "/sprites/dust/magic_dust.png" },
+  heavens_dust: { label: "Heavens Dust",  color: "text-amber-400",  bg: "bg-amber-500/15",  icon: "🌟", sprite: "/sprites/dust/heavens_dust.png" },
+  void_dust:    { label: "Void Dust",     color: "text-purple-400", bg: "bg-purple-500/15",  icon: "🔮", sprite: "/sprites/dust/void_dust.png" },
 };
 
 const DUST_FOR_LEVEL = { 1: "magic_dust", 2: "magic_dust", 3: "heavens_dust", 4: "heavens_dust", 5: "void_dust", 6: "void_dust" };
@@ -183,8 +183,8 @@ export default function Runes({ character, onCharacterUpdate }) {
   const renderRuneCard = (rune, compact = false) => {
     const rarity = RARITY_COLORS[rune.rarity] || RARITY_COLORS.common;
     const category = RUNE_CATEGORY_COLORS[rune.runeType] || RUNE_CATEGORY_COLORS.offensive;
-    const MainIcon = RUNE_STAT_ICONS[rune.mainStat] || Gem;
     const isSelected = selectedRune?.id === rune.id;
+    const runeSprite = `/sprites/runes/rune_${rune.rarity || "common"}.png`;
 
     return (
       <motion.div
@@ -201,7 +201,7 @@ export default function Runes({ character, onCharacterUpdate }) {
       >
         <div className="flex items-center gap-2 mb-1.5">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${category.bg} border ${category.border}`}>
-            <MainIcon className={`w-4 h-4 ${category.text}`} />
+            <img src={runeSprite} alt={rune.name} className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-white truncate">{rune.name}</p>
@@ -267,7 +267,7 @@ export default function Runes({ character, onCharacterUpdate }) {
                 className={`flex items-center gap-2 p-1.5 rounded-lg border ${runeRarity.border} ${runeRarity.bg} cursor-pointer hover:brightness-110`}
                 onClick={() => setSelectedRune(rune)}
               >
-                <Gem className={`w-3 h-3 ${cat.text} flex-shrink-0`} />
+                <img src={`/sprites/runes/rune_${rune.rarity || "common"}.png`} alt="" className="w-4 h-4 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
                 <div className="flex-1 min-w-0">
                   <span className="text-[10px] font-semibold text-white truncate block">{rune.name}</span>
                   <span className={`text-[9px] ${runeRarity.text}`}>
@@ -327,7 +327,7 @@ export default function Runes({ character, onCharacterUpdate }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
-            <Gem className="w-5 h-5 text-purple-400" /> Rune System
+            <img src="/sprites/runes/rune_epic.png" alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} /> Rune System
           </h2>
           <p className="text-xs text-muted-foreground">
             Socket runes into equipment. Upgrade with dust. Salvage for resources.
@@ -346,7 +346,7 @@ export default function Runes({ character, onCharacterUpdate }) {
         <div className="flex flex-wrap gap-3">
           {Object.entries(DUST_INFO).map(([key, info]) => (
             <div key={key} className={`flex items-center gap-1.5 ${info.bg} rounded-lg px-3 py-1.5`}>
-              <span className="text-sm">{info.icon}</span>
+              <img src={info.sprite} alt={info.label} className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
               <span className={`text-xs font-bold ${info.color}`}>{dust[key] || 0}</span>
               <span className="text-[9px] text-muted-foreground">{info.label}</span>
             </div>
@@ -360,11 +360,11 @@ export default function Runes({ character, onCharacterUpdate }) {
       {/* Equipment with Rune Slots */}
       <div>
         <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
-          <Gem className="w-3.5 h-3.5" /> Equipment Rune Slots
+          <img src="/sprites/runes/rune_rare.png" alt="" className="w-4 h-4" style={{ imageRendering: "pixelated" }} /> Equipment Rune Slots
         </p>
         {itemsWithSlots.length === 0 ? (
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 text-center">
-            <Gem className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+            <img src="/sprites/runes/rune_common.png" alt="" className="w-8 h-8 mx-auto mb-2 opacity-20" style={{ imageRendering: "pixelated" }} />
             <p className="text-sm text-muted-foreground">No equipped gear with rune slots</p>
             <p className="text-xs text-muted-foreground/60 mt-1">
               Higher rarity equipment has a chance to spawn with 1-3 rune slots.
@@ -439,8 +439,9 @@ export default function Runes({ character, onCharacterUpdate }) {
                   <div className="bg-gray-900/50 rounded-lg p-2.5 mb-3">
                     <p className="text-[9px] text-muted-foreground mb-1">UPGRADE TO LEVEL {lvl + 1}</p>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <span className={`text-xs ${dInfo?.color}`}>
-                        {dInfo?.icon} {dustNeeded} {dInfo?.label}
+                      <span className={`text-xs ${dInfo?.color} flex items-center gap-1`}>
+                        {dInfo?.sprite && <img src={dInfo.sprite} alt="" className="w-4 h-4 inline" style={{ imageRendering: "pixelated" }} />}
+                        {dustNeeded} {dInfo?.label}
                         <span className={hasDust ? " text-green-400" : " text-red-400"}>
                           {" "}({dust[dustType] || 0} owned)
                         </span>
@@ -563,7 +564,7 @@ export default function Runes({ character, onCharacterUpdate }) {
 
         {filteredInventory.length === 0 ? (
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-8 text-center">
-            <Gem className="w-10 h-10 text-muted-foreground/20 mx-auto mb-2" />
+            <img src="/sprites/runes/rune_common.png" alt="" className="w-10 h-10 mx-auto mb-2 opacity-20" style={{ imageRendering: "pixelated" }} />
             <p className="text-sm text-muted-foreground">No runes in inventory</p>
             <p className="text-xs text-muted-foreground/60 mt-1">
               Runes drop from dungeon bosses, tower floors, and expedition rewards.
