@@ -56,6 +56,20 @@ const CONSUMABLE_ICONS = {
   mana_potion:     FlaskConical,
 };
 
+// Consumable type -> pixel art sprite path (takes priority over Lucide icons)
+const CONSUMABLE_SPRITES = {
+  scroll_exp:      "/sprites/items/scroll_teal.png",
+  scroll_gold:     "/sprites/items/scroll_gold.png",
+  scroll_dmg:      "/sprites/items/scroll_red.png",
+  scroll_loot:     "/sprites/items/scroll_purple.png",
+  dungeon_ticket:  "/sprites/currencies/dungeon_ticket.png",
+  health_potion:   "/sprites/items/scroll_red.png",
+  mana_potion:     "/sprites/items/scroll_blue.png",
+  pet_incubator:   "/sprites/currencies/incubators.png",
+  hourglass:       "/sprites/items/scroll_brown.png",
+  upgrade_stone:   "/sprites/items/scroll_olive.png",
+};
+
 // Type -> fallback icon (when no subtype)
 const TYPE_ICONS = {
   weapon:     Swords,
@@ -86,6 +100,21 @@ export function getItemIcon(item) {
     return CONSUMABLE_ICONS[consumableType];
   }
   return TYPE_ICONS[item.type] || Package;
+}
+
+/**
+ * Returns the pixel art sprite path for an item, if available.
+ * Returns null if no sprite exists (use getItemIcon() as fallback).
+ */
+export function getItemSprite(item) {
+  if (!item) return null;
+  const extra = item.extraData || item.extra_data || {};
+  if (extra.sprite) return extra.sprite;
+  const consumableType = extra.consumableType || extra.materialType;
+  if (consumableType && CONSUMABLE_SPRITES[consumableType]) {
+    return CONSUMABLE_SPRITES[consumableType];
+  }
+  return null;
 }
 
 export { TYPE_ICONS, SUBTYPE_ICONS };

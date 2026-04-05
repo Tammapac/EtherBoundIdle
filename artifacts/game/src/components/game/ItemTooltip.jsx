@@ -4,7 +4,7 @@ import { AlertTriangle, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { RARITY_CONFIG } from "@/lib/gameData";
 import { canEquipItem, getAllowedClassesLabel } from "@/lib/equipmentSystem";
 import { getItemSetInfo, ITEM_SETS } from "@/lib/setSystem";
-import { getItemIcon } from "@/lib/itemIcons";
+import { getItemIcon, getItemSprite } from "@/lib/itemIcons";
 import { calculateFinalStats } from "@/lib/statSystem";
 import { getItemProcs, PROC_TYPES } from "@/lib/procSystem";
 import { getUniqueItemDef } from "@/lib/uniqueItems";
@@ -120,7 +120,11 @@ export default function ItemTooltip({ item, characterLevel, compareItem = null, 
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className={`p-2 rounded-lg ${rarity.bg} border ${rarity.border} ${isSetItem ? "ring-1 ring-yellow-400/40" : ""} ${isUnique ? "ring-1 ring-orange-400/60" : ""}`}>
-          <Icon className={`w-5 h-5 ${rarity.color}`} />
+          {getItemSprite(item) ? (
+            <img src={getItemSprite(item)} alt="" className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
+          ) : (
+            <Icon className={`w-5 h-5 ${rarity.color}`} />
+          )}
         </div>
         <div>
           <h3 className={`font-bold text-base ${isUnique ? "text-orange-300" : rarity.color}`}>{item.name}</h3>

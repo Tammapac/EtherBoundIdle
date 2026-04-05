@@ -13,7 +13,7 @@ import {
   Droplet, Snowflake, Skull, User, Sparkles, Star, Egg
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { getItemIcon } from "@/lib/itemIcons";
+import { getItemIcon, getItemSprite } from "@/lib/itemIcons";
 import { RARITY_CONFIG } from "@/lib/gameData";
 import { canEquipItem, validateEquip, getAllowedClassesLabel, EQUIPMENT_SLOTS, SLOT_LABELS } from "@/lib/equipmentSystem";
 import { calculateFinalStats } from "@/lib/statSystem";
@@ -158,7 +158,11 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
           </span>
         )}
         <div className="flex items-center gap-2 mb-1">
-          <Icon className={`w-5 h-5 ${rarity.color} flex-shrink-0`} />
+          {getItemSprite(item) ? (
+            <img src={getItemSprite(item)} alt="" className="w-6 h-6 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
+          ) : (
+            <Icon className={`w-5 h-5 ${rarity.color} flex-shrink-0`} />
+          )}
           <div className="flex-1 min-w-0">
             <span className={`text-xs font-semibold ${rarity.color} truncate block`}>{item.name}</span>
             {desc && <span className="text-[10px] text-muted-foreground leading-tight block">{desc}</span>}
@@ -578,15 +582,15 @@ export default function Inventory({ character, onCharacterUpdate }) {
   // Virtual currency items from character.extraData — displayed in Special tab
   const extraData = character?.extraData || character?.extra_data || {};
   const CURRENCY_DEFS = [
-    { key: "dublons", name: "Dublons", rarity: "epic", description: "Premium currency earned in The Fields. Used for special upgrades and purchases." },
-    { key: "crystals", name: "Crystals", rarity: "legendary", description: "Rare crystals obtained from deep Field runs. Used for high-tier crafting." },
-    { key: "ascension_shards", name: "Ascension Shards", rarity: "legendary", description: "Mystical shards that power ascension rituals." },
-    { key: "celestial_stones", name: "Celestial Stones", rarity: "mythic", description: "Fragments of celestial power, dropped by mighty foes." },
-    { key: "incubators", name: "Incubators", rarity: "rare", description: "Used to hatch pet eggs. Found in The Fields." },
-    { key: "sqrizzscrolls", name: "Sqrizzscrolls", rarity: "epic", description: "Ancient scrolls of power. Used for special enchantments." },
-    { key: "boss_stones", name: "Boss Stones", rarity: "mythic", description: "Trophies from world boss encounters. Extremely valuable." },
-    { key: "tammablocks", name: "Tammablocks", rarity: "rare", description: "Building blocks of the realm. Used for construction and upgrades." },
-    { key: "tower_shards", name: "Tower Shards", rarity: "epic", description: "Shards collected from the Tower of Trials." },
+    { key: "dublons", name: "Dublons", rarity: "epic", description: "Premium currency earned in The Fields. Used for special upgrades and purchases.", sprite: "/sprites/currencies/dublons.png" },
+    { key: "crystals", name: "Crystals", rarity: "legendary", description: "Rare crystals obtained from deep Field runs. Used for high-tier crafting.", sprite: "/sprites/currencies/crystals.png" },
+    { key: "ascension_shards", name: "Ascension Shards", rarity: "legendary", description: "Mystical shards that power ascension rituals.", sprite: "/sprites/currencies/ascension_shards.png" },
+    { key: "celestial_stones", name: "Celestial Stones", rarity: "mythic", description: "Fragments of celestial power, dropped by mighty foes.", sprite: "/sprites/currencies/celestial_stones.png" },
+    { key: "incubators", name: "Incubators", rarity: "rare", description: "Used to hatch pet eggs. Found in The Fields.", sprite: "/sprites/currencies/incubators.png" },
+    { key: "sqrizzscrolls", name: "Sqrizzscrolls", rarity: "epic", description: "Ancient scrolls of power. Used for special enchantments.", sprite: "/sprites/currencies/sqrizzscrolls.png" },
+    { key: "boss_stones", name: "Boss Stones", rarity: "mythic", description: "Trophies from world boss encounters. Extremely valuable.", sprite: "/sprites/currencies/boss_stones.png" },
+    { key: "tammablocks", name: "Tammablocks", rarity: "rare", description: "Building blocks of the realm. Used for construction and upgrades.", sprite: "/sprites/currencies/tammablocks.png" },
+    { key: "tower_shards", name: "Tower Shards", rarity: "epic", description: "Shards collected from the Tower of Trials.", sprite: "/sprites/currencies/tower_shards.png" },
   ];
   const currencyItems = CURRENCY_DEFS
     .filter(c => (extraData[c.key] || 0) > 0)
@@ -597,7 +601,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
       rarity: c.rarity,
       level: 1,
       stats: {},
-      extraData: { description: c.description, is_currency: true, quantity: extraData[c.key] },
+      extraData: { description: c.description, is_currency: true, quantity: extraData[c.key], sprite: c.sprite },
       stackCount: extraData[c.key],
       _isCurrency: true,
     }));
