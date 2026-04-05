@@ -582,16 +582,16 @@ export default function Inventory({ character, onCharacterUpdate }) {
   // Virtual currency items from character.extraData — displayed in Special tab
   const extraData = character?.extraData || character?.extra_data || {};
   const CURRENCY_DEFS = [
-    { key: "dublons", name: "Dublons", rarity: "epic", description: "Premium currency earned in The Fields. Used for special upgrades and purchases.", sprite: "/sprites/currencies/dublons.png" },
-    { key: "crystals", name: "Crystals", rarity: "legendary", description: "Rare crystals obtained from deep Field runs. Used for high-tier crafting.", sprite: "/sprites/currencies/crystals.png" },
-    { key: "ascension_shards", name: "Ascension Shards", rarity: "legendary", description: "Mystical shards that power ascension rituals.", sprite: "/sprites/currencies/ascension_shards.png" },
-    { key: "celestial_stones", name: "Celestial Stones", rarity: "mythic", description: "Fragments of celestial power, dropped by mighty foes.", sprite: "/sprites/currencies/celestial_stones.png" },
-    { key: "portal_shards", name: "Portal Shards", rarity: "epic", description: "Shards collected from the Infinite Portal.", sprite: "/sprites/currencies/portal_shards.png" },
-    { key: "incubators", name: "Incubators", rarity: "rare", description: "Used to hatch pet eggs. Found in The Fields.", sprite: "/sprites/currencies/incubators.png" },
-    { key: "sqrizzscrolls", name: "Sqrizzscrolls", rarity: "epic", description: "Ancient scrolls of power. Used for special enchantments.", sprite: "/sprites/currencies/sqrizzscrolls.png" },
-    { key: "boss_stones", name: "Boss Stones", rarity: "mythic", description: "Trophies from world boss encounters. Extremely valuable.", sprite: "/sprites/currencies/boss_stones.png" },
-    { key: "tammablocks", name: "Tammablocks", rarity: "rare", description: "Building blocks of the realm. Used for construction and upgrades.", sprite: "/sprites/currencies/tammablocks.png" },
-    { key: "tower_shards", name: "Tower Shards", rarity: "epic", description: "Shards collected from the Tower of Trials.", sprite: "/sprites/currencies/tower_shards.png" },
+    { key: "dublons", name: "Dublons", rarity: "epic", description: "Premium gold coins earned from combat and quests. Spend them at the Shop for exclusive gear, consumables, and mystery boxes." },
+    { key: "crystals", name: "Crystals", rarity: "legendary", description: "Magical crystals used for high-tier gear upgrades, awakening equipment, and purchasing legendary items from the Shop.", sprite: "/sprites/currencies/crystals.png" },
+    { key: "ascension_shards", name: "Ascension Shards", rarity: "legendary", description: "Mystical shards required for ascending your character to unlock new power tiers and stat bonuses.", sprite: "/sprites/currencies/ascension_shards.png" },
+    { key: "celestial_stones", name: "Celestial Stones", rarity: "mythic", description: "Extremely rare stones dropped by bosses. Used to craft mythic equipment and upgrade legendary gear to its final form.", sprite: "/sprites/currencies/celestial_stones.png" },
+    { key: "portal_shards", name: "Portal Shards", rarity: "epic", description: "Earned by clearing waves in the Infinite Portal. Used to purchase portal-exclusive gear and enchantments.", sprite: "/sprites/currencies/portal_shards.png" },
+    { key: "incubators", name: "Incubators", rarity: "rare", description: "Required to hatch pet eggs. Place an egg in an incubator to receive a new companion with unique combat skills." },
+    { key: "sqrizzscrolls", name: "Sqrizzscrolls", rarity: "epic", description: "Ancient enchantment scrolls. Use them to add special bonus stats or reroll sub-stats on your equipment.", sprite: "/sprites/currencies/sqrizzscrolls.png" },
+    { key: "boss_stones", name: "Boss Stones", rarity: "mythic", description: "Trophies from defeating dungeon bosses. Trade them for boss-exclusive set pieces and powerful unique weapons.", sprite: "/sprites/currencies/boss_stones.png" },
+    { key: "tammablocks", name: "Tammablocks", rarity: "rare", description: "Versatile building blocks used for guild upgrades, base construction, and crafting special utility items.", sprite: "/sprites/currencies/tammablocks.png" },
+    { key: "tower_shards", name: "Tower Shards", rarity: "epic", description: "Collected from clearing floors in the Tower of Trials. Exchange them for tower-exclusive gear and upgrade materials.", sprite: "/sprites/currencies/tower_shards.png" },
   ];
   const currencyItems = CURRENCY_DEFS
     .filter(c => (extraData[c.key] || 0) > 0)

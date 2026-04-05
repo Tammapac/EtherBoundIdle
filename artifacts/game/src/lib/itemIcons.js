@@ -57,23 +57,20 @@ const CONSUMABLE_ICONS = {
 };
 
 // Consumable type -> pixel art sprite path (takes priority over Lucide icons)
+// NOTE: health/mana potions intentionally NOT mapped here (they use FlaskConical, not scrolls)
 const CONSUMABLE_SPRITES = {
   scroll_exp:      "/sprites/items/scroll_teal.png",
   scroll_gold:     "/sprites/items/scroll_gold.png",
-  scroll_dmg:      "/sprites/items/scroll_red.png",
-  scroll_loot:     "/sprites/items/scroll_purple.png",
+  scroll_dmg:      "/sprites/items/scroll_purple.png",
+  scroll_loot:     "/sprites/items/scroll_gold.png",
   dungeon_ticket:  "/sprites/currencies/dungeon_ticket.png",
-  health_potion:   "/sprites/items/scroll_red.png",
-  mana_potion:     "/sprites/items/scroll_blue.png",
-  pet_incubator:   "/sprites/currencies/incubators.png",
   hourglass:       "/sprites/items/scroll_brown.png",
   upgrade_stone:   "/sprites/currencies/upgrade_stone.png",
 };
 
 // Name-based sprite matching for items that don't have consumableType set
+// NOTE: potions are excluded - they keep the FlaskConical icon until we have potion sprites
 const NAME_SPRITE_MAP = [
-  { match: /health.*potion/i,     sprite: "/sprites/items/scroll_red.png" },
-  { match: /mana.*potion/i,       sprite: "/sprites/items/scroll_blue.png" },
   { match: /scroll.*exp/i,        sprite: "/sprites/items/scroll_teal.png" },
   { match: /scroll.*experience/i, sprite: "/sprites/items/scroll_teal.png" },
   { match: /scroll.*gold/i,       sprite: "/sprites/items/scroll_gold.png" },
@@ -85,7 +82,6 @@ const NAME_SPRITE_MAP = [
   { match: /hourglass/i,          sprite: "/sprites/items/scroll_brown.png" },
   { match: /exp.*boost/i,         sprite: "/sprites/items/scroll_teal.png" },
   { match: /gold.*boost/i,        sprite: "/sprites/items/scroll_gold.png" },
-  { match: /pet.*incubator/i,     sprite: "/sprites/currencies/incubators.png" },
   { match: /upgrade.*stone/i,     sprite: "/sprites/currencies/upgrade_stone.png" },
 ];
 
