@@ -340,10 +340,16 @@ function getElementPalette(spriteKey, element) {
 
 // ─── PUBLIC API ─────────────────────────────────────────────────────
 
+// Use custom pixel art sprites from /sprites/ folder
+const CLASS_SPRITE_URLS = {
+  warrior: "/sprites/class_warrior.png",
+  mage: "/sprites/class_mage.png",
+  ranger: "/sprites/class_ranger.png",
+  rogue: "/sprites/class_rogue.png",
+};
+
 export function getPlayerSprite(playerClass, scale = 3) {
-  const map = CLASS_MAPS[playerClass] || CLASS_MAPS.warrior;
-  const palette = CLASS_PALETTES[playerClass] || CLASS_PALETTES.warrior;
-  return renderSprite(map, palette, 16, scale);
+  return CLASS_SPRITE_URLS[playerClass] || CLASS_SPRITE_URLS.warrior;
 }
 
 export function getEnemySpriteUrl(element, enemyName, isBoss, isElite, scale = 3) {
