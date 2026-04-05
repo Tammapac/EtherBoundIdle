@@ -1418,8 +1418,8 @@ export default function Battle({ character, onCharacterUpdate }) {
             className={`bg-card border rounded-xl p-3 flex items-center gap-3 ${RARITY_CONFIG[lootDrop.rarity]?.border}`}
           >
             {getItemSprite(lootDrop) ? (
-              <img src={getItemSprite(lootDrop)} alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
-            ) : (() => { const Icon = LOOT_TYPE_ICONS[lootDrop.type] || Sparkles; return <Icon className={`w-5 h-5 ${RARITY_CONFIG[lootDrop.rarity]?.color}`} />; })()}
+              <img src={getItemSprite(lootDrop)} alt="" className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
+            ) : (() => { const Icon = LOOT_TYPE_ICONS[lootDrop.type] || Sparkles; return <Icon className={`w-7 h-7 ${RARITY_CONFIG[lootDrop.rarity]?.color}`} />; })()}
             <div>
               <p className={`font-semibold text-sm ${RARITY_CONFIG[lootDrop.rarity]?.color}`}>{lootDrop.name}</p>
               <p className="text-xs text-muted-foreground capitalize">{lootDrop.rarity} · {lootDrop.type}</p>

@@ -240,8 +240,8 @@ export default function Runes({ character, onCharacterUpdate }) {
         style={{ borderColor: rarity.hex + (isSelected ? "cc" : "55") }}
       >
         <div className="flex items-center gap-2 mb-1.5">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${category.bg} border ${category.border}`}>
-            <img src={isHighTier ? `/sprites/runes/rune_${rune.rarity}.png` : runeSprite} alt="" className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${category.bg} border ${category.border}`}>
+            <img src={isHighTier ? `/sprites/runes/rune_${rune.rarity}.png` : runeSprite} alt="" className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-white truncate">{rune.name}</p>
@@ -307,7 +307,7 @@ export default function Runes({ character, onCharacterUpdate }) {
                 className={`flex items-center gap-2 p-1.5 rounded-lg border ${runeRarity.border} ${runeRarity.bg} cursor-pointer hover:brightness-110`}
                 onClick={() => setSelectedRune(rune)}
               >
-                <img src={["legendary","mythic","set","shiny"].includes(rune.rarity) ? `/sprites/runes/rune_${rune.rarity}.png` : getRuneSprite(rune)} alt="" className="w-4 h-4 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
+                <img src={["legendary","mythic","set","shiny"].includes(rune.rarity) ? `/sprites/runes/rune_${rune.rarity}.png` : getRuneSprite(rune)} alt="" className="w-6 h-6 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
                 <div className="flex-1 min-w-0">
                   <span className="text-[10px] font-semibold text-white truncate block">{rune.name}</span>
                   <span className={`text-[9px] ${runeRarity.text}`}>
@@ -367,7 +367,7 @@ export default function Runes({ character, onCharacterUpdate }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
-            <img src="/sprites/runes/rune_epic.png" alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} /> Rune System
+            <img src="/sprites/runes/rune_epic.png" alt="" className="w-7 h-7" style={{ imageRendering: "pixelated" }} /> Rune System
           </h2>
           <p className="text-xs text-muted-foreground">
             Socket runes into equipment. Upgrade with dust. Salvage for resources.
@@ -386,7 +386,7 @@ export default function Runes({ character, onCharacterUpdate }) {
         <div className="flex flex-wrap gap-3">
           {Object.entries(DUST_INFO).map(([key, info]) => (
             <div key={key} className={`flex items-center gap-1.5 ${info.bg} rounded-lg px-3 py-1.5`}>
-              <img src={info.sprite} alt={info.label} className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
+              <img src={info.sprite} alt={info.label} className="w-7 h-7" style={{ imageRendering: "pixelated" }} />
               <span className={`text-xs font-bold ${info.color}`}>{dust[key] || 0}</span>
               <span className="text-[9px] text-muted-foreground">{info.label}</span>
             </div>
@@ -400,7 +400,7 @@ export default function Runes({ character, onCharacterUpdate }) {
       {/* Equipment with Rune Slots */}
       <div>
         <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide flex items-center gap-1.5">
-          <img src="/sprites/runes/rune_rare.png" alt="" className="w-4 h-4" style={{ imageRendering: "pixelated" }} /> Equipment Rune Slots
+          <img src="/sprites/runes/rune_rare.png" alt="" className="w-6 h-6" style={{ imageRendering: "pixelated" }} /> Equipment Rune Slots
         </p>
         {itemsWithSlots.length === 0 ? (
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 text-center">
@@ -480,7 +480,7 @@ export default function Runes({ character, onCharacterUpdate }) {
                     <p className="text-[9px] text-muted-foreground mb-1">UPGRADE TO LEVEL {lvl + 1}</p>
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className={`text-xs ${dInfo?.color} flex items-center gap-1`}>
-                        {dInfo?.sprite && <img src={dInfo.sprite} alt="" className="w-4 h-4 inline" style={{ imageRendering: "pixelated" }} />}
+                        {dInfo?.sprite && <img src={dInfo.sprite} alt="" className="w-5 h-5 inline" style={{ imageRendering: "pixelated" }} />}
                         {dustNeeded} {dInfo?.label}
                         <span className={hasDust ? " text-green-400" : " text-red-400"}>
                           {" "}({dust[dustType] || 0} owned)

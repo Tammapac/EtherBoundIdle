@@ -160,9 +160,9 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         )}
         <div className="flex items-center gap-2 mb-1">
           {getItemSprite(item) ? (
-            <img src={getItemSprite(item)} alt="" className="w-6 h-6 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
+            <img src={getItemSprite(item)} alt="" className="w-8 h-8 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
           ) : (
-            <Icon className={`w-5 h-5 ${rarity.color} flex-shrink-0`} />
+            <Icon className={`w-7 h-7 ${rarity.color} flex-shrink-0`} />
           )}
           <div className="flex-1 min-w-0">
             <span className={`text-xs font-semibold ${rarity.color} truncate block`}>{item.name}</span>
@@ -201,9 +201,9 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         <div className="flex items-center gap-2 mb-1">
           <div className="relative flex-shrink-0">
             {getItemSprite(item) ? (
-              <img src={getItemSprite(item)} alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
+              <img src={getItemSprite(item)} alt="" className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
             ) : (
-              <Icon className={`w-5 h-5 ${rarity.color}`} />
+              <Icon className={`w-7 h-7 ${rarity.color}`} />
             )}
             {itemLevel && (
               <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold leading-none px-0.5 rounded ${rarity.color} bg-background border border-current`}>
@@ -279,9 +279,9 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
         title={item ? item.name : SLOT_LABELS[slot]}
       >
         {item && getItemSprite(item) ? (
-          <img src={getItemSprite(item)} alt="" className="w-5 h-5 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
+          <img src={getItemSprite(item)} alt="" className="w-7 h-7 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
         ) : (
-          <Icon className={`w-5 h-5 flex-shrink-0 ${item ? rarity?.color : "text-gray-600"}`} />
+          <Icon className={`w-6 h-6 flex-shrink-0 ${item ? rarity?.color : "text-gray-600"}`} />
         )}
         <div className="flex-1 min-w-0 text-left">
           <span className={`text-[10px] font-semibold truncate block leading-tight ${item ? rarity?.color : "text-gray-600"}`}>

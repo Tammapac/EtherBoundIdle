@@ -187,9 +187,9 @@ export default function Shop({ character, onCharacterUpdate }) {
               >
                 <div className={`p-2.5 rounded-lg ${rarity.bg} flex-shrink-0`}>
                   {getItemSprite(item) ? (
-                    <img src={getItemSprite(item)} alt="" className="w-5 h-5" style={{ imageRendering: "pixelated" }} />
+                    <img src={getItemSprite(item)} alt="" className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
                   ) : (
-                    <Icon className={`w-5 h-5 ${rarity.color}`} />
+                    <Icon className={`w-7 h-7 ${rarity.color}`} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
