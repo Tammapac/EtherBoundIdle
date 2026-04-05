@@ -1113,6 +1113,44 @@ export function generateLoot(
   else if (rarityIdx >= 1) runeSlots = slotRoll < 25 ? 1 : 0;                        // uncommon: 0-1
   // common: 0 slots
 
+  // For shiny/mythic/legendary items, chance to be a unique with special proc effects
+  let isUnique = false;
+  let uniqueEffect: string | null = null;
+  let lore: string | null = null;
+  if (rarity === "shiny" || (rarity === "mythic" && isBoss) || (rarity === "legendary" && Math.random() < 0.15)) {
+    // Roll from ALL unique drops matching the character class
+    const allUniques: any[] = [];
+    for (const drops of Object.values(UNIQUE_DROPS)) {
+      for (const d of drops) {
+        if (d.class_restriction && characterClass && !d.class_restriction.includes(characterClass)) continue;
+        if (d.item_level <= itemLevel + 10) allUniques.push(d);
+      }
+    }
+    if (allUniques.length > 0) {
+      const luckBonus = 1 + Math.min(0.5, (luck || 0) * 0.005);
+      const uniqueRoll = Math.random();
+      const uniqueChance = rarity === "shiny" ? 0.5 : rarity === "mythic" ? 0.25 : 0.1;
+      if (uniqueRoll < uniqueChance * luckBonus) {
+        const pick = allUniques[Math.floor(Math.random() * allUniques.length)];
+        return {
+          name: pick.name,
+          rarity: pick.rarity || rarity,
+          type: pick.type,
+          subtype: pick.subtype || undefined,
+          item_level: pick.item_level,
+          level_req: pick.level_req,
+          stats: pick.stats,
+          sell_price: Math.floor((RARITY_SELL_PRICES[pick.rarity] || 600) * (1 + pick.item_level * 0.15)),
+          proc_effects: pick.proc_effects || [],
+          is_unique: true,
+          uniqueEffect: pick.uniqueEffect,
+          lore: pick.lore,
+          ...(runeSlots > 0 ? { rune_slots: runeSlots } : {}),
+        };
+      }
+    }
+  }
+
   return {
     name,
     rarity,

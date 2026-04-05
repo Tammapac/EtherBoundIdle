@@ -1266,6 +1266,17 @@ router.post("/functions/lifeSkills", async (req: Request, res: Response) => {
         });
       }
 
+      // Update quest progress: craft_items
+      try {
+        const craftQuests = await db.select().from(questsTable).where(and(eq(questsTable.characterId, charId), eq(questsTable.status, "active")));
+        for (const q of craftQuests) {
+          if ((q.objective as any)?.type === "craft_items") {
+            const np = Math.min((q.progress || 0) + qty, q.target);
+            await db.update(questsTable).set({ progress: np, status: np >= q.target ? "completed" : "active" }).where(eq(questsTable.id, q.id));
+          }
+        }
+      } catch {}
+
       sendSuccess(res, { success: true });
       return;
     }
@@ -2443,6 +2454,18 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
           } catch {}
         }
         await db.update(dungeonSessionsTable).set({ status: "completed", data: d }).where(eq(dungeonSessionsTable.id, session.id));
+
+        // Update quest progress: dungeon_complete
+        try {
+          const dungQuests = await db.select().from(questsTable).where(and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active")));
+          for (const q of dungQuests) {
+            if ((q.objective as any)?.type === "dungeon_complete") {
+              const np = Math.min((q.progress || 0) + 1, q.target);
+              await db.update(questsTable).set({ progress: np, status: np >= q.target ? "completed" : "active" }).where(eq(questsTable.id, q.id));
+            }
+          }
+        } catch {}
+
         sendSuccess(res, { success: true, session: buildSessionResponse({ ...session, data: d }) });
         return;
       }
@@ -2937,6 +2960,17 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
               const newProg = Math.min((m.progress || 0) + 1, m.target);
               const newSt = newProg >= m.target ? "completed" : "active";
               await db.update(seasonMissionsTable).set({ progress: newProg, status: newSt }).where(eq(seasonMissionsTable.id, m.id));
+            }
+          }
+        } catch {}
+
+        // Update quest progress: tower_floors
+        try {
+          const towerQuests = await db.select().from(questsTable).where(and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active")));
+          for (const q of towerQuests) {
+            if ((q.objective as any)?.type === "tower_floors") {
+              const np = Math.min((q.progress || 0) + 1, q.target);
+              await db.update(questsTable).set({ progress: np, status: np >= q.target ? "completed" : "active" }).where(eq(questsTable.id, q.id));
             }
           }
         } catch {}
@@ -6345,6 +6379,17 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
           } catch {}
         }
 
+        // Update quest progress: portal_waves
+        try {
+          const portalQuests = await db.select().from(questsTable).where(and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active")));
+          for (const q of portalQuests) {
+            if ((q.objective as any)?.type === "portal_waves") {
+              const np = Math.min((q.progress || 0) + 1, q.target);
+              await db.update(questsTable).set({ progress: np, status: np >= q.target ? "completed" : "active" }).where(eq(questsTable.id, q.id));
+            }
+          }
+        } catch {}
+
         // Generate loot for owner
         if (rewards.hasLoot) {
           try {
@@ -7794,7 +7839,7 @@ function getFieldRewards(fieldNumber: number, memberCount: number, isRiskPath: b
 
 router.post("/functions/fieldAction", async (req: Request, res: Response) => {
   try {
-    const { characterId, action, sessionId, skillId, targetEnemyId, pathChoice } = req.body;
+    const { characterId, action, sessionId, skillId, targetEnemyId, pathChoice, selectedBuffIds, selectedDebuffIds } = req.body;
     if (!(await requireCharacterOwner(req, res, characterId))) return;
     const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
     if (!char) { sendError(res, 404, "Character not found"); return; }
@@ -8041,9 +8086,37 @@ router.post("/functions/fieldAction", async (req: Request, res: Response) => {
         if (regenAmt > 0) me.hp = Math.min(me.max_hp, me.hp + regenAmt);
       }
 
+      // Track skill usage for quests
+      if (action === "skill" && skillId) {
+        try {
+          const skillQuests = await db.select().from(questsTable).where(and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active")));
+          for (const q of skillQuests) {
+            if ((q.objective as any)?.type === "skills_used") {
+              const np = Math.min((q.progress || 0) + 1, q.target);
+              await db.update(questsTable).set({ progress: np, status: np >= q.target ? "completed" : "active" }).where(eq(questsTable.id, q.id));
+            }
+          }
+        } catch {}
+      }
+
       // Enemy killed
       if (target.hp <= 0) {
         combatLog.push({ type: "system", text: `${target.name} defeated!`, ts: Date.now() });
+
+        // Update quest progress: combat_kills and boss_kills
+        try {
+          const killQuests = await db.select().from(questsTable).where(and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active")));
+          for (const q of killQuests) {
+            const objType = (q.objective as any)?.type;
+            let inc = 0;
+            if (objType === "combat_kills") inc = 1;
+            else if (objType === "boss_kills" && (target.isBoss || target.isElite)) inc = 1;
+            if (inc > 0) {
+              const np = Math.min((q.progress || 0) + inc, q.target);
+              await db.update(questsTable).set({ progress: np, status: np >= q.target ? "completed" : "active" }).where(eq(questsTable.id, q.id));
+            }
+          }
+        } catch {}
 
         // Heal on kill modifier
         if (healOnKillPct > 0) {
@@ -8149,6 +8222,20 @@ router.post("/functions/fieldAction", async (req: Request, res: Response) => {
         if (fieldRewards.boss_stone > 0) rewardText += `, +1 Boss Stone`;
         combatLog.push({ type: "victory", text: rewardText, ts: Date.now() });
 
+        // Update gold_earned quests for the player
+        try {
+          const goldQuests = await db.select().from(questsTable).where(and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active")));
+          for (const q of goldQuests) {
+            const objType = (q.objective as any)?.type;
+            let inc = 0;
+            if (objType === "gold_earned") inc = fieldRewards.gold;
+            if (inc > 0) {
+              const np = Math.min((q.progress || 0) + inc, q.target);
+              await db.update(questsTable).set({ progress: np, status: np >= q.target ? "completed" : "active" }).where(eq(questsTable.id, q.id));
+            }
+          }
+        } catch {}
+
         // Apply gold and exp to all alive members
         for (const m of members) {
           try {
@@ -8180,7 +8267,7 @@ router.post("/functions/fieldAction", async (req: Request, res: Response) => {
               await db.insert(itemsTable).values({
                 ownerId: characterId, name: loot.name, type: loot.type, rarity: loot.rarity,
                 level: loot.item_level || 1, stats: loot.stats || {},
-                extraData: { source: "fields", field_number: fieldNum, subtype: loot.subtype || null, level_req: loot.level_req || 1, sell_price: loot.sell_price || 0, proc_effects: loot.proc_effects || null, rune_slots: loot.rune_slots || 0 },
+                extraData: { source: "fields", field_number: fieldNum, subtype: loot.subtype || null, level_req: loot.level_req || 1, sell_price: loot.sell_price || 0, proc_effects: loot.proc_effects || null, rune_slots: loot.rune_slots || 0, is_unique: loot.is_unique || false, uniqueEffect: loot.uniqueEffect || null, lore: loot.lore || null },
               });
               combatLog.push({ type: "system", text: `Loot: ${loot.name} (${loot.rarity})`, ts: Date.now() });
               if (!totalRewards.loot) totalRewards.loot = [];
@@ -8189,14 +8276,20 @@ router.post("/functions/fieldAction", async (req: Request, res: Response) => {
           } catch {}
         }
 
-        combatLog.push({ type: "system", text: "Choose your path: Risk (harder, better rewards) or Safe (easier)", ts: Date.now() });
+        combatLog.push({ type: "system", text: "Choose your path: Risk (harder, better rewards) or Safe (easier). Select your modifiers!", ts: Date.now() });
+
+        // Pre-generate available modifiers for player to choose from
+        const nextFieldNum = (session.fieldNumber || 1) + 1;
+        const availableBuffs = [...FIELD_MODIFIERS_POOL.buffs].sort(() => Math.random() - 0.5).slice(0, 4);
+        const availableDebuffs = [...FIELD_MODIFIERS_POOL.debuffs].sort(() => Math.random() - 0.5).slice(0, 5);
+        const pathData = { ...data, pendingPathChoice: true, availableBuffs, availableDebuffs };
 
         await db.update(fieldSessionsTable).set({
           status: "field_clear", enemies, members, rewards: totalRewards, combatLog,
-          data: { ...data, pendingPathChoice: true },
+          data: pathData,
         }).where(eq(fieldSessionsTable.id, session.id));
 
-        sendSuccess(res, { success: true, session: { id: session.id, status: "field_clear", fieldNumber: session.fieldNumber, element: session.element, members, enemies, modifiers, rewards: totalRewards, combatLog: combatLog.slice(-30), data: { ...data, pendingPathChoice: true } } });
+        sendSuccess(res, { success: true, session: { id: session.id, status: "field_clear", fieldNumber: session.fieldNumber, element: session.element, members, enemies, modifiers, rewards: totalRewards, combatLog: combatLog.slice(-30), data: pathData } });
         return;
       }
 
@@ -8297,7 +8390,30 @@ router.post("/functions/fieldAction", async (req: Request, res: Response) => {
       }
 
       const pathHistory = [...(data.pathHistory || []), pathChoice];
-      const modifiers = pickFieldModifiers(nextField, isRisk);
+
+      // Use player-selected modifiers if provided, otherwise fall back to random
+      let modifiers: any[];
+      const availBuffs = data.availableBuffs || [];
+      const availDebuffs = data.availableDebuffs || [];
+      if (selectedBuffIds && selectedDebuffIds && Array.isArray(selectedBuffIds) && Array.isArray(selectedDebuffIds)) {
+        modifiers = [
+          ...availBuffs.filter((b: any) => selectedBuffIds.includes(b.id)).map((b: any) => ({ ...b, type: "buff" })),
+          ...availDebuffs.filter((d: any) => selectedDebuffIds.includes(d.id)).map((d: any) => ({ ...d, type: "debuff" })),
+        ];
+        // Ensure minimum debuffs based on field difficulty
+        const minDebuffs = Math.min(4, 1 + Math.floor(nextField / 5));
+        if (modifiers.filter((m: any) => m.type === "debuff").length < minDebuffs) {
+          // Add random debuffs to meet minimum
+          const existingDebuffIds = modifiers.filter((m: any) => m.type === "debuff").map((m: any) => m.id);
+          const pool = availDebuffs.filter((d: any) => !existingDebuffIds.includes(d.id));
+          while (modifiers.filter((m: any) => m.type === "debuff").length < minDebuffs && pool.length > 0) {
+            const d = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+            modifiers.push({ ...d, type: "debuff" });
+          }
+        }
+      } else {
+        modifiers = pickFieldModifiers(nextField, isRisk);
+      }
       const enemies = generateFieldEnemies(nextField, newElement, isRisk, modifiers);
 
       const members = (session.members as any[]) || [];

@@ -613,6 +613,40 @@ export default function Inventory({ character, onCharacterUpdate }) {
         )}
       </div>
 
+      {/* Currencies from Fields & other content */}
+      {(() => {
+        const extra = character?.extraData || character?.extra_data || {};
+        const currencies = [
+          { key: "dublons", label: "Dublons", color: "text-purple-400", icon: "💎" },
+          { key: "crystals", label: "Crystals", color: "text-cyan-400", icon: "🔮" },
+          { key: "ascension_shards", label: "Ascension Shards", color: "text-amber-400", icon: "⭐" },
+          { key: "celestial_stones", label: "Celestial Stones", color: "text-pink-400", icon: "🌟" },
+          { key: "incubators", label: "Incubators", color: "text-green-400", icon: "🥚" },
+          { key: "sqrizzscrolls", label: "Sqrizzscrolls", color: "text-orange-400", icon: "📜" },
+          { key: "boss_stones", label: "Boss Stones", color: "text-red-400", icon: "💀" },
+        ];
+        const hasCurrencies = currencies.some(c => (extra[c.key] || 0) > 0);
+        if (!hasCurrencies) return null;
+        return (
+          <div className="bg-card border border-border rounded-xl p-3">
+            <h3 className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Special Currencies</h3>
+            <div className="flex flex-wrap gap-3">
+              {currencies.map(c => {
+                const val = extra[c.key] || 0;
+                if (val <= 0) return null;
+                return (
+                  <div key={c.key} className="flex items-center gap-1.5 text-xs">
+                    <span>{c.icon}</span>
+                    <span className={`font-bold ${c.color}`}>{val.toLocaleString()}</span>
+                    <span className="text-muted-foreground">{c.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Top: Equipment Grid + Stats (compact side-by-side) */}
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-3">
         {/* Equipment Grid */}

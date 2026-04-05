@@ -226,6 +226,134 @@ function PixelArtBackground({ element }) {
   );
 }
 
+// ─── Path Choice Screen with Buff/Debuff Selection ────────────────────────
+function PathChoiceScreen({ session, element, rewards, loading, autoFight, doAction }) {
+  const [selectedBuffs, setSelectedBuffs] = useState([]);
+  const [selectedDebuffs, setSelectedDebuffs] = useState([]);
+  const [pathChoice, setPathChoice] = useState(null); // "safe" or "risk"
+  const autoPathDone = useRef(false);
+
+  const data = session?.data || {};
+  const availableBuffs = data.availableBuffs || [];
+  const availableDebuffs = data.availableDebuffs || [];
+  const fieldNumber = session?.fieldNumber || 1;
+
+  // Safe: pick 1 buff + 1 debuff minimum. Risk: pick 2 buffs + 2 debuffs minimum.
+  const requiredBuffs = pathChoice === "risk" ? 2 : 1;
+  const requiredDebuffs = pathChoice === "risk" ? 2 : 1;
+  const canConfirm = pathChoice && selectedBuffs.length >= requiredBuffs && selectedDebuffs.length >= requiredDebuffs;
+
+  const toggleBuff = (id) => {
+    setSelectedBuffs(prev => prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]);
+  };
+  const toggleDebuff = (id) => {
+    setSelectedDebuffs(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+  };
+
+  const handleConfirm = () => {
+    if (!canConfirm || loading) return;
+    doAction("choose_path", {
+      pathChoice,
+      selectedBuffIds: selectedBuffs,
+      selectedDebuffIds: selectedDebuffs,
+    });
+  };
+
+  // Auto-fight: auto-pick safe path with random modifiers
+  useEffect(() => {
+    if (!autoFight || autoPathDone.current) return;
+    autoPathDone.current = true;
+    const autoBuffs = availableBuffs.slice(0, 1).map(b => b.id);
+    const autoDebuffs = availableDebuffs.slice(0, 1).map(d => d.id);
+    doAction("choose_path", {
+      pathChoice: "safe",
+      selectedBuffIds: autoBuffs,
+      selectedDebuffIds: autoDebuffs,
+    });
+  }, [autoFight, availableBuffs, availableDebuffs, doAction]);
+
+  return (
+    <div className="min-h-[80vh] flex items-center justify-center p-4 relative overflow-hidden">
+      <PixelArtBackground element={element} />
+      <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 bg-black/80 backdrop-blur-sm border-2 border-green-500/40 p-6 max-w-2xl w-full text-center space-y-4">
+        <Sparkles className="w-12 h-12 text-green-400 mx-auto" />
+        <h2 className="text-xl font-bold text-green-400">Field {fieldNumber} Cleared!</h2>
+        <p className="text-muted-foreground text-sm">Choose your path and select modifiers for the next field:</p>
+
+        {/* Path selection */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => { setPathChoice("safe"); setSelectedBuffs([]); setSelectedDebuffs([]); }}
+            className={`p-3 border-2 transition-all text-center space-y-1 cursor-pointer ${pathChoice === "safe" ? "bg-blue-600/30 border-blue-400" : "bg-blue-600/10 border-blue-500/30 hover:border-blue-400"}`}
+          >
+            <ShieldCheck className="w-8 h-8 text-blue-400 mx-auto" />
+            <p className="font-bold text-blue-400 text-sm">Safe Path</p>
+            <p className="text-[10px] text-muted-foreground">Pick 1 buff + 1 debuff</p>
+          </button>
+          <button
+            onClick={() => { setPathChoice("risk"); setSelectedBuffs([]); setSelectedDebuffs([]); }}
+            className={`p-3 border-2 transition-all text-center space-y-1 cursor-pointer ${pathChoice === "risk" ? "bg-red-600/30 border-red-400" : "bg-red-600/10 border-red-500/30 hover:border-red-400"}`}
+          >
+            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto" />
+            <p className="font-bold text-red-400 text-sm">Risk Path</p>
+            <p className="text-[10px] text-muted-foreground">Pick 2 buffs + 2 debuffs, better rewards</p>
+          </button>
+        </div>
+
+        {/* Modifier selection */}
+        {pathChoice && (
+          <div className="space-y-3 text-left">
+            {/* Buffs */}
+            <div>
+              <p className="text-xs font-bold text-green-400 mb-1">Choose Buffs (min {requiredBuffs}):</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {availableBuffs.map(buff => (
+                  <button
+                    key={buff.id}
+                    onClick={() => toggleBuff(buff.id)}
+                    className={`p-2 border text-left text-xs transition-all cursor-pointer ${selectedBuffs.includes(buff.id) ? "bg-green-500/20 border-green-500/60" : "bg-black/30 border-white/10 hover:border-green-500/40"}`}
+                  >
+                    <span className="font-bold text-green-400">{buff.name}</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{buff.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Debuffs */}
+            <div>
+              <p className="text-xs font-bold text-red-400 mb-1">Choose Debuffs (min {requiredDebuffs}):</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {availableDebuffs.map(debuff => (
+                  <button
+                    key={debuff.id}
+                    onClick={() => toggleDebuff(debuff.id)}
+                    className={`p-2 border text-left text-xs transition-all cursor-pointer ${selectedDebuffs.includes(debuff.id) ? "bg-red-500/20 border-red-500/60" : "bg-black/30 border-white/10 hover:border-red-500/40"}`}
+                  >
+                    <span className="font-bold text-red-400">{debuff.name}</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{debuff.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              onClick={handleConfirm}
+              disabled={!canConfirm || loading}
+              className={`w-full ${pathChoice === "risk" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
+            >
+              {loading ? "Loading..." : `Enter Field ${fieldNumber + 1} (${pathChoice === "risk" ? "Risk" : "Safe"})`}
+            </Button>
+          </div>
+        )}
+
+        <div className="pt-1">
+          <p className="text-xs text-muted-foreground">Rewards so far: {rewards.dublons || 0} Dublons, {rewards.gold || 0} Gold, {rewards.exp || 0} EXP</p>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Field Combat ─────────────────────────────────────────────────────────
 function FieldCombat({ session: initialSession, character, onLeave }) {
   const [session, setSession] = useState(initialSession);
@@ -303,7 +431,15 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
   const isFieldClear = session?.status === "field_clear";
   const pendingPath = session?.data?.pendingPathChoice;
   const rewards = session?.rewards || {};
-  const mySkills = CLASS_SKILLS[character?.class] || [];
+  // Use hotbar skills (same pattern as Battle.jsx)
+  const allClassSkills = CLASS_SKILLS[character?.class] || [];
+  const hotbarIds = character?.hotbar_skills?.length > 0
+    ? character.hotbar_skills
+    : (character?.skills || []);
+  const mySkills = hotbarIds
+    .map(sid => allClassSkills.find(s => s.id === sid))
+    .filter(Boolean)
+    .slice(0, 6);
 
   const handleLeave = async () => {
     await doAction("leave");
@@ -338,42 +474,27 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
     );
   }
 
-  // Path choice screen
+  // Path choice screen with buff/debuff selection
   if (isFieldClear && pendingPath) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center p-4 relative overflow-hidden">
-        <PixelArtBackground element={element} />
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 bg-black/80 backdrop-blur-sm border-2 border-green-500/40 p-6 max-w-lg w-full text-center space-y-4">
-          <Sparkles className="w-12 h-12 text-green-400 mx-auto" />
-          <h2 className="text-xl font-bold text-green-400">Field {session?.fieldNumber} Cleared!</h2>
-          <p className="text-muted-foreground text-sm">Choose your path to the next field:</p>
-          <div className="grid grid-cols-2 gap-4">
-            <button onClick={() => doAction("choose_path", { pathChoice: "safe" })} disabled={loading} className="p-4 bg-blue-600/20 border-2 border-blue-500/50 hover:border-blue-400 hover:bg-blue-600/30 transition-all text-center space-y-2 cursor-pointer">
-              <ShieldCheck className="w-10 h-10 text-blue-400 mx-auto" />
-              <p className="font-bold text-blue-400">Safe Path</p>
-              <p className="text-xs text-muted-foreground">Fewer enemies, standard modifiers</p>
-            </button>
-            <button onClick={() => doAction("choose_path", { pathChoice: "risk" })} disabled={loading} className="p-4 bg-red-600/20 border-2 border-red-500/50 hover:border-red-400 hover:bg-red-600/30 transition-all text-center space-y-2 cursor-pointer">
-              <AlertTriangle className="w-10 h-10 text-red-400 mx-auto" />
-              <p className="font-bold text-red-400">Risk Path</p>
-              <p className="text-xs text-muted-foreground">More elites, better rewards + extra buffs</p>
-            </button>
-          </div>
-          <div className="pt-2">
-            <p className="text-xs text-muted-foreground">Rewards so far: {rewards.dublons || 0} Dublons, {rewards.gold || 0} Gold, {rewards.exp || 0} EXP</p>
-          </div>
-        </motion.div>
-      </div>
+      <PathChoiceScreen
+        session={session}
+        element={element}
+        rewards={rewards}
+        loading={loading}
+        autoFight={autoFight}
+        doAction={doAction}
+      />
     );
   }
 
   return (
-    <div className="min-h-[80vh] relative overflow-hidden">
+    <div className="min-h-[80vh] relative overflow-hidden flex flex-col">
       {/* Pixel art landscape background */}
       <PixelArtBackground element={element} />
 
-      {/* Content overlay */}
-      <div className="relative z-10 p-2 space-y-2">
+      {/* Content overlay — flex column layout: header, enemies (center), players (bottom) */}
+      <div className="relative z-10 p-2 flex flex-col flex-1 gap-2">
         {/* Header */}
         <div className="flex items-center justify-between bg-black/70 backdrop-blur-sm border border-white/10 px-3 py-2">
           <div className="flex items-center gap-2">
@@ -404,8 +525,8 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
           </div>
         )}
 
-        {/* Enemies (top section) */}
-        <div className="bg-black/60 backdrop-blur-sm border border-white/10 p-2">
+        {/* Enemies (center section — takes remaining space) */}
+        <div className="flex-1 bg-black/60 backdrop-blur-sm border border-white/10 p-2">
           <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1"><Skull className="w-3 h-3" /> Enemies ({enemies.filter(e => e.hp > 0).length}/{enemies.length})</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
             {enemies.map((enemy, i) => {
@@ -450,40 +571,6 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
             })}
           </div>
         </div>
-
-        {/* Action buttons */}
-        {session?.status === "combat" && me?.alive && me?.hp > 0 && (
-          <div className="flex gap-1 flex-wrap bg-black/60 backdrop-blur-sm border border-white/10 p-2">
-            <Button size="sm" onClick={() => doAction("attack", { targetEnemyId: selectedTarget })} disabled={loading} className="bg-red-600 hover:bg-red-700 h-8 text-xs">
-              <Swords className="w-3 h-3 mr-1" /> Attack
-            </Button>
-            {mySkills.slice(0, 6).map(skill => (
-              <Button key={skill.id} size="sm" variant="outline" onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} className="h-8 text-xs" title={skill.description}>
-                {skill.name}
-              </Button>
-            ))}
-            {character?.class === "warrior" && (
-              <Button size="sm" variant="outline" onClick={() => doAction("aggro")} disabled={loading} className="h-8 text-xs border-orange-500/50 text-orange-400">
-                <Shield className="w-3 h-3 mr-1" /> Taunt
-              </Button>
-            )}
-            {character?.class === "mage" && (
-              <>
-                {members.filter(m => m.characterId !== character.id && m.alive && m.hp > 0 && m.hp < m.max_hp).map(m => (
-                  <Button key={m.characterId} size="sm" variant="outline" onClick={() => doAction("heal_ally", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-green-500/50 text-green-400">
-                    <Heart className="w-3 h-3 mr-1" /> Heal {m.name}
-                  </Button>
-                ))}
-              </>
-            )}
-            {/* Revive dead allies */}
-            {members.filter(m => (m.characterId || m.character_id) !== character.id && (!m.alive || m.hp <= 0)).map(m => (
-              <Button key={`rev-${m.characterId || m.character_id}`} size="sm" variant="outline" onClick={() => doAction("revive", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-cyan-500/50 text-cyan-400">
-                <RefreshCw className="w-3 h-3 mr-1" /> Revive {m.name} {m.reviveTimer > 0 ? `(${m.reviveTimer}/3)` : ""}
-              </Button>
-            ))}
-          </div>
-        )}
 
         {session?.status === "waiting" && (
           <div className="text-center p-4">
@@ -531,6 +618,39 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
           </div>
         </div>
 
+        {/* Action buttons (below players) */}
+        {session?.status === "combat" && me?.alive && me?.hp > 0 && (
+          <div className="flex gap-1 flex-wrap bg-black/60 backdrop-blur-sm border border-white/10 p-2">
+            <Button size="sm" onClick={() => doAction("attack", { targetEnemyId: selectedTarget })} disabled={loading} className="bg-red-600 hover:bg-red-700 h-8 text-xs">
+              <Swords className="w-3 h-3 mr-1" /> Attack
+            </Button>
+            {mySkills.map(skill => (
+              <Button key={skill.id} size="sm" variant="outline" onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} className="h-8 text-xs" title={skill.description}>
+                {skill.name}
+              </Button>
+            ))}
+            {character?.class === "warrior" && (
+              <Button size="sm" variant="outline" onClick={() => doAction("aggro")} disabled={loading} className="h-8 text-xs border-orange-500/50 text-orange-400">
+                <Shield className="w-3 h-3 mr-1" /> Taunt
+              </Button>
+            )}
+            {character?.class === "mage" && (
+              <>
+                {members.filter(m => m.characterId !== character.id && m.alive && m.hp > 0 && m.hp < m.max_hp).map(m => (
+                  <Button key={m.characterId} size="sm" variant="outline" onClick={() => doAction("heal_ally", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-green-500/50 text-green-400">
+                    <Heart className="w-3 h-3 mr-1" /> Heal {m.name}
+                  </Button>
+                ))}
+              </>
+            )}
+            {members.filter(m => (m.characterId || m.character_id) !== character.id && (!m.alive || m.hp <= 0)).map(m => (
+              <Button key={`rev-${m.characterId || m.character_id}`} size="sm" variant="outline" onClick={() => doAction("revive", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-cyan-500/50 text-cyan-400">
+                <RefreshCw className="w-3 h-3 mr-1" /> Revive {m.name} {m.reviveTimer > 0 ? `(${m.reviveTimer}/3)` : ""}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Combat Log */}
         <div ref={logRef} className="bg-black/70 backdrop-blur-sm border border-white/10 p-2 h-32 overflow-y-auto space-y-0.5 scrollbar-thin scrollbar-thumb-gray-700">
           {combatLog.map((log, i) => (
@@ -544,7 +664,7 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
   );
 }
 
-// ─── Fields Lobby ─────────────────────────────────────────────────────────
+// ─── Fields Lobby ─ ─────────────────────────────────────────────────────────
 export default function Fields({ character, onCharacterUpdate }) {
   const [activeSession, setActiveSession] = useState(null);
   const [lobbySessions, setLobbySessions] = useState([]);
