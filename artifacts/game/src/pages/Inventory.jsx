@@ -586,6 +586,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
     { key: "crystals", name: "Crystals", rarity: "legendary", description: "Rare crystals obtained from deep Field runs. Used for high-tier crafting.", sprite: "/sprites/currencies/crystals.png" },
     { key: "ascension_shards", name: "Ascension Shards", rarity: "legendary", description: "Mystical shards that power ascension rituals.", sprite: "/sprites/currencies/ascension_shards.png" },
     { key: "celestial_stones", name: "Celestial Stones", rarity: "mythic", description: "Fragments of celestial power, dropped by mighty foes.", sprite: "/sprites/currencies/celestial_stones.png" },
+    { key: "portal_shards", name: "Portal Shards", rarity: "epic", description: "Shards collected from the Infinite Portal.", sprite: "/sprites/currencies/portal_shards.png" },
     { key: "incubators", name: "Incubators", rarity: "rare", description: "Used to hatch pet eggs. Found in The Fields.", sprite: "/sprites/currencies/incubators.png" },
     { key: "sqrizzscrolls", name: "Sqrizzscrolls", rarity: "epic", description: "Ancient scrolls of power. Used for special enchantments.", sprite: "/sprites/currencies/sqrizzscrolls.png" },
     { key: "boss_stones", name: "Boss Stones", rarity: "mythic", description: "Trophies from world boss encounters. Extremely valuable.", sprite: "/sprites/currencies/boss_stones.png" },

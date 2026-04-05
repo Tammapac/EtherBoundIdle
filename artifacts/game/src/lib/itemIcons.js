@@ -67,8 +67,27 @@ const CONSUMABLE_SPRITES = {
   mana_potion:     "/sprites/items/scroll_blue.png",
   pet_incubator:   "/sprites/currencies/incubators.png",
   hourglass:       "/sprites/items/scroll_brown.png",
-  upgrade_stone:   "/sprites/items/scroll_olive.png",
+  upgrade_stone:   "/sprites/currencies/upgrade_stone.png",
 };
+
+// Name-based sprite matching for items that don't have consumableType set
+const NAME_SPRITE_MAP = [
+  { match: /health.*potion/i,     sprite: "/sprites/items/scroll_red.png" },
+  { match: /mana.*potion/i,       sprite: "/sprites/items/scroll_blue.png" },
+  { match: /scroll.*exp/i,        sprite: "/sprites/items/scroll_teal.png" },
+  { match: /scroll.*experience/i, sprite: "/sprites/items/scroll_teal.png" },
+  { match: /scroll.*gold/i,       sprite: "/sprites/items/scroll_gold.png" },
+  { match: /scroll.*power/i,      sprite: "/sprites/items/scroll_purple.png" },
+  { match: /scroll.*damage/i,     sprite: "/sprites/items/scroll_purple.png" },
+  { match: /scroll.*fortune/i,    sprite: "/sprites/items/scroll_gold.png" },
+  { match: /scroll.*loot/i,       sprite: "/sprites/items/scroll_gold.png" },
+  { match: /dungeon.*ticket/i,    sprite: "/sprites/currencies/dungeon_ticket.png" },
+  { match: /hourglass/i,          sprite: "/sprites/items/scroll_brown.png" },
+  { match: /exp.*boost/i,         sprite: "/sprites/items/scroll_teal.png" },
+  { match: /gold.*boost/i,        sprite: "/sprites/items/scroll_gold.png" },
+  { match: /pet.*incubator/i,     sprite: "/sprites/currencies/incubators.png" },
+  { match: /upgrade.*stone/i,     sprite: "/sprites/currencies/upgrade_stone.png" },
+];
 
 // Type -> fallback icon (when no subtype)
 const TYPE_ICONS = {
@@ -113,6 +132,11 @@ export function getItemSprite(item) {
   const consumableType = extra.consumableType || extra.materialType;
   if (consumableType && CONSUMABLE_SPRITES[consumableType]) {
     return CONSUMABLE_SPRITES[consumableType];
+  }
+  // Name-based fallback for items without consumableType
+  if (item.name) {
+    const match = NAME_SPRITE_MAP.find(m => m.match.test(item.name));
+    if (match) return match.sprite;
   }
   return null;
 }
