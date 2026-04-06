@@ -83,6 +83,8 @@ export default function Battle({ character, onCharacterUpdate }) {
   const offlineProcessedRef = useRef(false);
   const sharedEnemyClaimedRef = useRef(false);
   const enemyDeadRef = useRef(false);
+  const lastBattleBroadcastRef = useRef(0);
+  const lastPresenceUpdateRef = useRef(0);
 
   const [lastPetInfo, setLastPetInfo] = useState(null);
   const queryClient = useQueryClient();
@@ -513,31 +515,38 @@ export default function Battle({ character, onCharacterUpdate }) {
     const skillLabel = skill ? `⚡ ${skill.name}` : "⚔️ Attack";
     addLog(`${isCrit ? "💥 CRIT! " : ""}${skillLabel} → ${finalDmg} dmg${lifestealAmount > 0 ? ` (❤️+${lifestealAmount})` : ""}${regenHp > 0 ? ` | HP +${regenHp}` : ""}`);
 
-    // Broadcast party attack to party members
+    // Broadcast party attack to party members (throttled: once per 10s to reduce egress)
     if (partyData?.id) {
-      base44.entities.PartyActivity.create({
-        party_id: partyData.id,
-        character_id: character.id,
-        character_name: character.name,
-        activity_type: "enter_zone",
-        payload: { 
-          battle_action: true,
-          skill_name: skill?.name || "Basic Attack",
-          damage: finalDmg,
-          is_crit: isCrit,
-          enemy_name: enemy?.name,
-          zone: character.current_region,
-          zone_name: `${character.name} attacked ${enemy?.name} for ${finalDmg}${isCrit ? " (CRIT)" : ""}!`
-        },
-        expires_at: new Date(Date.now() + 15000).toISOString(),
-      }).catch(() => {});
-      
-      // Update presence to show in combat
-      base44.entities.Presence.filter({ character_id: character.id }).then(presence => {
-        if (presence[0]) {
-          base44.entities.Presence.update(presence[0].id, { status: "in_combat", current_zone: character.current_region });
-        }
-      }).catch(() => {});
+      const now = Date.now();
+      if (now - lastBattleBroadcastRef.current > 10000) {
+        lastBattleBroadcastRef.current = now;
+        base44.entities.PartyActivity.create({
+          party_id: partyData.id,
+          character_id: character.id,
+          character_name: character.name,
+          activity_type: "enter_zone",
+          payload: {
+            battle_action: true,
+            skill_name: skill?.name || "Basic Attack",
+            damage: finalDmg,
+            is_crit: isCrit,
+            enemy_name: enemy?.name,
+            zone: character.current_region,
+            zone_name: `${character.name} attacked ${enemy?.name} for ${finalDmg}${isCrit ? " (CRIT)" : ""}!`
+          },
+          expires_at: new Date(Date.now() + 15000).toISOString(),
+        }).catch(() => {});
+      }
+
+      // Update presence to show in combat (throttled: once per 60s)
+      if (now - lastPresenceUpdateRef.current > 60000) {
+        lastPresenceUpdateRef.current = now;
+        base44.entities.Presence.filter({ character_id: character.id }).then(presence => {
+          if (presence[0]) {
+            base44.entities.Presence.update(presence[0].id, { status: "in_combat", current_zone: character.current_region });
+          }
+        }).catch(() => {});
+      }
     }
 
     if (newEnemyHp <= 0) {
@@ -942,7 +951,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     load();
-    const interval = setInterval(load, 15000);
+    const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
   }, [character?.id]);
 
@@ -1008,7 +1017,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 15000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 

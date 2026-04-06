@@ -408,7 +408,14 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
       }
     }
 
-    if (limitParam) {
+    // Force a max limit on PartyActivity and Presence to prevent huge payloads
+    if (entity === "PartyActivity") {
+      const cap = limitParam ? Math.min(Number(limitParam), 20) : 20;
+      query = (query as any).limit(cap);
+    } else if (entity === "Presence") {
+      const cap = limitParam ? Math.min(Number(limitParam), 30) : 30;
+      query = (query as any).limit(cap);
+    } else if (limitParam) {
       query = (query as any).limit(Number(limitParam));
     }
 
@@ -500,6 +507,27 @@ router.post("/entities/:entity", async (req: Request, res: Response) => {
     }
 
     const [row] = await db.insert(table).values(dbData).returning();
+
+    // Auto-prune old party activities: keep only the most recent 20 per party
+    if (entity === "PartyActivity" && dbData.partyId) {
+      try {
+        const cutoffRows = await db.select({ createdAt: partyActivitiesTable.createdAt })
+          .from(partyActivitiesTable)
+          .where(eq(partyActivitiesTable.partyId, dbData.partyId))
+          .orderBy(desc(partyActivitiesTable.createdAt))
+          .limit(1)
+          .offset(20);
+        if (cutoffRows.length > 0) {
+          await db.delete(partyActivitiesTable)
+            .where(and(
+              eq(partyActivitiesTable.partyId, dbData.partyId),
+              lt(partyActivitiesTable.createdAt, cutoffRows[0].createdAt)
+            ));
+        }
+      } catch (pruneErr: any) {
+        req.log.warn({ err: pruneErr }, "PartyActivity pruning failed (non-critical)");
+      }
+    }
 
     // Auto-prune old chat messages: keep only the most recent 100 per channel
     if (entity === "ChatMessage") {

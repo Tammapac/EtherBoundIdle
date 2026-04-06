@@ -45,7 +45,7 @@ export default function PartyBattlePanel({ party, selfId, onPartyAction }) {
     if (!party?.id) return;
     const poll = async () => {
       try {
-        const activities = await base44.entities.PartyActivity.filter({ party_id: party.id });
+        const activities = await base44.entities.PartyActivity.filter({ party_id: party.id }, "-created_date", 20);
         for (const d of activities || []) {
           if (!d || d.character_id === selfId) continue;
           if (seenBattleIdsRef.current.has(d.id)) continue;
@@ -65,7 +65,7 @@ export default function PartyBattlePanel({ party, selfId, onPartyAction }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 15000);
+    const interval = setInterval(poll, 30000);
     return () => clearInterval(interval);
   }, [party?.id, selfId]);
 

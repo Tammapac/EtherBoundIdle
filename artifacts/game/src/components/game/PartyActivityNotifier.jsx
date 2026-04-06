@@ -16,7 +16,7 @@ export default function PartyActivityNotifier({ character, partyId, onJoinDungeo
     const poll = async () => {
       try {
         // Fetch recent party activities (last 2 minutes)
-        const activities = await base44.entities.PartyActivity.filter({ party_id: partyId });
+        const activities = await base44.entities.PartyActivity.filter({ party_id: partyId }, "-created_date", 20);
         if (!activities?.length) return;
 
         for (const data of activities) {
@@ -58,7 +58,7 @@ export default function PartyActivityNotifier({ character, partyId, onJoinDungeo
     };
 
     poll(); // Initial fetch
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 30000);
     return () => clearInterval(interval);
   }, [partyId, character?.id]);
 

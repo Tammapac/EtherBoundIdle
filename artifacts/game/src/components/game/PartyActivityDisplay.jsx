@@ -41,7 +41,7 @@ export default function PartyActivityDisplay({ partyMembers, currentZone }) {
     const memberSet = new Set(memberIds);
 
     const fetchPresence = () => {
-      base44.entities.Presence.list("-last_seen", 100)
+      base44.entities.Presence.list("-last_seen", 30)
         .then(presences => {
           const map = {};
           presences.forEach(p => {
@@ -55,7 +55,7 @@ export default function PartyActivityDisplay({ partyMembers, currentZone }) {
     };
 
     fetchPresence();
-    const interval = setInterval(fetchPresence, 30000);
+    const interval = setInterval(fetchPresence, 60000);
     return () => clearInterval(interval);
   }, [partyMembers?.length]);
 
