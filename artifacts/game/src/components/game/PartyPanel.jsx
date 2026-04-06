@@ -38,11 +38,11 @@ export default function PartyPanel({ character }) {
     },
     enabled: !!character?.id,
     staleTime: POLL_INTERVALS.SOCIAL,
-    refetchInterval: pollInterval,
+    refetchInterval: !minimized ? pollInterval : false,
   });
 
   useEffect(() => {
-    if (!partyData?.members?.length) return;
+    if (!partyData?.members?.length || minimized) return;
     const fetchDetails = async () => {
       const otherIds = partyData.members.filter(m => m.character_id !== character.id).map(m => m.character_id);
       if (otherIds.length === 0) return;
@@ -71,7 +71,7 @@ export default function PartyPanel({ character }) {
     },
     enabled: !!character?.id,
     staleTime: POLL_INTERVALS.SOCIAL,
-    refetchInterval: pollInterval,
+    refetchInterval: !minimized ? pollInterval : false,
   });
 
   const invalidateParty = () => {

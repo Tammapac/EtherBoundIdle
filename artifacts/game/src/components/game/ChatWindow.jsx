@@ -41,7 +41,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
       "-created_date",
       50
     ),
-    refetchInterval: pollInterval,
+    refetchInterval: isOpen ? pollInterval : false,
     staleTime: POLL_INTERVALS.SOCIAL,
     enabled: activeTab !== "whisper",
   });
@@ -59,7 +59,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
         (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
       );
     },
-    refetchInterval: pollInterval,
+    refetchInterval: isOpen && activeTab === "whisper" ? pollInterval : false,
     staleTime: POLL_INTERVALS.SOCIAL,
     enabled: !!character?.id && activeTab === "whisper",
   });
