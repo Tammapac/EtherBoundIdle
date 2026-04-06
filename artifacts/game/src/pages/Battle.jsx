@@ -108,6 +108,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   // Party bonus: +5% EXP and gold per additional member in same zone
   // Fetch member zones from presence data (party members array doesn't have current_zone)
   const [memberZones, setMemberZones] = useState({});
+  const partyMemberIds = partyData?.members?.map(m => m.character_id).sort().join(",") || "";
   useEffect(() => {
     if (!partyData?.members?.length) return;
     const fetchZones = async () => {
@@ -122,9 +123,9 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     fetchZones();
-    const interval = setInterval(fetchZones, 120000);
+    const interval = setInterval(fetchZones, 15000);
     return () => clearInterval(interval);
-  }, [partyData?.members?.length]);
+  }, [partyMemberIds]);
 
   const sameMapMembers = partyData?.members?.filter(m =>
     m.character_id === character.id || memberZones[m.character_id] === character.current_region
@@ -269,18 +270,15 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
 
-    // Push shared enemy to server for party members (throttled: every 15s)
+    // Push shared enemy to server for party members (every new enemy)
     if (isSharedBattle && isLeader && partyData?.id) {
-      const now = Date.now();
-      if (now - lastSpawnReportRef.current > 15000) {
-        lastSpawnReportRef.current = now;
-        base44.functions.invoke("partyBattleAction", {
-          action: "spawn_enemy",
-          partyId: partyData.id,
-          characterId: character.id,
-          enemyData: { ...spawnData, spawned_at: new Date().toISOString() },
-        }).catch(() => {});
-      }
+      lastSpawnReportRef.current = Date.now();
+      base44.functions.invoke("partyBattleAction", {
+        action: "spawn_enemy",
+        partyId: partyData.id,
+        characterId: character.id,
+        enemyData: { ...spawnData, spawned_at: new Date().toISOString() },
+      }).catch(() => {});
     }
   }, [region, character?.level, isSharedBattle, isLeader, partyData?.id]);
 
@@ -1039,7 +1037,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 60000);
+    const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 
