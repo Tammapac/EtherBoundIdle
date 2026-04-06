@@ -129,7 +129,7 @@ const RARITY_TO_TIER = {
 const WEAPON_SPRITE_COUNTS = {
   staff:    { common: 64, rare: 64, legendary: 32 },
   wand:     { common: 64, rare: 64, legendary: 32 },
-  light:    { common: 20, rare: 16, legendary: 21 },
+  light:    { common: 29, rare: 22, legendary: 20 },
 };
 
 // Simple hash from item ID or name to get a consistent sprite index
