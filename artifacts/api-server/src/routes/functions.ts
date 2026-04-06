@@ -3852,18 +3852,20 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       req.log.error({ err: smErr }, "fight season mission update error");
     }
 
+    // Return minimal delta instead of full character to reduce egress
     sendSuccess(res, {
         success: true,
         rewards: { exp: expGain, gold: goldGain },
         partyBonuses: partyMembers > 0 ? { expPct: Math.round(partyExpBonus * 100), goldPct: Math.round(partyGoldBonus * 100) } : null,
-        character: toClientCharacter(updated),
+        delta: {
+          exp: newExp, level: newLevel, exp_to_next: newExpToNext,
+          gold: newGold, stat_points: newStatPoints, skill_points: newSkillPoints,
+          total_kills: newTotalKills, total_damage: newTotalDamage,
+          max_hp: newMaxHp, max_mp: newMaxMp,
+        },
         levelsGained,
         loot: lootItem,
         droppedRune,
-        newLevel,
-        newExp,
-        newGold,
-        petInfo: equippedPet ? { id: equippedPet.id, species: equippedPet.species, name: equippedPet.name, level: equippedPet.level, xp: equippedPet.xp, rarity: equippedPet.rarity, skillType: equippedPet.skillType, skillValue: equippedPet.skillValue, evolution: equippedPet.evolution || 0, traits: equippedPet.traits || [], skillTree: equippedPet.skillTree || {} } : null,
         petSkillResult,
         shinyProcs: triggeredShinyProcs.length > 0 ? triggeredShinyProcs : null,
       });

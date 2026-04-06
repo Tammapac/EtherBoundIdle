@@ -415,6 +415,8 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
       ChatMessage: 100,
       PrivateMessage: 50,
       Mail: 50,
+      Item: 1000,
+      Character: 500,
     };
     const maxLimit = ENTITY_MAX_LIMITS[entity] || 200; // global default cap
     const requestedLimit = limitParam ? Number(limitParam) : maxLimit;
