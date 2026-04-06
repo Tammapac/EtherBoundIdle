@@ -2326,7 +2326,7 @@ function HatcheryTab({ character }) {
     queryKey: ["hatchery", character?.id],
     queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "hatchery_status" }),
     enabled: !!character?.id,
-    refetchInterval: 10000,
+    refetchInterval: 60000,
   });
 
   const incubating = hatcheryData?.incubating || null;
@@ -2368,6 +2368,7 @@ function HatcheryTab({ character }) {
     onSuccess: (res) => {
       refetch();
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       toast({ title: res.message || "Incubation started!" });
     },
     onError: (err) => toast({ title: err.message || "Failed to start", variant: "destructive" }),

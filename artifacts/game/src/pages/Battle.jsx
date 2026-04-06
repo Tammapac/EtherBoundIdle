@@ -191,6 +191,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       setPlayerHp(newHp);
       addLog(`🧪 Used ${stack.name}! Restored ${healAmount} HP.`);
       queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems", character.id] });
     },
   });
 
@@ -651,6 +652,7 @@ export default function Battle({ character, onCharacterUpdate }) {
         const lootEmoji = loot.rarity === "shiny" ? "🌟" : loot.rarity === "mythic" ? "💎" : loot.rarity === "legendary" ? "🏆" : "✨";
         addLog(`${isRareDrop ? `${lootEmoji}${lootEmoji} ` : ""}${lootEmoji} ${isRareDrop ? "[" + loot.rarity.toUpperCase() + "] " : ""}${loot.name}${isRareDrop ? " DROP!" : ` (${loot.rarity})`}`);
         queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems", character.id] });
       }
 
       if (droppedRune) {
@@ -797,6 +799,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
       // Also invalidate items query so equipment changes are picked up
       queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems", character.id] });
       // Reset HP/MP to full on tab return — combat state is stale while tabbed out
       // Use refs to get current max values (avoids stale closure from mount-only effect)
       setPlayerHp(actualMaxHpRef.current);

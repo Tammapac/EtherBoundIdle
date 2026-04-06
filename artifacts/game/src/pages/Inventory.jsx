@@ -484,6 +484,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
       await applyEquipmentStats(newEquip, updatedItems);
       queryClient.setQueryData(["items", character?.id], updatedItems);
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       setSelectedItem({ ...item, equipped: true });
     },
   });
@@ -498,6 +499,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
       await applyEquipmentStats(newEquip, updatedItems);
       queryClient.setQueryData(["items", character?.id], updatedItems);
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       setSelectedItem({ ...item, equipped: false });
     },
   });
@@ -508,6 +510,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
       if (response?.success) {
         onCharacterUpdate({ ...character, gold: response.newGold });
         queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
         queryClient.invalidateQueries({ queryKey: ["characters"] });
         setSelectedItem(null);
         toast({ title: `Sold for ${response.sellPrice} gold!`, duration: 1000 });
@@ -523,6 +526,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
       const response = await base44.functions.invoke('useItem', { itemId: itemIdToUse });
       if (response?.success) {
         queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
         queryClient.invalidateQueries({ queryKey: ["characters"] });
         setSelectedItem(null);
         toast({ title: response.message || "Item used!" });
@@ -539,6 +543,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
       if (unequipped.length === 0) return;
       await Promise.all(unequipped.map(item => base44.functions.invoke('sellItem', { itemId: item.id })));
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
     },
   });

@@ -147,6 +147,7 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
         const result = await base44.functions.invoke("completeTrade", { trade_id: trade.id });
         if (result?.success) {
           qc.invalidateQueries({ queryKey: ["items", character.id] });
+          qc.invalidateQueries({ queryKey: ["equippedItems", character.id] });
           qc.invalidateQueries({ queryKey: ["trades_active", character.id] });
           setView("list");
           setActiveTrade(null);

@@ -17,14 +17,14 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   const { data: items = [] } = useQuery({
-    queryKey: ["items", character?.id],
-    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
+    queryKey: ["equippedItems", character?.id],
+    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id, equipped: true }),
     enabled: !!character?.id,
   });
 
   // Only show equipped items that can be upgraded
   const equipmentItems = items
-    .filter(i => i.equipped && SLOT_ORDER.includes(i.type))
+    .filter(i => SLOT_ORDER.includes(i.type))
     .sort((a, b) => SLOT_ORDER.indexOf(a.type) - SLOT_ORDER.indexOf(b.type));
 
   if (!character) return null;

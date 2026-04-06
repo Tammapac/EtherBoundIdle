@@ -10,13 +10,11 @@ import { calculateFinalStats } from "@/lib/statSystem";
 export default function CharacterStatsChart({ character }) {
   if (!character) return null;
 
-  const { data: items = [] } = useQuery({
-    queryKey: ["items", character.id],
-    queryFn: () => base44.entities.Item.filter({ owner_id: character.id }),
+  const { data: equippedItems = [] } = useQuery({
+    queryKey: ["equippedItems", character.id],
+    queryFn: () => base44.entities.Item.filter({ owner_id: character.id, equipped: true }),
     enabled: !!character.id,
   });
-
-  const equippedItems = items.filter(i => i.equipped);
   const { base, total } = calculateFinalStats(character, equippedItems);
 
   const data = [

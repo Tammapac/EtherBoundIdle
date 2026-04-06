@@ -748,6 +748,7 @@ export default function Portal({ character, onCharacterUpdate }) {
     refetchPortals();
     queryClient.invalidateQueries({ queryKey: ["characters"] });
     queryClient.invalidateQueries({ queryKey: ["items"] });
+    queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
   };
 
   const doLeaveSession = async () => {
