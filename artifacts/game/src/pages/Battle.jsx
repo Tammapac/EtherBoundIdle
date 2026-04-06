@@ -270,15 +270,18 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
 
-    // Push shared enemy to server for party members (every new enemy)
+    // Push shared enemy to server for party members (throttled: every 3s)
     if (isSharedBattle && isLeader && partyData?.id) {
-      lastSpawnReportRef.current = Date.now();
-      base44.functions.invoke("partyBattleAction", {
-        action: "spawn_enemy",
-        partyId: partyData.id,
-        characterId: character.id,
-        enemyData: { ...spawnData, spawned_at: new Date().toISOString() },
-      }).catch(() => {});
+      const now = Date.now();
+      if (now - lastSpawnReportRef.current > 3000) {
+        lastSpawnReportRef.current = now;
+        base44.functions.invoke("partyBattleAction", {
+          action: "spawn_enemy",
+          partyId: partyData.id,
+          characterId: character.id,
+          enemyData: { ...spawnData, spawned_at: new Date().toISOString() },
+        }).catch(() => {});
+      }
     }
   }, [region, character?.level, isSharedBattle, isLeader, partyData?.id]);
 
@@ -1038,7 +1041,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 
