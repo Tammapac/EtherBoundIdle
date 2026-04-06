@@ -28,8 +28,7 @@ export default function SeasonPass({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.BACKGROUND,
+    staleTime: 120_000,
     retry: 1,
   });
 

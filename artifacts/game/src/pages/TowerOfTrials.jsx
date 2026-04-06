@@ -54,8 +54,7 @@ export default function TowerOfTrials({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.GAME_STATE,
+    staleTime: 120_000,
   });
 
   // If there's an active session from the server, resume it

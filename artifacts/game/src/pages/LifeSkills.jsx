@@ -38,8 +38,7 @@ export default function LifeSkills({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.GAME_STATE,
+    staleTime: 120_000,
   });
 
   const skills     = data?.skills     || [];

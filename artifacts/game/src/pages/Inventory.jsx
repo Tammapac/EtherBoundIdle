@@ -438,8 +438,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
     queryKey: ["runes", character?.id],
     queryFn: () => base44.functions.invoke("runes", { characterId: character.id, action: "list" }),
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.GAME_STATE,
+    staleTime: 120_000,
   });
   const allRunes = runeData?.runes || [];
   const equippedRunes = useMemo(() => allRunes.filter(r => r.itemId || r.item_id), [allRunes]);
