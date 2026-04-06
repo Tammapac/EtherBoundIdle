@@ -1,13 +1,13 @@
 import base44 from '@/api/base44Client';
 
 const TICK_INTERVALS = {
-  fight: 30000,
-  lifeSkills: 60000,
-  gemLab: 120000,
-  shopRotation: 120000,
-  guildBoss: 120000,
-  save: 120000,
-  presence: 300000,
+  fight: 120000,
+  lifeSkills: 300000,
+  gemLab: 300000,
+  shopRotation: 300000,
+  guildBoss: 600000,
+  save: 300000,
+  presence: 600000,
 };
 
 const listeners = {};
@@ -66,7 +66,10 @@ async function _fightTickInner() {
       regionKey: region,
     });
     if (result) {
-      if (result.character) {
+      // Merge minimal delta into local character data (no full character sync)
+      if (result.delta) {
+        _characterData = { ..._characterData, ...result.delta };
+      } else if (result.character) {
         _characterData = result.character;
       }
       emit('fightResult', {
@@ -74,7 +77,7 @@ async function _fightTickInner() {
         rewards: result.rewards,
         loot: result.loot,
         levelsGained: result.levelsGained,
-        character: result.character,
+        character: _characterData,
       });
     }
   } catch {}
@@ -264,16 +267,12 @@ const idleEngine = {
     _intervals.save = setInterval(saveTick, TICK_INTERVALS.save);
     _intervals.presence = setInterval(presenceTick, TICK_INTERVALS.presence);
 
-    // Re-trigger all ticks when tab becomes visible again (browsers throttle
-    // setInterval in background tabs, so ticks get delayed/skipped)
+    // Only emit event on tab resume — do NOT re-trigger server calls
+    // (the intervals will fire on their own schedule)
     if (_visibilityHandler) document.removeEventListener('visibilitychange', _visibilityHandler);
     _visibilityHandler = () => {
       if (document.visibilityState === 'visible' && _running) {
-        fightTick();
-        lifeSkillsTick();
-        gemLabTick();
-        shopRotationTick();
-        saveTick();
+        shopRotationTick(); // local-only, no server call
         emit('tabResumed', { characterId: _characterId });
       }
     };
