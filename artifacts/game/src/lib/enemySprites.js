@@ -10,14 +10,12 @@ const KNIGHT_ENEMY_MAP = {
   nova_knight: 49,     // bright celestial knight
 };
 
-// Enemies that should use knight sprites (any armored/warrior type)
+// Enemies that should use knight sprites (armored humanoid types only)
 const KNIGHT_TYPE_ENEMIES = new Set([
   "frozen_knight", "demon_knight", "nova_knight",
   "forest_guardian", "cursed_revenant", "celestial_guardian",
   "seraph_warrior", "divine_construct", "cosmic_sentinel",
-  "tomb_guardian", "glacial_golem", "sand_golem", "moss_golem",
-  "necrotic_golem", "crystal_golem", "light_golem",
-  "mummy_warrior",
+  "tomb_guardian", "mummy_warrior",
 ]);
 
 // Simple hash for consistent sprite assignment
@@ -34,7 +32,7 @@ function isKnightByName(name) {
   if (!name) return false;
   const lower = name.toLowerCase();
   return lower.includes("knight") || lower.includes("guardian") || lower.includes("sentinel")
-    || lower.includes("construct") || lower.includes("golem") || lower.includes("warrior");
+    || lower.includes("construct") || lower.includes("warrior");
 }
 
 /**
