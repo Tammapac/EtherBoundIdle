@@ -957,21 +957,22 @@ export default function Battle({ character, onCharacterUpdate }) {
     });
   }, [actualMaxHp, actualMaxMp]);
 
-  // Load party data
+  // Load party data via dedicated GET endpoint (same as PartyPanel)
   useEffect(() => {
     if (!character?.id) return;
     const load = async () => {
       try {
-        const led = await base44.entities.Party.filter({ leader_id: character.id });
-        const active = led.find(p => p.status !== 'disbanded');
-        if (active) { setPartyData(active); return; }
-        const all = await base44.entities.Party.list('-updated_date', 20);
-        const found = all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id));
-        setPartyData(found || null);
+        const res = await fetch(`/api/functions/getMyParty?characterId=${encodeURIComponent(character.id)}`, {
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        const json = await res.json();
+        const party = (json.success !== false) ? (json.data ?? json ?? null) : null;
+        setPartyData(party);
       } catch {}
     };
     load();
-    const interval = setInterval(load, 120000);
+    const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
   }, [character?.id]);
 
