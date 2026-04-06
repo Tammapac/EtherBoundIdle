@@ -64,6 +64,7 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
           onItemUpdated?.(data.item);
         }
         queryClient.invalidateQueries({ queryKey: ["items"] });
+        queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
         queryClient.invalidateQueries({ queryKey: ["characters"] });
       } else {
         setResult({ type: "failed", title: "FAILED", message: data.message || "Upgrade failed" });

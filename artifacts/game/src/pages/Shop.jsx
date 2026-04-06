@@ -123,6 +123,7 @@ export default function Shop({ character, onCharacterUpdate }) {
       addPurchasedId(character.id, shopItem.id);
       setShopItems(prev => prev.filter(i => i.id !== shopItem.id));
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       toast({ title: `Purchased ${shopItem.name}!`, duration: 1000 });
     },
   });

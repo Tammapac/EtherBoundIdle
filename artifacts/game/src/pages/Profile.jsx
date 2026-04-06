@@ -112,13 +112,11 @@ export default function Profile({ character, onCharacterUpdate }) {
     },
   });
 
-  const { data: allCharItems = [] } = useQuery({
-    queryKey: ["items", character?.id],
-    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
+  const { data: equippedItems = [] } = useQuery({
+    queryKey: ["equippedItems", character?.id],
+    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id, equipped: true }),
     enabled: !!character?.id,
   });
-
-  const equippedItems = allCharItems.filter(i => i.equipped);
 
   if (!character) return null;
   const cls = CLASSES[character.class];

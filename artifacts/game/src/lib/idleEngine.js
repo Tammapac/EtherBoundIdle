@@ -1,13 +1,13 @@
 import base44 from '@/api/base44Client';
 
 const TICK_INTERVALS = {
-  fight: 10000,
-  lifeSkills: 30000,
-  gemLab: 60000,
+  fight: 30000,
+  lifeSkills: 60000,
+  gemLab: 120000,
   shopRotation: 120000,
-  guildBoss: 60000,
-  save: 30000,
-  presence: 60000,
+  guildBoss: 120000,
+  save: 120000,
+  presence: 300000,
 };
 
 const listeners = {};
@@ -34,8 +34,12 @@ function getCharacter() {
   return _characterData;
 }
 
+function _isBackgroundTab() {
+  return typeof document !== 'undefined' && document.visibilityState !== 'visible';
+}
+
 async function fightTick() {
-  if (_fightPaused || !_characterId || _inFlight.fight) return;
+  if (_isBackgroundTab() || _fightPaused || !_characterId || _inFlight.fight) return;
   _inFlight.fight = true;
   try { await _fightTickInner(); } finally { _inFlight.fight = false; }
 }
@@ -77,7 +81,7 @@ async function _fightTickInner() {
 }
 
 async function lifeSkillsTick() {
-  if (_lifeSkillsPaused || !_characterId || _inFlight.lifeSkills) return;
+  if (_isBackgroundTab() || _lifeSkillsPaused || !_characterId || _inFlight.lifeSkills) return;
   _inFlight.lifeSkills = true;
   try { await _lifeSkillsTickInner(); } finally { _inFlight.lifeSkills = false; }
 }
@@ -108,7 +112,7 @@ async function _lifeSkillsTickInner() {
 }
 
 async function gemLabTick() {
-  if (!_characterId || _inFlight.gemLab) return;
+  if (_isBackgroundTab() || !_characterId || _inFlight.gemLab) return;
   _inFlight.gemLab = true;
   try {
     const result = await base44.functions.invoke('processGemLab', {
@@ -127,7 +131,7 @@ async function gemLabTick() {
 
 let _presenceId = null;
 async function presenceTick() {
-  if (!_characterId || _inFlight.presence) return;
+  if (_isBackgroundTab() || !_characterId || _inFlight.presence) return;
   _inFlight.presence = true;
   try {
     const char = getCharacter();
@@ -160,7 +164,7 @@ async function presenceTick() {
 }
 
 async function shopRotationTick() {
-  if (!_characterId) return;
+  if (_isBackgroundTab() || !_characterId) return;
   const ROTATION_MS = 4 * 60 * 60 * 1000;
   const now = Date.now();
   const currentSeed = Math.floor(now / ROTATION_MS);
@@ -178,7 +182,7 @@ async function shopRotationTick() {
 const BOSS_MAX_ATTACKS = 10;
 
 async function guildBossTick() {
-  if (!_characterId) return;
+  if (_isBackgroundTab() || !_characterId) return;
   try {
     const result = await base44.functions.invoke('guildBossAttack', {
       characterId: _characterId,
@@ -200,7 +204,7 @@ async function guildBossTick() {
 }
 
 async function saveTick() {
-  if (!_characterId || _inFlight.save) return;
+  if (_isBackgroundTab() || !_characterId || _inFlight.save) return;
   _inFlight.save = true;
   try {
     const char = getCharacter();

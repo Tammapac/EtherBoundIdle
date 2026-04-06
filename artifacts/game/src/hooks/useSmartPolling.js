@@ -52,6 +52,7 @@ export function useSmartPolling(baseInterval, { slowMultiplier = 3 } = {}) {
     };
   }, []);
 
+  if (baseInterval === false) return false; // Polling disabled entirely
   if (!isVisible) return false; // Stop polling when tab is hidden
 
   const idleTime = Date.now() - lastActivity;
@@ -67,8 +68,8 @@ export function useSmartPolling(baseInterval, { slowMultiplier = 3 } = {}) {
  * All values are in milliseconds.
  */
 export const POLL_INTERVALS = {
-  COMBAT:    5_000,   // Active combat (portal, dungeon, world boss)
-  SOCIAL:    15_000,  // Chat, friends, party
-  GAME_STATE: 30_000, // Dashboard, inventory, guild
-  BACKGROUND: 60_000, // Leaderboard, season pass, admin
+  COMBAT:    15_000,  // Active combat (portal, dungeon, world boss)
+  SOCIAL:    30_000,  // Chat, friends, party
+  GAME_STATE: 60_000, // Dashboard, inventory, guild
+  BACKGROUND: false,  // Leaderboard, season pass, admin — manual refresh only
 };

@@ -71,10 +71,9 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
   const [pendingStats, setPendingStats] = useState({});
 
   const { data: equippedItems = [] } = useQuery({
-    queryKey: ["items", character?.id],
-    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
+    queryKey: ["equippedItems", character?.id],
+    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id, equipped: true }),
     enabled: !!character?.id,
-    select: (data) => data.filter(i => i.equipped),
   });
 
   const { data: guildData } = useQuery({
