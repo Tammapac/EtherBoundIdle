@@ -159,8 +159,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
       return res;
     },
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.SOCIAL,
+    staleTime: 120_000,
   });
   // Alias for compatibility
   const entryStatus = entryInfo ? {
@@ -202,8 +201,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.SOCIAL,
+    staleTime: 120_000,
   });
 
   // Broadcast party activity when entering dungeon

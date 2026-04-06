@@ -25,8 +25,7 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
       return labs[0] || null;
     },
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.GAME_STATE,
+    staleTime: 120_000,
   });
 
   // Process gem generation (calculate pending gems)

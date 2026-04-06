@@ -31,8 +31,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.GAME_STATE,
+    staleTime: 120_000,
   });
 
   // Fetch fresh party member levels (party members array stores stale join-time levels)
@@ -48,8 +47,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
       return levels;
     },
     enabled: !!partyData?.members?.length,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.GAME_STATE,
+    staleTime: 120_000,
   });
 
   const travelMutation = useMutation({

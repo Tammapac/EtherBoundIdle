@@ -491,8 +491,7 @@ export default function WorldBoss({ character }) {
     queryKey: ["worldBossStatus", character?.id],
     queryFn: () => base44.functions.invoke("worldBossAction", { action: "get_status", characterId: character.id }),
     enabled: !!character?.id,
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.GAME_STATE,
+    staleTime: 120_000,
   });
 
   const bosses = statusData?.bosses || [];
