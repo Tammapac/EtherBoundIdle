@@ -125,10 +125,11 @@ const RARITY_TO_TIER = {
   legendary: "legendary", mythic: "legendary", set: "legendary", shiny: "legendary",
 };
 
-// Number of sprites available per weapon subtype per tier
+// Number of sprites available per item subtype per tier
 const WEAPON_SPRITE_COUNTS = {
   staff:    { common: 64, rare: 64, legendary: 32 },
   wand:     { common: 64, rare: 64, legendary: 32 },
+  light:    { common: 20, rare: 16, legendary: 21 },
 };
 
 // Simple hash from item ID or name to get a consistent sprite index
@@ -141,11 +142,11 @@ function spriteHash(str) {
 }
 
 /**
- * Returns the pixel art sprite path for a weapon based on its subtype and rarity.
- * Uses item ID/name to consistently assign the same sprite to the same weapon.
+ * Returns the pixel art sprite path for equipment based on its subtype and rarity.
+ * Uses item ID/name to consistently assign the same sprite to the same item.
  */
-function getWeaponSprite(item) {
-  if (!item || item.type !== "weapon") return null;
+function getEquipmentSprite(item) {
+  if (!item) return null;
   const subtype = item.subtype;
   if (!subtype || !WEAPON_SPRITE_COUNTS[subtype]) return null;
   const tier = RARITY_TO_TIER[item.rarity] || "common";
@@ -153,7 +154,7 @@ function getWeaponSprite(item) {
   if (!count) return null;
   const seed = String(item.id || item.name || "");
   const idx = (spriteHash(seed) % count) + 1;
-  return `/sprites/weapons/${subtype}/${tier}/${subtype}_${String(idx).padStart(3, "0")}.png`;
+  return `/sprites/weapons/${subtype}/${tier}/${subtype === "light" ? "armor" : subtype}_${String(idx).padStart(3, "0")}.png`;
 }
 
 /**
@@ -164,9 +165,9 @@ export function getItemSprite(item) {
   if (!item) return null;
   const extra = item.extraData || item.extra_data || {};
   if (extra.sprite) return extra.sprite;
-  // Check weapon sprites
-  const weaponSprite = getWeaponSprite(item);
-  if (weaponSprite) return weaponSprite;
+  // Check equipment sprites (weapons, armor, etc.)
+  const equipSprite = getEquipmentSprite(item);
+  if (equipSprite) return equipSprite;
   const consumableType = extra.consumableType || extra.materialType;
   if (consumableType && CONSUMABLE_SPRITES[consumableType]) {
     return CONSUMABLE_SPRITES[consumableType];
