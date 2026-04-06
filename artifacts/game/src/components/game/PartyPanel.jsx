@@ -31,11 +31,8 @@ export default function PartyPanel({ character }) {
   const { data: partyData } = useQuery({
     queryKey: ["party", character?.id],
     queryFn: async () => {
-      const led = await base44.entities.Party.filter({ leader_id: character.id });
-      const active = led.find(p => p.status !== 'disbanded');
-      if (active) return active;
-      const all = await base44.entities.Party.list('-updated_date', 20);
-      return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
+      const result = await base44.functions.invoke("getMyParty", { characterId: character.id });
+      return result || null;
     },
     enabled: !!character?.id,
     staleTime: 5000,
@@ -122,11 +119,24 @@ export default function PartyPanel({ character }) {
   });
   const handleLeave = () => mutation.mutate({ action: 'leave', partyId: partyData.id });
   const handleAccept = (invite) => mutation.mutate({ action: 'accept', inviteId: invite.id }, {
-    onSuccess: () => {
+    onSuccess: (data) => {
       setMinimized(false);
       setExpanded(true);
       toast({ title: "Joined the party!", duration: 2000 });
-      // Force aggressive refetch to show party immediately
+      // If the server returned the party data, set it directly in cache
+      if (data?.party) {
+        const mapped = {
+          id: data.party.id,
+          leader_id: data.party.leaderId || data.party.leader_id,
+          leader_name: data.party.leaderName || data.party.leader_name,
+          members: data.party.members,
+          status: data.party.status,
+          max_members: data.party.maxMembers || data.party.max_members,
+          extra_data: data.party.extraData || data.party.extra_data,
+        };
+        queryClient.setQueryData(["party", character?.id], mapped);
+      }
+      // Also refetch to be safe
       setTimeout(() => {
         queryClient.refetchQueries({ queryKey: ["party"] });
         queryClient.refetchQueries({ queryKey: ["partyInvites"] });
