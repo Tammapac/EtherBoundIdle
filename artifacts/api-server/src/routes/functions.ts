@@ -1709,6 +1709,25 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
   }
 });
 
+// ── GET shared enemy state (lightweight, no cache invalidation) ──────────
+router.get("/functions/getSharedEnemy", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const partyId = req.query.partyId as string;
+    if (!partyId) { sendError(res, 400, "partyId required"); return; }
+    const [party] = await db.select().from(partiesTable).where(eq(partiesTable.id, partyId));
+    if (!party) { sendError(res, 404, "Party not found"); return; }
+    const extra = (party.extraData as any) || {};
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    sendSuccess(res, {
+      shared_enemy: extra.shared_enemy || null,
+      last_killed_enemy: extra.last_killed_enemy || null,
+    });
+  } catch (err: any) {
+    sendError(res, 500, err.message);
+  }
+});
+
 // ── Shared Party Battle: sync enemy HP across party members ──────────────
 router.post("/functions/partyBattleAction", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
