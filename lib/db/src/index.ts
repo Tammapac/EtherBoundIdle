@@ -13,6 +13,9 @@ if (!process.env.DATABASE_URL) {
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+  max: 5,                    // Keep pool small — free tier Supabase allows ~15 connections
+  idleTimeoutMillis: 30_000, // Close idle connections after 30s to reduce pooler churn
+  connectionTimeoutMillis: 10_000,
 });
 export const db = drizzle(pool, { schema });
 
