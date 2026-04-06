@@ -87,6 +87,8 @@ export default function Battle({ character, onCharacterUpdate }) {
   const lastPresenceUpdateRef = useRef(0);
   const pendingDamageRef = useRef(0);
   const lastDamageReportRef = useRef(0);
+  const lastSpawnReportRef = useRef(0);
+  const lastClaimReportRef = useRef(0);
 
   const [lastPetInfo, setLastPetInfo] = useState(null);
   const queryClient = useQueryClient();
@@ -120,7 +122,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     fetchZones();
-    const interval = setInterval(fetchZones, 30000);
+    const interval = setInterval(fetchZones, 120000);
     return () => clearInterval(interval);
   }, [partyData?.members?.length]);
 
@@ -267,14 +269,18 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
 
-    // Push shared enemy to server for party members
+    // Push shared enemy to server for party members (throttled: every 15s)
     if (isSharedBattle && isLeader && partyData?.id) {
-      base44.functions.invoke("partyBattleAction", {
-        action: "spawn_enemy",
-        partyId: partyData.id,
-        characterId: character.id,
-        enemyData: { ...spawnData, spawned_at: new Date().toISOString() },
-      }).catch(() => {});
+      const now = Date.now();
+      if (now - lastSpawnReportRef.current > 15000) {
+        lastSpawnReportRef.current = now;
+        base44.functions.invoke("partyBattleAction", {
+          action: "spawn_enemy",
+          partyId: partyData.id,
+          characterId: character.id,
+          enemyData: { ...spawnData, spawned_at: new Date().toISOString() },
+        }).catch(() => {});
+      }
     }
   }, [region, character?.level, isSharedBattle, isLeader, partyData?.id]);
 
@@ -527,10 +533,10 @@ export default function Battle({ character, onCharacterUpdate }) {
     const skillLabel = skill ? `⚡ ${skill.name}` : "⚔️ Attack";
     addLog(`${isCrit ? "💥 CRIT! " : ""}${skillLabel} → ${finalDmg} dmg${lifestealAmount > 0 ? ` (❤️+${lifestealAmount})` : ""}${regenHp > 0 ? ` | HP +${regenHp}` : ""}`);
 
-    // Broadcast party attack to party members (throttled: once per 10s to reduce egress)
+    // Broadcast party attack to party members (throttled: once per 30s to reduce egress)
     if (partyData?.id) {
       const now = Date.now();
-      if (now - lastBattleBroadcastRef.current > 10000) {
+      if (now - lastBattleBroadcastRef.current > 30000) {
         lastBattleBroadcastRef.current = now;
         base44.entities.PartyActivity.create({
           party_id: partyData.id,
@@ -550,8 +556,8 @@ export default function Battle({ character, onCharacterUpdate }) {
         }).catch(() => {});
       }
 
-      // Update presence to show in combat (throttled: once per 60s)
-      if (now - lastPresenceUpdateRef.current > 60000) {
+      // Update presence to show in combat (throttled: once per 120s)
+      if (now - lastPresenceUpdateRef.current > 120000) {
         lastPresenceUpdateRef.current = now;
         base44.entities.Presence.filter({ character_id: character.id }).then(presence => {
           if (presence[0]) {
@@ -633,14 +639,18 @@ export default function Battle({ character, onCharacterUpdate }) {
       }
     }
 
-    // In shared battle, claim reward to prevent double-claiming
+    // In shared battle, claim reward (throttled: every 15s)
     if (isSharedBattle && partyData?.id) {
       sharedEnemyClaimedRef.current = true;
-      base44.functions.invoke("partyBattleAction", {
-        action: "claim_reward",
-        partyId: partyData.id,
-        characterId: character.id,
-      }).catch(() => {});
+      const now = Date.now();
+      if (now - lastClaimReportRef.current > 15000) {
+        lastClaimReportRef.current = now;
+        base44.functions.invoke("partyBattleAction", {
+          action: "claim_reward",
+          partyId: partyData.id,
+          characterId: character.id,
+        }).catch(() => {});
+      }
     }
 
     try {
@@ -963,7 +973,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 120000);
     return () => clearInterval(interval);
   }, [character?.id]);
 
@@ -1029,7 +1039,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 30000);
+    const interval = setInterval(poll, 60000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 
