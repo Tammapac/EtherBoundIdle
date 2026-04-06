@@ -113,6 +113,7 @@ export default function Shop({ character, onCharacterUpdate }) {
         buy_price: shopItem.buy_price,
         description: shopItem.description || `Purchased from the rotating shop`,
         extra_data: {
+          ...(shopItem.subtype ? { subtype: shopItem.subtype } : {}),
           ...(shopItem.rune_slots ? { rune_slots: shopItem.rune_slots } : {}),
           ...(shopItem.proc_effects ? { proc_effects: shopItem.proc_effects } : {}),
         },

@@ -154,7 +154,7 @@ function getEquipmentSprite(item) {
   const tier = RARITY_TO_TIER[item.rarity] || "common";
   const count = WEAPON_SPRITE_COUNTS[subtype][tier];
   if (!count) return null;
-  const seed = String(item.id || item.name || "");
+  const seed = String(item.name || item.id || "");
   const idx = (spriteHash(seed) % count) + 1;
   return `/sprites/weapons/${subtype}/${tier}/${subtype === "light" ? "armor" : subtype}_${String(idx).padStart(3, "0")}.png`;
 }
