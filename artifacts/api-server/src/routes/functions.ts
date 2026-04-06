@@ -1495,11 +1495,12 @@ router.post("/functions/completeTrade", async (req: Request, res: Response) => {
   }
 });
 
-// ── Get my party: reliable server-side lookup ──────────────────────────────
-router.post("/functions/getMyParty", async (req: Request, res: Response) => {
+// ── Get my party: reliable server-side lookup (GET to avoid cache invalidation) ──
+router.get("/functions/getMyParty", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
-    const { characterId } = req.body;
+    const characterId = req.query.characterId as string;
+    if (!characterId) { sendError(res, 400, "characterId required"); return; }
     if (!(await requireCharacterOwner(req, res, characterId))) return;
     const allActive = await db.select().from(partiesTable).where(sql`${partiesTable.status} != 'disbanded'`);
     const myParty = allActive.find(p => {
@@ -1507,7 +1508,9 @@ router.post("/functions/getMyParty", async (req: Request, res: Response) => {
       const members = (p.members as any[]) || [];
       return members.some((m: any) => m.character_id === characterId);
     }) || null;
-    // Map DB column names to frontend-expected names
+    // Set no-cache headers so browsers/proxies don't cache stale party state
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
     if (myParty) {
       sendSuccess(res, {
         id: myParty.id,

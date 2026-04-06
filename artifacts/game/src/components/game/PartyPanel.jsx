@@ -11,6 +11,17 @@ import { REGIONS } from "@/lib/gameData";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 import { CLASS_SPRITE_URLS } from "@/lib/pixelSprites";
 
+// Direct GET fetch for party data — avoids POST cache invalidation cascade
+async function fetchMyParty(characterId) {
+  const res = await fetch(`/api/functions/getMyParty?characterId=${encodeURIComponent(characterId)}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) return null;
+  return json.data ?? json ?? null;
+}
+
 const CLASS_COLORS = {
   warrior: "text-red-400", mage: "text-blue-400",
   ranger: "text-green-400", rogue: "text-purple-400"
@@ -25,18 +36,16 @@ export default function PartyPanel({ character }) {
   const [memberDetails, setMemberDetails] = useState({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const partyPollInterval = useSmartPolling(POLL_INTERVALS.COMBAT);
+  const partyPollInterval = useSmartPolling(8000);
   const invitePollInterval = useSmartPolling(POLL_INTERVALS.COMBAT);
 
   const { data: partyData } = useQuery({
     queryKey: ["party", character?.id],
-    queryFn: async () => {
-      const result = await base44.functions.invoke("getMyParty", { characterId: character.id });
-      return result || null;
-    },
+    queryFn: () => fetchMyParty(character.id),
     enabled: !!character?.id,
-    staleTime: 5000,
+    staleTime: 2000,
     refetchInterval: partyPollInterval,
+    refetchOnWindowFocus: "always",
   });
 
   useEffect(() => {
