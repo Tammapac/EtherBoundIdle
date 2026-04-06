@@ -985,11 +985,11 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (!isSharedBattle || !partyData?.id) return;
     const poll = async () => {
       try {
-        const res = await base44.functions.invoke("partyBattleAction", {
-          action: "get_enemy",
-          partyId: partyData.id,
-          characterId: character.id,
+        const raw = await fetch(`/api/functions/getSharedEnemy?partyId=${encodeURIComponent(partyData.id)}`, {
+          credentials: "include",
         });
+        const json = await raw.json();
+        const res = json.data ?? json;
         const se = res?.shared_enemy;
         if (!se) return;
 
@@ -1054,7 +1054,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 1000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 
