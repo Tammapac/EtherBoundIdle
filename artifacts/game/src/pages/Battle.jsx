@@ -83,6 +83,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   const offlineProcessedRef = useRef(false);
   const sharedEnemyClaimedRef = useRef(false);
   const enemyDeadRef = useRef(false);
+  const sharedEnemyLoadedAtRef = useRef(0); // cooldown: when last shared enemy was loaded
   const lastBattleBroadcastRef = useRef(0);
   const lastPresenceUpdateRef = useRef(0);
   const pendingDamageRef = useRef(0);
@@ -713,11 +714,11 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     // In shared battle, only leader spawns next enemy; non-leaders wait for polling
     if (isSharedBattle && !isLeader) {
-      // Wait for leader to spawn next enemy via polling
       setEnemy(null);
       setEnemyHp(0);
       setCombatPhase("idle");
-      addLog("⏳ Waiting for party leader to spawn next enemy...");
+      sharedEnemyLoadedAtRef.current = Date.now(); // cooldown before next enemy
+      addLog("⏳ Enemy spawning...");
     } else {
       setTimeout(() => spawnEnemy(), 2500);
     }
@@ -992,40 +993,17 @@ export default function Battle({ character, onCharacterUpdate }) {
         const se = res?.shared_enemy;
         if (!se) return;
 
-        // Sync shared enemy HP to local state
-        if (se.currentHp !== undefined && enemy?.key === se.key) {
+        const now = Date.now();
+        const cooldownMs = 2500; // 2.5s cooldown between enemy transitions
+        const isOnCooldown = now - sharedEnemyLoadedAtRef.current < cooldownMs;
+
+        // Sync shared enemy HP to local state (same enemy, just HP update)
+        if (se.currentHp !== undefined && enemy?.key === se.key && enemy?.spawned_at === se.spawned_at) {
           setEnemyHp(se.currentHp);
+          return; // Same enemy — just sync HP, don't process further
         }
 
-        // If we don't have an enemy or it's different, load the shared enemy
-        if (se.key && se.currentHp > 0 && (!enemy || enemy.key !== se.key || enemy.spawned_at !== se.spawned_at)) {
-          const spawnData = {
-            ...se,
-            maxHp: se.maxHp,
-            dmg: se.dmg,
-            defense: se.defense || 0,
-            spawned_at: se.spawned_at,
-          };
-          setEnemy(spawnData);
-          setEnemyHp(se.currentHp);
-          setLootDrop(null);
-          // Reset HP/MP to full for new shared battle enemy
-          setPlayerHp(actualMaxHp);
-          setPlayerMp(actualMaxMp);
-          if (combatPhase === "idle" || combatPhase === "enemy_dead") {
-            setCombatPhase("player_turn");
-            setIsPlayerTurn(true);
-          }
-          sharedEnemyClaimedRef.current = false;
-          enemyDeadRef.current = false;
-          attackSpeedAccRef.current = 0;
-          setAttackSpeedBonusHits(0);
-          if (procEngineRef.current) procEngineRef.current.reset();
-          addLog(`⚔️ Party battle: ${se.name} appeared!`);
-        }
-
-        // If enemy killed by another player and not yet claimed, trigger defeat locally
-        // Check both shared_enemy and last_killed_enemy (leader may have already spawned next)
+        // If enemy was killed by another player, claim reward (once)
         const killedEnemy = (se.killed_by ? se : null) || res?.last_killed_enemy;
         if (killedEnemy?.killed_by && !sharedEnemyClaimedRef.current) {
           const alreadyClaimed = (killedEnemy.claimed_by || []).includes(character.id);
@@ -1036,7 +1014,42 @@ export default function Battle({ character, onCharacterUpdate }) {
               addLog(`👥 ${killedEnemy.killed_by_name || "Party member"} defeated ${killedEnemy.name || "the enemy"}!`);
             }
             handleEnemyDefeat();
+            sharedEnemyLoadedAtRef.current = now; // start cooldown after defeat
+            return; // Don't immediately load next enemy — wait for cooldown
           }
+        }
+
+        // Load a NEW shared enemy (different from current)
+        if (se.key && se.currentHp > 0 && (!enemy || enemy.key !== se.key || enemy.spawned_at !== se.spawned_at)) {
+          // Don't swap enemies mid-fight — only load when idle or enemy_dead
+          if (enemy && combatPhase === "player_turn" || combatPhase === "enemy_turn") {
+            // If we're fighting our own pre-party enemy, let it finish naturally
+            if (enemy.spawned_at !== se.spawned_at) return;
+          }
+          // Respect cooldown between enemy loads
+          if (isOnCooldown) return;
+
+          sharedEnemyLoadedAtRef.current = now;
+          const spawnData = {
+            ...se,
+            maxHp: se.maxHp,
+            dmg: se.dmg,
+            defense: se.defense || 0,
+            spawned_at: se.spawned_at,
+          };
+          setEnemy(spawnData);
+          setEnemyHp(se.currentHp);
+          setLootDrop(null);
+          setPlayerHp(actualMaxHp);
+          setPlayerMp(actualMaxMp);
+          setCombatPhase("player_turn");
+          setIsPlayerTurn(true);
+          sharedEnemyClaimedRef.current = false;
+          enemyDeadRef.current = false;
+          attackSpeedAccRef.current = 0;
+          setAttackSpeedBonusHits(0);
+          if (procEngineRef.current) procEngineRef.current.reset();
+          addLog(`⚔️ Party battle: ${se.name} appeared!`);
         }
       } catch {}
     };
