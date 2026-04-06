@@ -38,7 +38,7 @@ export default function PartyPanel({ character }) {
     },
     enabled: !!character?.id,
     staleTime: POLL_INTERVALS.SOCIAL,
-    refetchInterval: !minimized ? pollInterval : false,
+    refetchInterval: pollInterval,
   });
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function PartyPanel({ character }) {
     },
     enabled: !!character?.id,
     staleTime: POLL_INTERVALS.SOCIAL,
-    refetchInterval: !minimized ? pollInterval : false,
+    refetchInterval: pollInterval,
   });
 
   const invalidateParty = () => {
