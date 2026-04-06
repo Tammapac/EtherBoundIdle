@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Zap, LogOut, ArrowUp, Skull, Coins, Star, Gem, Trophy, Package, Play, Pause } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
+import { getEnemySprite } from "@/lib/enemySprites";
 
 function HpBar({ current, max, color = "bg-red-500", label, height = "h-2.5" }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (current / max) * 100)) : 0;
@@ -239,12 +240,16 @@ export default function TowerCombat({ session: initialSession, character, onLeav
                     <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-transparent to-orange-500/5 pointer-events-none" />
                   )}
                   <div className="relative flex items-center gap-3 mb-2">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${
                       enemy.isBoss
                         ? "bg-gradient-to-br from-red-500/30 to-orange-500/20 border-2 border-red-500/40"
                         : "bg-muted/30 border border-border/50"
                     }`}>
-                      <Skull className={`w-6 h-6 ${enemy.isBoss ? "text-red-400" : "text-muted-foreground"}`} />
+                      {getEnemySprite(null, enemy.name) ? (
+                        <img src={getEnemySprite(null, enemy.name)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
+                      ) : (
+                        <Skull className={`w-7 h-7 ${enemy.isBoss ? "text-red-400" : "text-muted-foreground"}`} />
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">

@@ -8,6 +8,7 @@ import { Swords, Zap, LogOut, Crown, Skull, Clock, User } from "lucide-react";
 import { SKILLS, CLASSES } from "@/lib/gameData";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import PlayerProfileModal from "@/components/game/PlayerProfileModal";
+import { getEnemySprite } from "@/lib/enemySprites";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const CLASS_COLORS = {
@@ -198,7 +199,11 @@ export default function DungeonCombat({ session: initialSession, character, onLe
           <div className="bg-card border-2 border-destructive/30 rounded-xl p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-14 h-14 rounded-xl bg-destructive/20 border border-destructive/30 flex items-center justify-center">
-                <Skull className="w-8 h-8 text-destructive" />
+                {getEnemySprite(null, session.boss_name) ? (
+                  <img src={getEnemySprite(null, session.boss_name)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
+                ) : (
+                  <Skull className="w-8 h-8 text-destructive" />
+                )}
               </div>
               <div className="flex-1">
                 <p className="font-orbitron font-bold text-destructive text-lg">{session.boss_name}</p>

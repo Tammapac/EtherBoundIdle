@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getItemSprite } from "@/lib/itemIcons";
+import { getEnemySprite } from "@/lib/enemySprites";
 
 const LOOT_TYPE_ICONS = {
   weapon: Swords, armor: ShieldCheck, helmet: Crown,
@@ -1331,8 +1332,12 @@ export default function Battle({ character, onCharacterUpdate }) {
           {enemy ? (
             <>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center">
-                  <Skull className="w-6 h-6 text-destructive" />
+                <div className="w-14 h-14 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center">
+                  {getEnemySprite(enemy.key, enemy.name) ? (
+                    <img src={getEnemySprite(enemy.key, enemy.name)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
+                  ) : (
+                    <Skull className="w-7 h-7 text-destructive" />
+                  )}
                 </div>
                 <div>
                   <p className="font-bold">{enemy.name}</p>
