@@ -201,6 +201,14 @@ const CLASS_HELMET_WEIGHT: Record<string, string> = {
   warrior: "plate_helm", ranger: "leather_helm", mage: "cloth_helm", rogue: "hood",
 };
 
+const CLASS_GLOVES_WEIGHT: Record<string, string> = {
+  warrior: "plate_gloves", mage: "cloth_gloves", ranger: "leather_gloves", rogue: "shadow_gloves",
+};
+
+const CLASS_BOOTS_WEIGHT: Record<string, string> = {
+  warrior: "plate_boots", mage: "cloth_boots", ranger: "leather_boots", rogue: "shadow_boots",
+};
+
 function getZoneForLevel(level: number): string {
   for (const [key, zone] of Object.entries(ZONE_LOOT)) {
     if (level >= zone.levelRange[0] && level <= zone.levelRange[1]) return key;
@@ -1126,6 +1134,14 @@ export function generateLoot(
         ? (helmNames[helmWeight] || helmNames.cloth_helm || ["Unknown Helmet"])
         : (Array.isArray(helmNames) ? helmNames : ["Unknown Helmet"]);
       name = namePool[Math.floor(Math.random() * namePool.length)];
+    } else if (type === "gloves") {
+      subtype = characterClass ? (CLASS_GLOVES_WEIGHT[characterClass] || "cloth_gloves") : "cloth_gloves";
+      const namePool = Array.isArray(zoneNames[type]) ? zoneNames[type] : ["Unknown Gloves"];
+      name = namePool[Math.floor(Math.random() * namePool.length)];
+    } else if (type === "boots") {
+      subtype = characterClass ? (CLASS_BOOTS_WEIGHT[characterClass] || "cloth_boots") : "cloth_boots";
+      const namePool = Array.isArray(zoneNames[type]) ? zoneNames[type] : ["Unknown Boots"];
+      name = namePool[Math.floor(Math.random() * namePool.length)];
     } else {
       subtype = null;
       const namePool = Array.isArray(zoneNames[type]) ? zoneNames[type] : ["Unknown Item"];
@@ -1252,6 +1268,14 @@ export function generateShopItem(
       const namePool = (helmNames && typeof helmNames === "object" && !Array.isArray(helmNames))
         ? (helmNames[helmWeight] || helmNames.cloth_helm || ["Unknown Helmet"])
         : (Array.isArray(helmNames) ? helmNames : ["Unknown Helmet"]);
+      name = namePool[Math.floor(rngFn() * namePool.length)];
+    } else if (type === "gloves") {
+      subtype = CLASS_GLOVES_WEIGHT[charClass] || "cloth_gloves";
+      const namePool = Array.isArray(zoneNames[type]) ? zoneNames[type] : ["Unknown Gloves"];
+      name = namePool[Math.floor(rngFn() * namePool.length)];
+    } else if (type === "boots") {
+      subtype = CLASS_BOOTS_WEIGHT[charClass] || "cloth_boots";
+      const namePool = Array.isArray(zoneNames[type]) ? zoneNames[type] : ["Unknown Boots"];
       name = namePool[Math.floor(rngFn() * namePool.length)];
     } else {
       subtype = null;
