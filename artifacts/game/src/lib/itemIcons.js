@@ -127,9 +127,8 @@ const RARITY_TO_TIER = {
 
 // Number of sprites available per item subtype per tier
 const WEAPON_SPRITE_COUNTS = {
-  staff:      { common: 64, rare: 64, legendary: 32 },
-  wand:       { common: 64, rare: 64, legendary: 32 },
-  light:      { common: 29, rare: 22, legendary: 20 },
+  wand:       { common: 64, rare: 62, legendary: 64 },
+  light:      { common: 64, rare: 64, legendary: 64 },
   cloth_helm: { common: 63, rare: 34, legendary: 26 },
   heavy:      { common: 30, rare: 31, legendary: 29 },
   plate_helm: { common: 23, rare: 27, legendary: 20 },
@@ -143,6 +142,7 @@ const WEAPON_SPRITE_COUNTS = {
   dagger:   { common: 64, rare: 64, legendary: 64 },
   leather:  { common: 64, rare: 64, legendary: 64 },
   hood:     { common: 64, rare: 64, legendary: 64 },
+  ring:     { common: 64, rare: 64, legendary: 64 },
 };
 
 // Simple hash from item ID or name to get a consistent sprite index
@@ -159,7 +159,7 @@ function spriteHash(str) {
  * Uses item ID/name to consistently assign the same sprite to the same item.
  */
 // Subtypes that share sprites with another subtype
-const SPRITE_ALIAS = { blade: "dagger" };
+const SPRITE_ALIAS = { blade: "dagger", staff: "wand" };
 
 function getEquipmentSprite(item) {
   if (!item) return null;
@@ -173,7 +173,7 @@ function getEquipmentSprite(item) {
   if (!count) return null;
   const seed = String(item.name || item.id || "");
   const idx = (spriteHash(seed) % count) + 1;
-  return `/sprites/weapons/${spriteType}/${tier}/${spriteType === "light" ? "armor" : spriteType}_${String(idx).padStart(3, "0")}.png`;
+  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png`;
 }
 
 /**
