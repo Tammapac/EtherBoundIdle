@@ -11,6 +11,17 @@ import { REGIONS } from "@/lib/gameData";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 import { CLASS_SPRITE_URLS } from "@/lib/pixelSprites";
 
+// Direct GET fetch for party data — avoids POST cache invalidation cascade
+async function fetchMyParty(characterId) {
+  const res = await fetch(`/api/functions/getMyParty?characterId=${encodeURIComponent(characterId)}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) return null;
+  return json.data ?? json ?? null;
+}
+
 const CLASS_COLORS = {
   warrior: "text-red-400", mage: "text-blue-400",
   ranger: "text-green-400", rogue: "text-purple-400"
@@ -25,20 +36,16 @@ export default function PartyPanel({ character }) {
   const [memberDetails, setMemberDetails] = useState({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
+  const partyPollInterval = useSmartPolling(8000);
+  const invitePollInterval = useSmartPolling(POLL_INTERVALS.COMBAT);
 
   const { data: partyData } = useQuery({
     queryKey: ["party", character?.id],
-    queryFn: async () => {
-      const led = await base44.entities.Party.filter({ leader_id: character.id });
-      const active = led.find(p => p.status !== 'disbanded');
-      if (active) return active;
-      const all = await base44.entities.Party.list('-updated_date', 20);
-      return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
-    },
+    queryFn: () => fetchMyParty(character.id),
     enabled: !!character?.id,
-    staleTime: POLL_INTERVALS.SOCIAL,
-    refetchInterval: !minimized ? pollInterval : false,
+    staleTime: 2000,
+    refetchInterval: partyPollInterval,
+    refetchOnWindowFocus: "always",
   });
 
   useEffect(() => {
@@ -70,13 +77,18 @@ export default function PartyPanel({ character }) {
       return base44.entities.PartyInvite.filter({ to_character_id: character.id, status: 'pending' });
     },
     enabled: !!character?.id,
-    staleTime: POLL_INTERVALS.SOCIAL,
-    refetchInterval: !minimized ? pollInterval : false,
+    staleTime: 5000,
+    refetchInterval: invitePollInterval,
   });
 
   const invalidateParty = () => {
-    queryClient.invalidateQueries({ queryKey: ["party"] });
-    queryClient.invalidateQueries({ queryKey: ["partyInvites"] });
+    queryClient.invalidateQueries({ queryKey: ["party"], refetchType: "all" });
+    queryClient.invalidateQueries({ queryKey: ["partyInvites"], refetchType: "all" });
+    // Double-tap: refetch again after 1.5s to bypass any stale GET cache
+    setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["party"] });
+      queryClient.refetchQueries({ queryKey: ["partyInvites"] });
+    }, 1500);
   };
 
   // Listen for party invite events from FriendPanel — open panel when invite sent
@@ -116,10 +128,28 @@ export default function PartyPanel({ character }) {
   });
   const handleLeave = () => mutation.mutate({ action: 'leave', partyId: partyData.id });
   const handleAccept = (invite) => mutation.mutate({ action: 'accept', inviteId: invite.id }, {
-    onSuccess: () => {
+    onSuccess: (data) => {
       setMinimized(false);
       setExpanded(true);
       toast({ title: "Joined the party!", duration: 2000 });
+      // If the server returned the party data, set it directly in cache
+      if (data?.party) {
+        const mapped = {
+          id: data.party.id,
+          leader_id: data.party.leaderId || data.party.leader_id,
+          leader_name: data.party.leaderName || data.party.leader_name,
+          members: data.party.members,
+          status: data.party.status,
+          max_members: data.party.maxMembers || data.party.max_members,
+          extra_data: data.party.extraData || data.party.extra_data,
+        };
+        queryClient.setQueryData(["party", character?.id], mapped);
+      }
+      // Also refetch to be safe
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["party"] });
+        queryClient.refetchQueries({ queryKey: ["partyInvites"] });
+      }, 500);
     },
   });
   const handleDecline = (invite) => mutation.mutate({ action: 'decline', inviteId: invite.id });

@@ -12,7 +12,7 @@ const inflightRequests = new Map();
 // ---------------------
 // Caches GET responses for CACHE_TTL_MS. Keyed by url (includes query string).
 const responseCache = new Map();
-const CACHE_TTL_MS = 10_000; // 10 seconds
+const CACHE_TTL_MS = 3_000; // 3 seconds
 
 function buildCacheKey(path, options) {
   const method = (options.method || "GET").toUpperCase();

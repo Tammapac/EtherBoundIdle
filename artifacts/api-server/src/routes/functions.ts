@@ -1495,6 +1495,43 @@ router.post("/functions/completeTrade", async (req: Request, res: Response) => {
   }
 });
 
+// ── Get my party: reliable server-side lookup (GET to avoid cache invalidation) ──
+router.get("/functions/getMyParty", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const characterId = req.query.characterId as string;
+    if (!characterId) { sendError(res, 400, "characterId required"); return; }
+    if (!(await requireCharacterOwner(req, res, characterId))) return;
+    const allActive = await db.select().from(partiesTable).where(sql`${partiesTable.status} != 'disbanded'`);
+    const myParty = allActive.find(p => {
+      if (p.leaderId === characterId) return true;
+      const members = (p.members as any[]) || [];
+      return members.some((m: any) => m.character_id === characterId);
+    }) || null;
+    // Set no-cache headers so browsers/proxies don't cache stale party state
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    if (myParty) {
+      sendSuccess(res, {
+        id: myParty.id,
+        leader_id: myParty.leaderId,
+        leader_name: myParty.leaderName,
+        members: myParty.members,
+        status: myParty.status,
+        max_members: myParty.maxMembers,
+        extra_data: myParty.extraData,
+        created_at: myParty.createdAt,
+        updated_at: myParty.updatedAt,
+      });
+    } else {
+      sendSuccess(res, null);
+    }
+  } catch (err: any) {
+    req.log.error({ err }, "getMyParty error");
+    sendError(res, 500, err.message);
+  }
+});
+
 router.post("/functions/manageParty", async (req: Request, res: Response) => {
   if (!requireAuth(req, res)) return;
   try {
@@ -1595,9 +1632,9 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
         if (oldMembers.some((m: any) => m.character_id === characterId)) {
           const filtered = oldMembers.filter((m: any) => m.character_id !== characterId);
           if (filtered.length === 0) {
-            await db.update(partiesTable).set({ status: "disbanded", members: [] }).where(eq(partiesTable.id, oldParty.id));
+            await db.update(partiesTable).set({ status: "disbanded", members: [], updatedAt: new Date() }).where(eq(partiesTable.id, oldParty.id));
           } else {
-            const updateData: any = { members: filtered };
+            const updateData: any = { members: filtered, updatedAt: new Date() };
             if (oldParty.leaderId === characterId) {
               updateData.leaderId = filtered[0].character_id;
               updateData.leaderName = filtered[0].name;
@@ -1609,9 +1646,12 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
 
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       members.push({ character_id: characterId, name: char?.name || "Unknown", class: char?.class, level: char?.level });
-      await db.update(partiesTable).set({ members }).where(eq(partiesTable.id, inv.partyId));
+      const now = new Date();
+      await db.update(partiesTable).set({ members, updatedAt: now }).where(eq(partiesTable.id, inv.partyId));
       await db.update(partyInvitesTable).set({ status: "accepted" }).where(eq(partyInvitesTable.id, inviteId));
-      sendSuccess(res, { success: true });
+      // Return the full party so the frontend can update its cache immediately
+      const [updatedParty] = await db.select().from(partiesTable).where(eq(partiesTable.id, inv.partyId));
+      sendSuccess(res, { success: true, party: updatedParty });
       return;
     }
 
@@ -1632,7 +1672,7 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       }
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       members.push({ character_id: characterId, name: char?.name || "Unknown", class: char?.class, level: char?.level });
-      await db.update(partiesTable).set({ members }).where(eq(partiesTable.id, partyId));
+      await db.update(partiesTable).set({ members, updatedAt: new Date() }).where(eq(partiesTable.id, partyId));
       sendSuccess(res, { success: true });
       return;
     }
@@ -1642,9 +1682,9 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       if (party) {
         const members = ((party.members as any[]) || []).filter((m: any) => m.character_id !== characterId);
         if (members.length === 0) {
-          await db.update(partiesTable).set({ status: "disbanded", members: [] }).where(eq(partiesTable.id, partyId));
+          await db.update(partiesTable).set({ status: "disbanded", members: [], updatedAt: new Date() }).where(eq(partiesTable.id, partyId));
         } else {
-          const updateData: any = { members };
+          const updateData: any = { members, updatedAt: new Date() };
           if (party.leaderId === characterId) {
             updateData.leaderId = members[0].character_id;
             updateData.leaderName = members[0].name;
@@ -1657,7 +1697,7 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
     }
 
     if (action === "disband" && partyId) {
-      await db.update(partiesTable).set({ status: "disbanded", members: [] }).where(eq(partiesTable.id, partyId));
+      await db.update(partiesTable).set({ status: "disbanded", members: [], updatedAt: new Date() }).where(eq(partiesTable.id, partyId));
       sendSuccess(res, { success: true });
       return;
     }
@@ -1665,6 +1705,25 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
     sendSuccess(res, { success: true, action });
   } catch (err: any) {
     req.log.error({ err }, "manageParty error");
+    sendError(res, 500, err.message);
+  }
+});
+
+// ── GET shared enemy state (lightweight, no cache invalidation) ──────────
+router.get("/functions/getSharedEnemy", async (req: Request, res: Response) => {
+  if (!requireAuth(req, res)) return;
+  try {
+    const partyId = req.query.partyId as string;
+    if (!partyId) { sendError(res, 400, "partyId required"); return; }
+    const [party] = await db.select().from(partiesTable).where(eq(partiesTable.id, partyId));
+    if (!party) { sendError(res, 404, "Party not found"); return; }
+    const extra = (party.extraData as any) || {};
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+    sendSuccess(res, {
+      shared_enemy: extra.shared_enemy || null,
+      last_killed_enemy: extra.last_killed_enemy || null,
+    });
+  } catch (err: any) {
     sendError(res, 500, err.message);
   }
 });
@@ -1803,9 +1862,9 @@ router.post("/functions/cleanupOnDisconnect", async (req: Request, res: Response
 
       members.splice(idx, 1);
       if (members.length === 0) {
-        await db.update(partiesTable).set({ status: "disbanded", members: [] }).where(eq(partiesTable.id, party.id));
+        await db.update(partiesTable).set({ status: "disbanded", members: [], updatedAt: new Date() }).where(eq(partiesTable.id, party.id));
       } else {
-        const updateData: any = { members };
+        const updateData: any = { members, updatedAt: new Date() };
         if (party.leaderId === characterId) {
           updateData.leaderId = members[0].character_id;
         }

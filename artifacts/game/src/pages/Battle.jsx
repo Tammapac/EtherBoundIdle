@@ -83,6 +83,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   const offlineProcessedRef = useRef(false);
   const sharedEnemyClaimedRef = useRef(false);
   const enemyDeadRef = useRef(false);
+  const sharedEnemyLoadedAtRef = useRef(0); // cooldown: when last shared enemy was loaded
   const lastBattleBroadcastRef = useRef(0);
   const lastPresenceUpdateRef = useRef(0);
   const pendingDamageRef = useRef(0);
@@ -108,6 +109,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   // Party bonus: +5% EXP and gold per additional member in same zone
   // Fetch member zones from presence data (party members array doesn't have current_zone)
   const [memberZones, setMemberZones] = useState({});
+  const partyMemberIds = partyData?.members?.map(m => m.character_id).sort().join(",") || "";
   useEffect(() => {
     if (!partyData?.members?.length) return;
     const fetchZones = async () => {
@@ -122,9 +124,9 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     fetchZones();
-    const interval = setInterval(fetchZones, 120000);
+    const interval = setInterval(fetchZones, 15000);
     return () => clearInterval(interval);
-  }, [partyData?.members?.length]);
+  }, [partyMemberIds]);
 
   const sameMapMembers = partyData?.members?.filter(m =>
     m.character_id === character.id || memberZones[m.character_id] === character.current_region
@@ -269,10 +271,10 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
 
-    // Push shared enemy to server for party members (throttled: every 15s)
+    // Push shared enemy to server for party members (throttled: every 3s)
     if (isSharedBattle && isLeader && partyData?.id) {
       const now = Date.now();
-      if (now - lastSpawnReportRef.current > 15000) {
+      if (now - lastSpawnReportRef.current > 3000) {
         lastSpawnReportRef.current = now;
         base44.functions.invoke("partyBattleAction", {
           action: "spawn_enemy",
@@ -712,11 +714,11 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     // In shared battle, only leader spawns next enemy; non-leaders wait for polling
     if (isSharedBattle && !isLeader) {
-      // Wait for leader to spawn next enemy via polling
       setEnemy(null);
       setEnemyHp(0);
       setCombatPhase("idle");
-      addLog("⏳ Waiting for party leader to spawn next enemy...");
+      sharedEnemyLoadedAtRef.current = Date.now(); // cooldown before next enemy
+      addLog("⏳ Enemy spawning...");
     } else {
       setTimeout(() => spawnEnemy(), 2500);
     }
@@ -959,21 +961,22 @@ export default function Battle({ character, onCharacterUpdate }) {
     });
   }, [actualMaxHp, actualMaxMp]);
 
-  // Load party data
+  // Load party data via dedicated GET endpoint (same as PartyPanel)
   useEffect(() => {
     if (!character?.id) return;
     const load = async () => {
       try {
-        const led = await base44.entities.Party.filter({ leader_id: character.id });
-        const active = led.find(p => p.status !== 'disbanded');
-        if (active) { setPartyData(active); return; }
-        const all = await base44.entities.Party.list('-updated_date', 20);
-        const found = all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id));
-        setPartyData(found || null);
+        const res = await fetch(`/api/functions/getMyParty?characterId=${encodeURIComponent(character.id)}`, {
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        const json = await res.json();
+        const party = (json.success !== false) ? (json.data ?? json ?? null) : null;
+        setPartyData(party);
       } catch {}
     };
     load();
-    const interval = setInterval(load, 120000);
+    const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
   }, [character?.id]);
 
@@ -982,48 +985,25 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (!isSharedBattle || !partyData?.id) return;
     const poll = async () => {
       try {
-        const res = await base44.functions.invoke("partyBattleAction", {
-          action: "get_enemy",
-          partyId: partyData.id,
-          characterId: character.id,
+        const raw = await fetch(`/api/functions/getSharedEnemy?partyId=${encodeURIComponent(partyData.id)}`, {
+          credentials: "include",
         });
+        const json = await raw.json();
+        const res = json.data ?? json;
         const se = res?.shared_enemy;
         if (!se) return;
 
-        // Sync shared enemy HP to local state
-        if (se.currentHp !== undefined && enemy?.key === se.key) {
+        const now = Date.now();
+        const cooldownMs = 2500; // 2.5s cooldown between enemy transitions
+        const isOnCooldown = now - sharedEnemyLoadedAtRef.current < cooldownMs;
+
+        // Sync shared enemy HP to local state (same enemy, just HP update)
+        if (se.currentHp !== undefined && enemy?.key === se.key && enemy?.spawned_at === se.spawned_at) {
           setEnemyHp(se.currentHp);
+          return; // Same enemy — just sync HP, don't process further
         }
 
-        // If we don't have an enemy or it's different, load the shared enemy
-        if (se.key && se.currentHp > 0 && (!enemy || enemy.key !== se.key || enemy.spawned_at !== se.spawned_at)) {
-          const spawnData = {
-            ...se,
-            maxHp: se.maxHp,
-            dmg: se.dmg,
-            defense: se.defense || 0,
-            spawned_at: se.spawned_at,
-          };
-          setEnemy(spawnData);
-          setEnemyHp(se.currentHp);
-          setLootDrop(null);
-          // Reset HP/MP to full for new shared battle enemy
-          setPlayerHp(actualMaxHp);
-          setPlayerMp(actualMaxMp);
-          if (combatPhase === "idle" || combatPhase === "enemy_dead") {
-            setCombatPhase("player_turn");
-            setIsPlayerTurn(true);
-          }
-          sharedEnemyClaimedRef.current = false;
-          enemyDeadRef.current = false;
-          attackSpeedAccRef.current = 0;
-          setAttackSpeedBonusHits(0);
-          if (procEngineRef.current) procEngineRef.current.reset();
-          addLog(`⚔️ Party battle: ${se.name} appeared!`);
-        }
-
-        // If enemy killed by another player and not yet claimed, trigger defeat locally
-        // Check both shared_enemy and last_killed_enemy (leader may have already spawned next)
+        // If enemy was killed by another player, claim reward (once)
         const killedEnemy = (se.killed_by ? se : null) || res?.last_killed_enemy;
         if (killedEnemy?.killed_by && !sharedEnemyClaimedRef.current) {
           const alreadyClaimed = (killedEnemy.claimed_by || []).includes(character.id);
@@ -1034,12 +1014,47 @@ export default function Battle({ character, onCharacterUpdate }) {
               addLog(`👥 ${killedEnemy.killed_by_name || "Party member"} defeated ${killedEnemy.name || "the enemy"}!`);
             }
             handleEnemyDefeat();
+            sharedEnemyLoadedAtRef.current = now; // start cooldown after defeat
+            return; // Don't immediately load next enemy — wait for cooldown
           }
+        }
+
+        // Load a NEW shared enemy (different from current)
+        if (se.key && se.currentHp > 0 && (!enemy || enemy.key !== se.key || enemy.spawned_at !== se.spawned_at)) {
+          // Don't swap enemies mid-fight — only load when idle or enemy_dead
+          if (enemy && combatPhase === "player_turn" || combatPhase === "enemy_turn") {
+            // If we're fighting our own pre-party enemy, let it finish naturally
+            if (enemy.spawned_at !== se.spawned_at) return;
+          }
+          // Respect cooldown between enemy loads
+          if (isOnCooldown) return;
+
+          sharedEnemyLoadedAtRef.current = now;
+          const spawnData = {
+            ...se,
+            maxHp: se.maxHp,
+            dmg: se.dmg,
+            defense: se.defense || 0,
+            spawned_at: se.spawned_at,
+          };
+          setEnemy(spawnData);
+          setEnemyHp(se.currentHp);
+          setLootDrop(null);
+          setPlayerHp(actualMaxHp);
+          setPlayerMp(actualMaxMp);
+          setCombatPhase("player_turn");
+          setIsPlayerTurn(true);
+          sharedEnemyClaimedRef.current = false;
+          enemyDeadRef.current = false;
+          attackSpeedAccRef.current = 0;
+          setAttackSpeedBonusHits(0);
+          if (procEngineRef.current) procEngineRef.current.reset();
+          addLog(`⚔️ Party battle: ${se.name} appeared!`);
         }
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 60000);
+    const interval = setInterval(poll, 1000);
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
 
