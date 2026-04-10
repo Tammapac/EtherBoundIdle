@@ -138,7 +138,7 @@ const WEAPON_SPRITE_COUNTS = {
   mace:       { common: 32, rare: 32, legendary: 30 },
   bow:        { common: 64, rare: 64, legendary: 40 },
   crossbow:   { common: 64, rare: 64, legendary: 64 },
-  medium:     { common: 64, rare: 64, legendary: 64 },
+  medium:       { common: 56, rare: 56, legendary: 56 },
   leather_helm: { common: 40, rare: 64, legendary: 64 },
 };
 
