@@ -160,6 +160,27 @@ export default function GuildPage({ character, onCharacterUpdate }) {
     },
   });
 
+  // Auto-despawn expired boss
+  useEffect(() => {
+    if (!myGuild?.boss_active || !myGuild?.boss_expires_at) return;
+    const expiresAt = new Date(myGuild.boss_expires_at).getTime();
+    const remaining = expiresAt - Date.now();
+    if (remaining <= 0) {
+      base44.entities.Guild.update(myGuild.id, {
+        boss_active: false,
+        members: (myGuild.members || []).map(m => ({ ...m, boss_damage_today: 0 })),
+      }).then(() => refetch());
+    } else {
+      const timeout = setTimeout(() => {
+        base44.entities.Guild.update(myGuild.id, {
+          boss_active: false,
+          members: (myGuild.members || []).map(m => ({ ...m, boss_damage_today: 0 })),
+        }).then(() => refetch());
+      }, remaining);
+      return () => clearTimeout(timeout);
+    }
+  }, [myGuild?.boss_active, myGuild?.boss_expires_at, myGuild?.id]);
+
   // Determine current raid level based on guild boss kill count
   const bossKills = myGuild?.boss_kills || 0;
   const raidLevel = bossKills + 1; // Each kill increments the raid level
@@ -200,6 +221,15 @@ export default function GuildPage({ character, onCharacterUpdate }) {
 
   const attackBossMutation = useMutation({
     mutationFn: async () => {
+      // Check if boss has expired
+      if (myGuild.boss_expires_at && new Date(myGuild.boss_expires_at).getTime() <= Date.now()) {
+        await base44.entities.Guild.update(myGuild.id, {
+          boss_active: false,
+          members: (myGuild.members || []).map(m => ({ ...m, boss_damage_today: 0 })),
+        });
+        refetch();
+        throw new Error("Boss has expired! It has been despawned.");
+      }
       const status = await idleEngine.validateGuildBossAttack(character.id);
       if (!status.ready) {
         setBossCooldown(status);
