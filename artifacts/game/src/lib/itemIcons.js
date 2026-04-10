@@ -158,17 +158,22 @@ function spriteHash(str) {
  * Returns the pixel art sprite path for equipment based on its subtype and rarity.
  * Uses item ID/name to consistently assign the same sprite to the same item.
  */
+// Subtypes that share sprites with another subtype
+const SPRITE_ALIAS = { blade: "dagger" };
+
 function getEquipmentSprite(item) {
   if (!item) return null;
   const extra = item.extraData || item.extra_data || {};
-  const subtype = item.subtype || extra.subtype;
-  if (!subtype || !WEAPON_SPRITE_COUNTS[subtype]) return null;
+  let subtype = item.subtype || extra.subtype;
+  if (!subtype) return null;
+  const spriteType = SPRITE_ALIAS[subtype] || subtype;
+  if (!WEAPON_SPRITE_COUNTS[spriteType]) return null;
   const tier = RARITY_TO_TIER[item.rarity] || "common";
-  const count = WEAPON_SPRITE_COUNTS[subtype][tier];
+  const count = WEAPON_SPRITE_COUNTS[spriteType][tier];
   if (!count) return null;
   const seed = String(item.name || item.id || "");
   const idx = (spriteHash(seed) % count) + 1;
-  return `/sprites/weapons/${subtype}/${tier}/${subtype === "light" ? "armor" : subtype}_${String(idx).padStart(3, "0")}.png`;
+  return `/sprites/weapons/${spriteType}/${tier}/${spriteType === "light" ? "armor" : spriteType}_${String(idx).padStart(3, "0")}.png`;
 }
 
 /**
