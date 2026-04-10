@@ -165,7 +165,7 @@ const SPRITE_ALIAS = { blade: "dagger", staff: "wand" };
 function getEquipmentSprite(item) {
   if (!item) return null;
   const extra = item.extraData || item.extra_data || {};
-  let subtype = item.subtype || extra.subtype;
+  let subtype = item.subtype || extra.subtype || item.type;
   if (!subtype) return null;
   const spriteType = SPRITE_ALIAS[subtype] || subtype;
   if (!WEAPON_SPRITE_COUNTS[spriteType]) return null;
