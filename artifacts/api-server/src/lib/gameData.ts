@@ -194,11 +194,11 @@ const CLASS_WEAPON_SUBTYPES: Record<string, string[]> = {
 };
 
 const CLASS_ARMOR_WEIGHT: Record<string, string> = {
-  warrior: "heavy", mage: "light", ranger: "medium", rogue: "light",
+  warrior: "heavy", mage: "light", ranger: "medium", rogue: "leather",
 };
 
 const CLASS_HELMET_WEIGHT: Record<string, string> = {
-  warrior: "plate_helm", ranger: "leather_helm", mage: "cloth_helm", rogue: "cloth_helm",
+  warrior: "plate_helm", ranger: "leather_helm", mage: "cloth_helm", rogue: "hood",
 };
 
 function getZoneForLevel(level: number): string {
@@ -281,6 +281,10 @@ const ITEM_NAMES: Record<string, any> = {
         "Torn Cloak","Druidic Bark Armor","Mossy Robe","Nature's Vestment",
         "Leafweave Robes","Fernspun Wrap","Vinethread Coat","Dryad's Shroud",
       ],
+      leather: [
+        "Shadow Jerkin","Nightleaf Vest","Thief's Tunic","Whisper Leather",
+        "Briarshadow Coat","Mosswalk Vest","Stalker's Jerkin","Fern Shadowvest",
+      ],
     },
     helmet: {
       plate_helm: [
@@ -294,6 +298,10 @@ const ITEM_NAMES: Record<string, any> = {
       cloth_helm: [
         "Frayed Helmet","Leaf Circlet","Vine Wreath","Dryad's Diadem",
         "Bloomcrown","Fernweave Cowl","Spore-dusted Hood","Briarvine Circlet",
+      ],
+      hood: [
+        "Tattered Hood","Shadow Cowl","Thief's Mask","Nightshade Hood",
+        "Briarshadow Cowl","Mossveil Mask","Stalker's Hood","Fern Shadow Mask",
       ],
     },
     gloves: [
@@ -381,6 +389,10 @@ const ITEM_NAMES: Record<string, any> = {
         "Sand Wrap Armor","Heatweave Robe","Pharaoh's Linen","Desert Wraps",
         "Sunpriest's Vestment","Emberweave Robes","Sandstorm Shawl","Tomb Oracle's Wrap",
       ],
+      leather: [
+        "Sandthief's Jerkin","Dune Prowler's Vest","Tomb Raider's Leather","Scorpion-scale Vest",
+        "Mirage Stalker's Coat","Ember Shadow Tunic","Desert Cutthroat's Jerkin","Sandviper Leather",
+      ],
     },
     helmet: {
       plate_helm: [
@@ -394,6 +406,10 @@ const ITEM_NAMES: Record<string, any> = {
       cloth_helm: [
         "Tomb Mask","Desert Cowl","Heatwave Veil","Mirage Hood",
         "Sandpriest's Headwrap","Ember Oracle's Veil","Sun Seer's Diadem","Pharaoh's Veil",
+      ],
+      hood: [
+        "Tomb Robber's Hood","Desert Shade Cowl","Sandthief's Mask","Scorpion Veil",
+        "Dune Lurker's Hood","Mirage Phantom Cowl","Ember Assassin's Mask","Sand Wraith Hood",
       ],
     },
     gloves: [
@@ -479,6 +495,10 @@ const ITEM_NAMES: Record<string, any> = {
         "Padded Coat","Frostweave Robe","Blizzard Robes",
         "Glacial Oracle's Wrap","Snowdrift Vestment","Tundra Mage's Robes","Cryomancer's Coat","Permafrost Shawl",
       ],
+      leather: [
+        "Frost Prowler's Jerkin","Tundra Thief's Vest","Icewalker Leather","Glacial Cutpurse Coat",
+        "Snowshadow Jerkin","Permafrost Lurker's Vest","Blizzard Stalker Leather","Avalanche Shade Tunic",
+      ],
     },
     helmet: {
       plate_helm: [
@@ -492,6 +512,10 @@ const ITEM_NAMES: Record<string, any> = {
       cloth_helm: [
         "Wool Cap","Icecrystal Crown","Cryomancer's Crown",
         "Tundra Oracle's Circlet","Snowdrift Diadem","Glacial Mage's Cap","Avalanche Cowl","Blizzard Crown of Frost",
+      ],
+      hood: [
+        "Frost Assassin's Hood","Tundra Shade Cowl","Icewalker's Mask","Glacial Phantom Hood",
+        "Snowdrift Shadow Cowl","Permafrost Wraith Mask","Blizzard Lurker's Hood","Avalanche Thief's Cowl",
       ],
     },
     gloves: [
@@ -576,6 +600,10 @@ const ITEM_NAMES: Record<string, any> = {
         "Tattered Shadow Robe","Darkweave Robe","Shadowstitch Coat",
         "Void Oracle's Robes","Abyssal Vestment","Lich Robes","Cursed Shroud","Necrotic Wrap",
       ],
+      leather: [
+        "Shadowstep Jerkin","Void Stalker's Vest","Abyssal Cutthroat Leather","Wraith-touched Vest",
+        "Dread Assassin's Coat","Umbral Prowler Tunic","Nightmare Thief's Jerkin","Rift Shadow Leather",
+      ],
     },
     helmet: {
       plate_helm: [
@@ -589,6 +617,10 @@ const ITEM_NAMES: Record<string, any> = {
       cloth_helm: [
         "Lich Crown","Wraith Crown","Soul Crown",
         "Void Oracle's Diadem","Abyssal Circlet","Nightmare Mage's Cowl","Necrotic Crown","Umbral Seer's Diadem",
+      ],
+      hood: [
+        "Shadow Assassin's Hood","Void Phantom Cowl","Abyssal Shade Mask","Wraith Lurker's Hood",
+        "Dread Shadow Cowl","Umbral Killer's Mask","Nightmare Veil","Rift Phantom's Hood",
       ],
     },
     gloves: [
@@ -673,6 +705,10 @@ const ITEM_NAMES: Record<string, any> = {
         "Pale Celestial Wrap","Astral Robe","Nebula Vestments",
         "Empyrean Oracle's Robes","Cosmic Archmage Robes","Zodiac Vestment","Starweave Robes","Seraph's Shroud",
       ],
+      leather: [
+        "Starshade Jerkin","Celestial Prowler's Vest","Nova Assassin's Leather","Cosmic Shadow Vest",
+        "Empyrean Cutthroat's Coat","Astral Phantom Tunic","Zodiac Thief's Jerkin","Quasar Shade Leather",
+      ],
     },
     helmet: {
       plate_helm: [
@@ -686,6 +722,10 @@ const ITEM_NAMES: Record<string, any> = {
       cloth_helm: [
         "Starlight Crown","Divinity Crown","Quasar Crown",
         "Empyrean Circlet","Nova Archmage's Crown","Cosmic Diadem","Zodiac Mage's Crown","Seraph's Diadem",
+      ],
+      hood: [
+        "Starshade Hood","Celestial Phantom Cowl","Nova Assassin's Mask","Cosmic Wraith Hood",
+        "Empyrean Shadow Cowl","Astral Lurker's Mask","Zodiac Shade Hood","Quasar Phantom Veil",
       ],
     },
     gloves: [
