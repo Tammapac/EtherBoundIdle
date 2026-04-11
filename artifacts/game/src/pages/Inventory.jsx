@@ -199,7 +199,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
           </span>
         )}
         <div className="flex items-center gap-2 mb-1">
-          <div className="relative flex-shrink-0 w-12 h-12 overflow-hidden flex items-center justify-center">
+          <div className="relative flex-shrink-0 w-12 h-12 flex items-center justify-center">
             {getItemSprite(item) ? (
               <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
             ) : (
@@ -278,7 +278,7 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
         }`}
         title={item ? item.name : SLOT_LABELS[slot]}
       >
-        <div className="w-10 h-10 flex-shrink-0 overflow-hidden flex items-center justify-center">
+        <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
           {item && getItemSprite(item) ? (
             <img src={getItemSprite(item)} alt="" className="w-10 h-10 sprite-outline" style={{ imageRendering: "pixelated" }} />
           ) : (

@@ -109,7 +109,7 @@
 
 /* Pixel art sprite outline — makes dark sprites visible on dark backgrounds */
 .sprite-outline {
-  filter: drop-shadow(0 0 1px rgba(200, 200, 200, 0.45)) drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.2));
+  filter: drop-shadow(1px 0 0 rgba(200, 200, 200, 0.3)) drop-shadow(-1px 0 0 rgba(200, 200, 200, 0.3)) drop-shadow(0 1px 0 rgba(200, 200, 200, 0.3)) drop-shadow(0 -1px 0 rgba(200, 200, 200, 0.3));
 }
 
 .glow-cyan {
