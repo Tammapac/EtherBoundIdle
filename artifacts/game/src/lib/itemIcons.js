@@ -164,7 +164,12 @@ function spriteHash(str) {
  * Uses item ID/name to consistently assign the same sprite to the same item.
  */
 // Subtypes that share sprites with another subtype
-const SPRITE_ALIAS = { blade: "dagger", staff: "wand", gloves: "cloth_gloves", boots: "cloth_boots" };
+const SPRITE_ALIAS = {
+  blade: "dagger", staff: "wand",
+  gloves: "cloth_gloves", boots: "cloth_boots",
+  leather_gloves: "cloth_gloves", leather_boots: "cloth_boots",
+  shadow_gloves: "plate_gloves", shadow_boots: "plate_boots",
+};
 
 function getEquipmentSprite(item) {
   if (!item) return null;
