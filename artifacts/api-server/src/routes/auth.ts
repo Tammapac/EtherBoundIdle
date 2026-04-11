@@ -61,7 +61,11 @@ router.post("/auth/register", async (req: Request, res: Response) => {
     return sendSuccess(res, { user });
   } catch (err: any) {
     console.error("REGISTER ERROR:", err);
-    return sendError(res, 500, "Register failed");
+    // Duplicate email
+    if (err?.code === "23505" || err?.message?.includes("unique") || err?.message?.includes("duplicate")) {
+      return sendError(res, 409, "Email already registered");
+    }
+    return sendError(res, 500, `Register failed: ${err?.message || "Unknown error"}`);
   }
 });
 

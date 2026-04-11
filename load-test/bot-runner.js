@@ -103,11 +103,13 @@ async function api(method, path, body, cookie) {
     });
     const elapsed = Date.now() - start;
     recordLatency(elapsed);
-    const json = await res.json();
+    const text = await res.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { error: text.slice(0, 300) }; }
     if (!res.ok || json.success === false) {
       metrics.totalErrors++;
-      if (VERBOSE) console.error(`  [ERR] ${method} ${path}: ${json.error || res.status}`);
-      return { ok: false, error: json.error || `HTTP ${res.status}`, headers: res.headers };
+      if (VERBOSE) console.error(`  [ERR] ${method} ${path}: ${json.error || json.message || res.status}`);
+      return { ok: false, error: json.error || json.message || `HTTP ${res.status}`, headers: res.headers };
     }
     return { ok: true, data: json.data ?? json, headers: res.headers };
   } catch (e) {
@@ -131,7 +133,7 @@ function extractSid(headers) {
 class Bot {
   constructor(index) {
     this.index = index;
-    this.email = `bot${index}_${Date.now()}@loadtest.local`;
+    this.email = `bot${index}_${Date.now()}@loadtest.com`;
     this.password = "loadtest123";
     this.sid = null;
     this.userId = null;
