@@ -129,19 +129,19 @@ const RARITY_TO_TIER = {
 const WEAPON_SPRITE_COUNTS = {
   wand:       { common: 64, rare: 62, legendary: 64 },
   light:      { common: 64, rare: 64, legendary: 64 },
-  cloth_helm: { common: 49, rare: 40, legendary: 20 },
-  heavy:      { common: 30, rare: 31, legendary: 26 },
-  plate_helm: { common: 23, rare: 27, legendary: 12 },
+  cloth_helm: { common: 49, rare: 64, legendary: 64 },
+  heavy:      { common: 30, rare: 31, legendary: 29 },
+  plate_helm: { common: 23, rare: 27, legendary: 20 },
   sword:      { common: 32, rare: 32, legendary: 32 },
   axe:        { common: 32, rare: 31, legendary: 36 },
   mace:       { common: 32, rare: 32, legendary: 30 },
   bow:        { common: 64, rare: 64, legendary: 40 },
   crossbow:   { common: 64, rare: 64, legendary: 64 },
   medium:       { common: 56, rare: 56, legendary: 56 },
-  leather_helm: { common: 40, rare: 24, legendary: 64 },
+  leather_helm: { common: 40, rare: 64, legendary: 64 },
   dagger:   { common: 64, rare: 64, legendary: 64 },
-  leather:  { common: 64, rare: 56, legendary: 64 },
-  hood:     { common: 64, rare: 64, legendary: 56 },
+  leather:  { common: 64, rare: 64, legendary: 64 },
+  hood:     { common: 64, rare: 64, legendary: 64 },
   ring:     { common: 64, rare: 64, legendary: 64 },
   amulet:   { common: 64, rare: 64, legendary: 64 },
   cloth_gloves:  { common: 64, rare: 64, legendary: 64 },
@@ -183,7 +183,7 @@ function getEquipmentSprite(item) {
   if (!count) return null;
   const seed = String(item.name || item.id || "");
   const idx = (spriteHash(seed) % count) + 1;
-  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png?v=3`;
+  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png?v=4`;
 }
 
 /**
