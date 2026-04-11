@@ -146,6 +146,8 @@ const WEAPON_SPRITE_COUNTS = {
   amulet:   { common: 64, rare: 64, legendary: 64 },
   cloth_gloves:  { common: 64, rare: 64, legendary: 64 },
   cloth_boots:   { common: 64, rare: 64, legendary: 64 },
+  plate_gloves:  { common: 64, rare: 64, legendary: 64 },
+  plate_boots:   { common: 64, rare: 64, legendary: 64 },
 };
 
 // Simple hash from item ID or name to get a consistent sprite index
