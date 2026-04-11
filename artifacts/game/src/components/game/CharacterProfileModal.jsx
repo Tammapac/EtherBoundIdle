@@ -77,13 +77,13 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
   });
 
   const { data: guildData } = useQuery({
-    queryKey: ["guildForStats", character?.guildId],
+    queryKey: ["guildForStats", character?.guild_id],
     queryFn: async () => {
-      if (!character?.guildId) return null;
-      const guilds = await base44.entities.Guild.filter({ id: character.guildId });
+      if (!character?.guild_id) return null;
+      const guilds = await base44.entities.Guild.filter({ id: character.guild_id });
       return guilds?.[0] || null;
     },
-    enabled: !!character?.guildId,
+    enabled: !!character?.guild_id,
     staleTime: 60000,
   });
 

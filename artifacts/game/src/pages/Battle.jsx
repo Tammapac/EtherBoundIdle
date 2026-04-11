@@ -90,6 +90,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   const lastDamageReportRef = useRef(0);
   const lastSpawnReportRef = useRef(0);
   const lastClaimReportRef = useRef(0);
+  const spawnScheduledRef = useRef(false);
 
   const [lastPetInfo, setLastPetInfo] = useState(null);
   const queryClient = useQueryClient();
@@ -141,6 +142,20 @@ export default function Battle({ character, onCharacterUpdate }) {
     queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
     enabled: !!character?.id,
   });
+
+  // Fetch guild data for combat bonuses (damage, exp, gold)
+  const { data: guildData } = useQuery({
+    queryKey: ["guildCombat", character?.guild_id],
+    queryFn: async () => {
+      if (!character?.guild_id) return null;
+      const guilds = await base44.entities.Guild.filter({ id: character.guild_id });
+      return guilds?.[0] || null;
+    },
+    enabled: !!character?.guild_id,
+    staleTime: 60000,
+  });
+  const guildBuffs = guildData?.buffs && typeof guildData.buffs === 'object' ? guildData.buffs : {};
+  const guildDmgMult = guildBuffs.damage_bonus ? 1 + (guildBuffs.damage_bonus / 100) : 1;
 
   // Initialize ProcEngine when equipped items change
   const equippedItems = allItems.filter(i => i.equipped);
@@ -207,6 +222,7 @@ export default function Battle({ character, onCharacterUpdate }) {
 
   const spawnEnemy = useCallback(() => {
     if (!region) return;
+    spawnScheduledRef.current = false;
     const eliteRoll = Math.random();
     let key;
     let isEliteSpawn = false;
@@ -330,6 +346,7 @@ export default function Battle({ character, onCharacterUpdate }) {
         if (newHp <= 0) {
           // Enemy killed by reflect — schedule respawn
           enemyDeadRef.current = true;
+          spawnScheduledRef.current = true;
           addLog(`💥 ${currentEnemyData.name} was killed by reflected damage!`);
           setCombatPhase("enemy_dead");
           setTimeout(() => spawnEnemy(), 2000);
@@ -409,7 +426,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     const { total, derived } = calculateFinalStats(character, equipped);
     const { damage, isCrit } = rollDamage(total, character.class, skill || undefined, character);
 
-    let finalDmg = damage;
+    let finalDmg = Math.floor(damage * guildDmgMult);
     if (skill) {
       if (skill.damage > 0) finalDmg = Math.floor(damage * (skill.damage || 1.5));
       setPlayerMp(prev => prev - skill.mp);
@@ -722,6 +739,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       sharedEnemyLoadedAtRef.current = Date.now(); // cooldown before next enemy
       addLog("⏳ Enemy spawning...");
     } else {
+      spawnScheduledRef.current = true;
       setTimeout(() => spawnEnemy(), 2500);
     }
   }, [enemy, character, partySize, queryClient, spawnEnemy, isSharedBattle, isLeader, partyData?.id]);
@@ -1037,8 +1055,8 @@ export default function Battle({ character, onCharacterUpdate }) {
 
         // Load a NEW shared enemy (different from current)
         if (se.key && se.currentHp > 0 && (!enemy || enemy.key !== se.key || enemy.spawned_at !== se.spawned_at)) {
-          // Don't swap enemies mid-fight or during death animation
-          if (enemy && (enemyDeadRef.current || combatPhase === "player_turn" || combatPhase === "enemy_turn" || combatPhase === "enemy_dead")) {
+          // Don't swap enemies during active combat turns (player attacking or enemy attacking)
+          if (enemy && (combatPhase === "player_turn" || combatPhase === "enemy_turn")) {
             return;
           }
           // Respect cooldown between enemy loads
@@ -1079,18 +1097,23 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (!character?.id || !region) return;
     // If no enemy and not in shared battle mode, spawn one after a short delay
     if (!enemy && !isSharedBattle && (combatPhase === "idle" || combatPhase === "enemy_dead")) {
+      // Skip if a spawn is already scheduled (e.g. from handleEnemyDefeat)
+      if (spawnScheduledRef.current) return;
       const timer = setTimeout(() => {
+        if (spawnScheduledRef.current) return;
         enemyDeadRef.current = false;
         spawnEnemy();
-      }, 200);
+      }, 1500);
       return () => clearTimeout(timer);
     }
     // Recovery: enemy_dead phase with enemy present (stale cache restore or missed spawn)
     if (combatPhase === "enemy_dead" && !isSharedBattle) {
+      if (spawnScheduledRef.current) return;
       const timer = setTimeout(() => {
+        if (spawnScheduledRef.current) return;
         enemyDeadRef.current = false;
         spawnEnemy();
-      }, 2500);
+      }, 3000);
       return () => clearTimeout(timer);
     }
     // Safety: if stuck in enemy_turn for too long (e.g. doEnemyTurn aborted), recover
