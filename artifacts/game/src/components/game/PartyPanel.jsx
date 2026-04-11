@@ -36,14 +36,15 @@ export default function PartyPanel({ character }) {
   const [memberDetails, setMemberDetails] = useState({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const partyPollInterval = useSmartPolling(8000);
-  const invitePollInterval = useSmartPolling(POLL_INTERVALS.COMBAT);
+  // Polling is now a fallback — primary updates come via socket "party:update" event
+  const partyPollInterval = useSmartPolling(30000);
+  const invitePollInterval = useSmartPolling(30000);
 
   const { data: partyData } = useQuery({
     queryKey: ["party", character?.id],
     queryFn: () => fetchMyParty(character.id),
     enabled: !!character?.id,
-    staleTime: 2000,
+    staleTime: 5000,
     refetchInterval: partyPollInterval,
     refetchOnWindowFocus: "always",
   });
@@ -77,7 +78,7 @@ export default function PartyPanel({ character }) {
       return base44.entities.PartyInvite.filter({ to_character_id: character.id, status: 'pending' });
     },
     enabled: !!character?.id,
-    staleTime: 5000,
+    staleTime: 10000,
     refetchInterval: invitePollInterval,
   });
 

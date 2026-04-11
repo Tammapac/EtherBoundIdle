@@ -1563,6 +1563,7 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
         members: [{ character_id: characterId, name: char?.name || "Unknown", class: char?.class, level: char?.level }],
         status: "open",
       }).returning();
+      emitToCharacter(characterId, "party:update", { action: "created" });
       sendSuccess(res, { success: true, party });
       return;
     }
@@ -1621,6 +1622,8 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
         toCharacterId: resolvedTargetId,
         status: "pending",
       }).returning();
+      // Instantly notify the invited player
+      emitToCharacter(resolvedTargetId, "party:update", { action: "invited", fromName: fromChar?.name });
       sendSuccess(res, { success: true, invite, partyId: resolvedPartyId });
       return;
     }
@@ -1668,6 +1671,10 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       await db.update(partyInvitesTable).set({ status: "accepted" }).where(eq(partyInvitesTable.id, inviteId));
       // Return the full party so the frontend can update its cache immediately
       const [updatedParty] = await db.select().from(partiesTable).where(eq(partiesTable.id, inv.partyId));
+      // Notify all party members about the new member
+      for (const m of members) {
+        emitToCharacter(m.character_id, "party:update", { action: "member_joined", name: char?.name });
+      }
       sendSuccess(res, { success: true, party: updatedParty });
       return;
     }
@@ -1676,6 +1683,8 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       const [inv] = await db.select().from(partyInvitesTable).where(eq(partyInvitesTable.id, inviteId));
       if (inv && inv.toCharacterId !== characterId) { sendSuccess(res, { success: false, message: "This invite is not for you" }); return; }
       await db.update(partyInvitesTable).set({ status: "declined" }).where(eq(partyInvitesTable.id, inviteId));
+      // Notify the inviter that it was declined
+      if (inv?.fromCharacterId) emitToCharacter(inv.fromCharacterId, "party:update", { action: "declined" });
       sendSuccess(res, { success: true });
       return;
     }
@@ -1690,6 +1699,10 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
       const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, characterId));
       members.push({ character_id: characterId, name: char?.name || "Unknown", class: char?.class, level: char?.level });
       await db.update(partiesTable).set({ members, updatedAt: new Date() }).where(eq(partiesTable.id, partyId));
+      // Notify all party members
+      for (const m of members) {
+        emitToCharacter(m.character_id, "party:update", { action: "member_joined", name: char?.name });
+      }
       sendSuccess(res, { success: true });
       return;
     }
@@ -1697,7 +1710,8 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
     if (action === "leave" && partyId) {
       const [party] = await db.select().from(partiesTable).where(eq(partiesTable.id, partyId));
       if (party) {
-        const members = ((party.members as any[]) || []).filter((m: any) => m.character_id !== characterId);
+        const allMembers = (party.members as any[]) || [];
+        const members = allMembers.filter((m: any) => m.character_id !== characterId);
         if (members.length === 0) {
           await db.update(partiesTable).set({ status: "disbanded", members: [], updatedAt: new Date() }).where(eq(partiesTable.id, partyId));
         } else {
@@ -1708,13 +1722,23 @@ router.post("/functions/manageParty", async (req: Request, res: Response) => {
           }
           await db.update(partiesTable).set(updateData).where(eq(partiesTable.id, partyId));
         }
+        // Notify remaining members and the leaving player
+        for (const m of allMembers) {
+          emitToCharacter(m.character_id, "party:update", { action: "member_left" });
+        }
       }
       sendSuccess(res, { success: true });
       return;
     }
 
     if (action === "disband" && partyId) {
+      const [party] = await db.select().from(partiesTable).where(eq(partiesTable.id, partyId));
+      const disbandMembers = party ? ((party.members as any[]) || []) : [];
       await db.update(partiesTable).set({ status: "disbanded", members: [], updatedAt: new Date() }).where(eq(partiesTable.id, partyId));
+      // Notify all members about disband
+      for (const m of disbandMembers) {
+        emitToCharacter(m.character_id, "party:update", { action: "disbanded" });
+      }
       sendSuccess(res, { success: true });
       return;
     }

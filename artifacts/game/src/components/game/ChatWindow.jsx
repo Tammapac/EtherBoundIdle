@@ -41,8 +41,8 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
       "-created_date",
       50
     ),
-    refetchInterval: isOpen ? pollInterval : false,
-    staleTime: POLL_INTERVALS.SOCIAL,
+    refetchInterval: isOpen ? 60000 : false, // Fallback polling — primary updates via socket
+    staleTime: 10000,
     enabled: activeTab !== "whisper",
   });
 

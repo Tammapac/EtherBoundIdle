@@ -92,20 +92,29 @@ export function SocketProvider({ children, character, onCharacterUpdate }) {
       queryClient.invalidateQueries({ queryKey: ["world-boss"] });
     });
 
-    // Chat message
-    socket.on("chat:message", () => {
+    // Chat message (real-time push — invalidate all chat/whisper queries)
+    socket.on("chat:message", (data) => {
       queryClient.invalidateQueries({ queryKey: ["chat"] });
+      queryClient.invalidateQueries({ queryKey: ["whispers"] });
+      window.dispatchEvent(new CustomEvent("chat-message", { detail: data }));
     });
 
-    // Party updates
-    socket.on("party:update", () => {
+    // Party updates (real-time push — instant invite/join/leave/disband notifications)
+    socket.on("party:update", (data) => {
       queryClient.invalidateQueries({ queryKey: ["party"] });
+      queryClient.invalidateQueries({ queryKey: ["partyInvites"] });
       queryClient.invalidateQueries({ queryKey: ["party-invites"] });
+      window.dispatchEvent(new CustomEvent("party-update", { detail: data }));
     });
 
     // Resources (life skills)
     socket.on("resources:update", () => {
       queryClient.invalidateQueries({ queryKey: ["resources"] });
+    });
+
+    // Presence updates (online/offline status of other players)
+    socket.on("presence:update", (data) => {
+      window.dispatchEvent(new CustomEvent("presence-update", { detail: data }));
     });
 
     socketRef.current = socket;

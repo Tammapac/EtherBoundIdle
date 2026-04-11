@@ -58,12 +58,17 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
         const sockets = characterSockets.get(oldCharId);
         if (sockets) {
           sockets.delete(socket.id);
-          if (sockets.size === 0) characterSockets.delete(oldCharId);
+          if (sockets.size === 0) {
+            characterSockets.delete(oldCharId);
+            // Broadcast offline status when last socket disconnects
+            io!.emit("presence:update", { characterId: oldCharId, status: "offline" });
+          }
         }
       }
 
       // Set up new mapping
       socketCharacter.set(socket.id, characterId);
+      const wasOnline = characterSockets.has(characterId);
       if (!characterSockets.has(characterId)) {
         characterSockets.set(characterId, new Set());
       }
@@ -73,6 +78,11 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
       socket.join(`char:${characterId}`);
       // Join user-level room (all characters of this user)
       socket.join(`user:${userId}`);
+
+      // Broadcast online status when first socket connects for this character
+      if (!wasOnline) {
+        io!.emit("presence:update", { characterId, status: "online" });
+      }
 
       logger.info({ socketId: socket.id, characterId }, "Character selected on socket");
     });
@@ -94,7 +104,11 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
         const sockets = characterSockets.get(charId);
         if (sockets) {
           sockets.delete(socket.id);
-          if (sockets.size === 0) characterSockets.delete(charId);
+          if (sockets.size === 0) {
+            characterSockets.delete(charId);
+            // Broadcast offline when last socket for this character disconnects
+            io!.emit("presence:update", { characterId: charId, status: "offline" });
+          }
         }
         socketCharacter.delete(socket.id);
       }

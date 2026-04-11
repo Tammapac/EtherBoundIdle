@@ -27,7 +27,7 @@ import {
 import { eq, and, desc, asc, lt, sql, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/authMiddleware";
 import { sendSuccess, sendError } from "../lib/response";
-import { emitToCharacter, emitToGuild } from "../lib/socketio.js";
+import { emitToCharacter, emitToGuild, emitToAll } from "../lib/socketio.js";
 
 const router: IRouter = Router();
 
@@ -555,6 +555,23 @@ router.post("/entities/:entity", async (req: Request, res: Response) => {
         req.log.warn({ err: pruneErr }, "Chat message pruning failed (non-critical)");
       }
     }
+
+    // ── Real-time push for created entities ──
+    try {
+      if (entity === "ChatMessage") {
+        const channel = (row as any).channel || "global";
+        if (channel === "guild" && (row as any).guildId) {
+          emitToGuild(String((row as any).guildId), "chat:message", toClient(entity, row));
+        } else {
+          emitToAll("chat:message", toClient(entity, row));
+        }
+      } else if (entity === "PrivateMessage") {
+        const toCharId = (row as any).toCharacterId;
+        const fromCharId = (row as any).fromCharacterId;
+        if (toCharId) emitToCharacter(String(toCharId), "chat:message", toClient(entity, row));
+        if (fromCharId) emitToCharacter(String(fromCharId), "chat:message", toClient(entity, row));
+      }
+    } catch {}
 
     sendSuccess(res, toClient(entity, row));
   } catch (err: any) {

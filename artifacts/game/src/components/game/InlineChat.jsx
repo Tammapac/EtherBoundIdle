@@ -24,8 +24,8 @@ export default function InlineChat({ character, channel = "global", guildId = nu
   const { data: messages = [] } = useQuery({
     queryKey: ["chat", channel, guildId],
     queryFn: () => base44.entities.ChatMessage.filter(query, "-created_date", 50),
-    refetchInterval: pollInterval,
-    staleTime: POLL_INTERVALS.SOCIAL,
+    refetchInterval: 60000, // Fallback — primary updates via socket
+    staleTime: 10000,
   });
 
   const sendMutation = useMutation({
