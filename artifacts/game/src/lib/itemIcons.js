@@ -142,7 +142,7 @@ const WEAPON_SPRITE_COUNTS = {
   dagger:   { common: 64, rare: 64, legendary: 64 },
   leather:  { common: 64, rare: 56, legendary: 64 },
   hood:     { common: 64, rare: 64, legendary: 56 },
-  ring:     { common: 64, rare: 48, legendary: 64 },
+  ring:     { common: 64, rare: 64, legendary: 64 },
   amulet:   { common: 64, rare: 64, legendary: 64 },
   cloth_gloves:  { common: 64, rare: 64, legendary: 64 },
   cloth_boots:   { common: 64, rare: 64, legendary: 64 },
@@ -183,7 +183,7 @@ function getEquipmentSprite(item) {
   if (!count) return null;
   const seed = String(item.name || item.id || "");
   const idx = (spriteHash(seed) % count) + 1;
-  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png?v=2`;
+  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png?v=3`;
 }
 
 /**
