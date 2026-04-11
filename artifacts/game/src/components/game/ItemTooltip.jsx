@@ -121,7 +121,7 @@ export default function ItemTooltip({ item, characterLevel, compareItem = null, 
       <div className="flex items-start gap-3">
         <div className={`p-2 rounded-lg ${rarity.bg} border ${rarity.border} ${isSetItem ? "ring-1 ring-yellow-400/40" : ""} ${isUnique ? "ring-1 ring-orange-400/60" : ""}`}>
           {getItemSprite(item) ? (
-            <img src={getItemSprite(item)} alt="" className="w-14 h-14" style={{ imageRendering: "pixelated" }} />
+            <img src={getItemSprite(item)} alt="" className="w-14 h-14 sprite-outline" style={{ imageRendering: "pixelated" }} />
           ) : (
             <Icon className={`w-12 h-12 ${rarity.color}`} />
           )}

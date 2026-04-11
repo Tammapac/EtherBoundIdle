@@ -146,7 +146,7 @@ export default function PlayerProfileModal({ characterId, characterName, onClose
                       }`}
                     >
                       {item && getItemSprite(item) ? (
-                        <img src={getItemSprite(item)} alt="" className="w-7 h-7 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
+                        <img src={getItemSprite(item)} alt="" className="w-7 h-7 flex-shrink-0 sprite-outline" style={{ imageRendering: "pixelated" }} />
                       ) : (
                         <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${item ? rarity?.color : "text-muted-foreground/30"}`} />
                       )}

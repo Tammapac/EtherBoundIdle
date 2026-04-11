@@ -189,7 +189,7 @@ export default function Shop({ character, onCharacterUpdate }) {
               >
                 <div className={`p-3 rounded-lg ${rarity.bg} flex-shrink-0 overflow-hidden`}>
                   {getItemSprite(item) ? (
-                    <img src={getItemSprite(item)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
+                    <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
                   ) : (
                     <Icon className={`w-10 h-10 ${rarity.color}`} />
                   )}

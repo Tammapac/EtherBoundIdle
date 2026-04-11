@@ -80,7 +80,7 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       {getItemSprite(item) ? (
-                        <img src={getItemSprite(item)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
+                        <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
                       ) : (
                         <Icon className={`w-10 h-10 ${rarity.color}`} />
                       )}

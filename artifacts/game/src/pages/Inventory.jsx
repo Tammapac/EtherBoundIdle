@@ -160,7 +160,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         )}
         <div className="flex items-center gap-2.5 mb-1">
           {getItemSprite(item) ? (
-            <img src={getItemSprite(item)} alt="" className="w-12 h-12 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
+            <img src={getItemSprite(item)} alt="" className="w-12 h-12 flex-shrink-0 sprite-outline" style={{ imageRendering: "pixelated" }} />
           ) : (
             <Icon className={`w-10 h-10 ${rarity.color} flex-shrink-0`} />
           )}
@@ -201,7 +201,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         <div className="flex items-center gap-2 mb-1">
           <div className="relative flex-shrink-0 w-12 h-12 overflow-hidden flex items-center justify-center">
             {getItemSprite(item) ? (
-              <img src={getItemSprite(item)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
+              <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
             ) : (
               <Icon className={`w-10 h-10 ${rarity.color}`} />
             )}
@@ -280,7 +280,7 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
       >
         <div className="w-10 h-10 flex-shrink-0 overflow-hidden flex items-center justify-center">
           {item && getItemSprite(item) ? (
-            <img src={getItemSprite(item)} alt="" className="w-10 h-10" style={{ imageRendering: "pixelated" }} />
+            <img src={getItemSprite(item)} alt="" className="w-10 h-10 sprite-outline" style={{ imageRendering: "pixelated" }} />
           ) : (
             <Icon className={`w-8 h-8 ${item ? rarity?.color : "text-gray-600"}`} />
           )}

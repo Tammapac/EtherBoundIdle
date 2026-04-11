@@ -274,7 +274,7 @@ export default function Leaderboard({ character }) {
                       return (
                         <div key={item.id} className={`flex items-center gap-1.5 p-1.5 rounded ${rarity?.bg || "bg-muted/30"} ${rarity?.border || "border-border"} border`}>
                           {getItemSprite(item) ? (
-                            <img src={getItemSprite(item)} alt="" className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
+                            <img src={getItemSprite(item)} alt="" className="w-8 h-8 sprite-outline" style={{ imageRendering: "pixelated" }} />
                           ) : (
                             <span className="text-sm">{item.icon || "⚔️"}</span>
                           )}
