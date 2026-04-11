@@ -100,6 +100,7 @@ async function api(method, path, body, cookie) {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(10000),
     });
     const elapsed = Date.now() - start;
     recordLatency(elapsed);
@@ -161,8 +162,14 @@ class Bot {
         this.sid = extractSid(login.headers);
         this.userId = login.data?.user?.id;
         this.log(`Logged in`);
-      } else if (login.error === "Invalid login") {
-        // Account doesn't exist — register
+      } else {
+        // Login failed — could be "Invalid login", fetch error, rate limit, etc.
+        // If it was a connection error, wait briefly before trying register
+        if (login.error?.includes("fetch failed") || login.error?.includes("ECONNREFUSED")) {
+          this.log(`Connection error: ${login.error}, retrying in 3s...`);
+          await sleep(3000);
+        }
+        // Always try to register (new email each run, account won't exist)
         const reg = await api("POST", "/auth/register", {
           email: this.email,
           password: this.password,
@@ -172,22 +179,22 @@ class Bot {
           this.sid = extractSid(reg.headers);
           this.userId = reg.data?.user?.id;
           this.log(`Registered: ${this.email}`);
+        } else if (reg.error?.includes("duplicate") || reg.error?.includes("already")) {
+          // Account exists from previous run with same email — retry login
+          this.log(`Already registered, retrying login...`);
+          await sleep(1000);
+          login = await api("POST", "/auth/login", {
+            email: this.email,
+            password: this.password,
+          });
+          if (!login.ok) { this.log(`Login retry failed: ${login.error}`); return; }
+          this.sid = extractSid(login.headers);
+          this.userId = login.data?.user?.id;
+          this.log(`Logged in (retry)`);
         } else {
           this.log(`Register failed: ${reg.error}`);
           return;
         }
-      } else {
-        // Rate limited or other error — wait and retry once
-        this.log(`Auth error: ${login.error}, retrying in 5s...`);
-        await sleep(5000);
-        login = await api("POST", "/auth/login", {
-          email: this.email,
-          password: this.password,
-        });
-        if (!login.ok) { this.log(`Login retry failed: ${login.error}`); return; }
-        this.sid = extractSid(login.headers);
-        this.userId = login.data?.user?.id;
-        this.log(`Logged in (retry)`);
       }
       if (!this.sid) { this.log("No session cookie"); return; }
 
