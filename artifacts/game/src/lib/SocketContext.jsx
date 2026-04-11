@@ -107,6 +107,16 @@ export function SocketProvider({ children, character, onCharacterUpdate }) {
       window.dispatchEvent(new CustomEvent("party-update", { detail: data }));
     });
 
+    // Party combat: shared enemy spawned by leader (instant push to non-leaders)
+    socket.on("party:enemy_spawn", (data) => {
+      window.dispatchEvent(new CustomEvent("party-enemy-spawn", { detail: data }));
+    });
+
+    // Party combat: HP sync + turn-based attack target after damage report
+    socket.on("party:enemy_hp", (data) => {
+      window.dispatchEvent(new CustomEvent("party-enemy-hp", { detail: data }));
+    });
+
     // Resources (life skills)
     socket.on("resources:update", () => {
       queryClient.invalidateQueries({ queryKey: ["resources"] });

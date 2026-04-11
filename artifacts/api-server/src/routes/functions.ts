@@ -1794,6 +1794,13 @@ router.post("/functions/partyBattleAction", async (req: Request, res: Response) 
         claimed_by: [],
       };
       await db.update(partiesTable).set({ extraData: extra }).where(eq(partiesTable.id, partyId));
+      // Push new enemy to all party members instantly via socket
+      const spawnMembers = (party.members as any[]) || [];
+      for (const m of spawnMembers) {
+        if (m.character_id !== characterId) {
+          emitToCharacter(m.character_id, "party:enemy_spawn", extra.shared_enemy);
+        }
+      }
       sendSuccess(res, { success: true, shared_enemy: extra.shared_enemy });
       return;
     }
@@ -1810,18 +1817,43 @@ router.post("/functions/partyBattleAction", async (req: Request, res: Response) 
       const oldHp = extra.shared_enemy.currentHp;
       const newHp = Math.max(0, oldHp - (damage || 0));
       extra.shared_enemy.currentHp = newHp;
+
+      // Track turn order: enemy attacks one player per turn in round-robin
+      const dmgMembers = (party.members as any[]) || [];
+      const memberIds = dmgMembers.map((m: any) => m.character_id);
+      if (!extra.shared_enemy.turn_index) extra.shared_enemy.turn_index = 0;
+      const attackTargetId = memberIds[extra.shared_enemy.turn_index % memberIds.length];
+      extra.shared_enemy.turn_index = (extra.shared_enemy.turn_index + 1) % memberIds.length;
+
       if (newHp <= 0) {
         extra.shared_enemy.killed_by = characterId;
-        // Look up killer's name for display
         const [killer] = await db.select({ name: charactersTable.name }).from(charactersTable).where(eq(charactersTable.id, characterId));
         extra.shared_enemy.killed_by_name = killer?.name || "Unknown";
       }
       await db.update(partiesTable).set({ extraData: extra }).where(eq(partiesTable.id, partyId));
+
+      // Push HP update and turn target to all party members
+      for (const m of dmgMembers) {
+        emitToCharacter(m.character_id, "party:enemy_hp", {
+          currentHp: newHp,
+          killed: newHp <= 0,
+          killed_by: extra.shared_enemy.killed_by || null,
+          killed_by_name: extra.shared_enemy.killed_by_name || null,
+          attack_target: attackTargetId,
+          attacker: characterId,
+          attacker_name: characterName || null,
+          damage: damage || 0,
+          skill_name: skillName || null,
+          is_crit: isCrit || false,
+        });
+      }
+
       sendSuccess(res, {
         success: true,
         currentHp: newHp,
         killed: newHp <= 0,
         shared_enemy: extra.shared_enemy,
+        attack_target: attackTargetId,
       });
       return;
     }
@@ -1891,28 +1923,8 @@ router.post("/functions/cleanupOnDisconnect", async (req: Request, res: Response
     const [char] = await db.select({ id: charactersTable.id }).from(charactersTable).where(eq(charactersTable.id, characterId));
     if (!char) { sendSuccess(res, { ok: true }); return; }
 
-    // Set presence to offline
+    // Set presence to offline (don't remove from party — closing a tab is not leaving)
     await db.update(presencesTable).set({ status: "offline" }).where(eq(presencesTable.characterId, characterId));
-
-    // Remove from any active party
-    const allParties = await db.select().from(partiesTable).where(sql`${partiesTable.status} != 'disbanded'`);
-    for (const party of allParties) {
-      const members = (party.members as any[]) || [];
-      const idx = members.findIndex((m: any) => m.character_id === characterId);
-      if (idx === -1) continue;
-
-      members.splice(idx, 1);
-      if (members.length === 0) {
-        await db.update(partiesTable).set({ status: "disbanded", members: [], updatedAt: new Date() }).where(eq(partiesTable.id, party.id));
-      } else {
-        const updateData: any = { members, updatedAt: new Date() };
-        if (party.leaderId === characterId) {
-          updateData.leaderId = members[0].character_id;
-        }
-        await db.update(partiesTable).set(updateData).where(eq(partiesTable.id, party.id));
-      }
-      break; // A character can only be in one party
-    }
 
     sendSuccess(res, { ok: true });
   } catch (err: any) {

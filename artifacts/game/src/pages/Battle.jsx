@@ -488,30 +488,23 @@ export default function Battle({ character, onCharacterUpdate }) {
     const mpRegenPerTurn = Math.max(Math.ceil(derived.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
     setPlayerMp(prev => Math.min(actualMaxMp, prev + mpRegenPerTurn));
 
-    // In shared battle, accumulate damage and report every 10s (not every attack)
+    // In shared battle, report every hit so server can track turns
     let newEnemyHp;
     let serverKilled = false;
     if (isSharedBattle && partyData?.id) {
-      pendingDamageRef.current += totalDamageDealt;
-      const now = Date.now();
-      const shouldReport = now - lastDamageReportRef.current > 10000 || (enemyHp - totalDamageDealt) <= 0;
-      if (shouldReport && pendingDamageRef.current > 0) {
-        lastDamageReportRef.current = now;
-        const batchedDmg = pendingDamageRef.current;
-        pendingDamageRef.current = 0;
-        try {
-          const dmgRes = await base44.functions.invoke("partyBattleAction", {
-            action: "report_damage",
-            partyId: partyData.id,
-            characterId: character.id,
-            damage: batchedDmg,
-          });
-          newEnemyHp = dmgRes?.currentHp ?? Math.max(0, enemyHp - totalDamageDealt);
-          serverKilled = dmgRes?.killed || false;
-        } catch {
-          newEnemyHp = Math.max(0, enemyHp - totalDamageDealt);
-        }
-      } else {
+      try {
+        const dmgRes = await base44.functions.invoke("partyBattleAction", {
+          action: "report_damage",
+          partyId: partyData.id,
+          characterId: character.id,
+          characterName: character.name,
+          damage: totalDamageDealt,
+          skillName: skill?.name || "Basic Attack",
+          isCrit,
+        });
+        newEnemyHp = dmgRes?.currentHp ?? Math.max(0, enemyHp - totalDamageDealt);
+        serverKilled = dmgRes?.killed || false;
+      } catch {
         newEnemyHp = Math.max(0, enemyHp - totalDamageDealt);
       }
     } else {
@@ -603,20 +596,22 @@ export default function Battle({ character, onCharacterUpdate }) {
       setAttackSpeedBonusHits(remaining);
       addLog("⚡ Quick strike!");
       if (remaining > 0) {
-        // More bonus hits queued — continue player attacks
         setTimeout(() => {
           setCombatPhase("player_turn");
           setIsPlayerTurn(true);
         }, 500);
       } else {
-        // Last bonus hit done — now enemy gets a turn
-        setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1000);
+        // In shared battle, wait for socket to tell us who gets attacked
+        if (isSharedBattle) {
+          setCombatPhase("waiting_turn");
+        } else {
+          setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1000);
+        }
       }
       return;
     }
-    // Calculate new bonus hits for this turn
-    const extraHits = Math.floor(atkSpeed) - 1; // guaranteed extra (3x = 2 extra)
-    const fractional = atkSpeed - Math.floor(atkSpeed); // 1.8 → 0.8
+    const extraHits = Math.floor(atkSpeed) - 1;
+    const fractional = atkSpeed - Math.floor(atkSpeed);
     attackSpeedAccRef.current += fractional;
     let bonusHits = extraHits;
     if (attackSpeedAccRef.current >= 1) {
@@ -632,15 +627,22 @@ export default function Battle({ character, onCharacterUpdate }) {
           setIsPlayerTurn(true);
         }, 500);
       } else {
-        // Last bonus hit — enemy turn next
-        setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1000);
+        if (isSharedBattle) {
+          setCombatPhase("waiting_turn");
+        } else {
+          setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1000);
+        }
       }
       return;
     }
 
-    // Enemy acts after short delay
-    setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1500);
-  }, [combatPhase, enemy, enemyHp, playerHp, playerMp, allItems, character, cooldowns, doEnemyTurn]);
+    // In shared battle, server decides who enemy attacks via socket
+    if (isSharedBattle) {
+      setCombatPhase("waiting_turn");
+    } else {
+      setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1500);
+    }
+  }, [combatPhase, enemy, enemyHp, playerHp, playerMp, allItems, character, cooldowns, doEnemyTurn, isSharedBattle]);
   doPlayerAttackRef.current = doPlayerAttack;
 
   const handleEnemyDefeat = useCallback(async () => {
@@ -1087,9 +1089,94 @@ export default function Battle({ character, onCharacterUpdate }) {
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 1000);
+    const interval = setInterval(poll, 5000); // Fallback poll — socket pushes are primary
     return () => clearInterval(interval);
   }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
+
+  // ── SOCKET: instant shared enemy spawn from leader ────────────────────
+  useEffect(() => {
+    if (!isSharedBattle || isLeader) return;
+    const onSpawn = (e) => {
+      const se = e.detail;
+      if (!se?.key || !se.currentHp) return;
+      sharedEnemyLoadedAtRef.current = Date.now();
+      const spawnData = {
+        ...se,
+        maxHp: se.maxHp,
+        dmg: se.dmg,
+        defense: se.defense || 0,
+        spawned_at: se.spawned_at,
+      };
+      setEnemy(spawnData);
+      setEnemyHp(se.currentHp);
+      setLootDrop(null);
+      setPlayerHp(actualMaxHp);
+      setPlayerMp(actualMaxMp);
+      setCombatPhase("player_turn");
+      setIsPlayerTurn(true);
+      sharedEnemyClaimedRef.current = false;
+      enemyDeadRef.current = false;
+      attackSpeedAccRef.current = 0;
+      setAttackSpeedBonusHits(0);
+      if (procEngineRef.current) procEngineRef.current.reset();
+      addLog(`⚔️ Party battle: ${se.name} appeared!`);
+    };
+    window.addEventListener("party-enemy-spawn", onSpawn);
+    return () => window.removeEventListener("party-enemy-spawn", onSpawn);
+  }, [isSharedBattle, isLeader, actualMaxHp, actualMaxMp]);
+
+  // ── SOCKET: HP sync + per-turn enemy attack targeting ────────────────
+  useEffect(() => {
+    if (!isSharedBattle || !character?.id) return;
+    const onHp = (e) => {
+      const data = e.detail;
+      if (!data) return;
+      // Sync enemy HP from server
+      if (data.currentHp !== undefined) setEnemyHp(data.currentHp);
+
+      // Show other party members' attacks in log
+      if (data.attacker && data.attacker !== character.id && data.damage > 0) {
+        const label = data.skill_name || "Attack";
+        addLog(`👥 ${data.attacker_name || "Ally"}: ${data.is_crit ? "💥 CRIT! " : ""}${label} → ${data.damage} dmg`);
+      }
+
+      // If enemy was killed
+      if (data.killed) {
+        if (!sharedEnemyClaimedRef.current) {
+          sharedEnemyClaimedRef.current = true;
+          enemyDeadRef.current = true;
+          setEnemyHp(0);
+          if (data.killed_by !== character.id) {
+            addLog(`👥 ${data.killed_by_name || "Party member"} defeated the enemy!`);
+          }
+          handleEnemyDefeat();
+        }
+        return;
+      }
+
+      // Per-turn enemy attack: server says which player gets attacked
+      if (data.attack_target === character.id) {
+        // This player is the target — enemy attacks us
+        setTimeout(() => doEnemyTurn(playerHp, enemy), 800);
+      } else {
+        // Not our turn to be attacked — go straight back to player turn
+        setCombatPhase("player_turn");
+        setIsPlayerTurn(true);
+      }
+    };
+    window.addEventListener("party-enemy-hp", onHp);
+    return () => window.removeEventListener("party-enemy-hp", onHp);
+  }, [isSharedBattle, character?.id, playerHp, enemy, doEnemyTurn, handleEnemyDefeat]);
+
+  // ── FALLBACK: if waiting_turn socket event doesn't arrive, resume after 3s ──
+  useEffect(() => {
+    if (combatPhase !== "waiting_turn") return;
+    const fallback = setTimeout(() => {
+      setCombatPhase("player_turn");
+      setIsPlayerTurn(true);
+    }, 3000);
+    return () => clearTimeout(fallback);
+  }, [combatPhase]);
 
   // ── COMBAT RECOVERY: ensure player always has an enemy to fight ──
   // Handles: shared→solo transition, zone changes, stuck states, stale cache
