@@ -150,25 +150,41 @@ class Bot {
 
   async start() {
     try {
-      // 1. Register
-      const reg = await api("POST", "/auth/register", {
+      // 1. Try login first (faster if bots already registered from previous run)
+      let login = await api("POST", "/auth/login", {
         email: this.email,
         password: this.password,
       });
-      if (reg.ok) {
-        this.sid = extractSid(reg.headers);
-        this.userId = reg.data?.user?.id;
-        this.log(`Registered: ${this.email}`);
-      } else {
-        // Already exists — login
-        const login = await api("POST", "/auth/login", {
-          email: this.email,
-          password: this.password,
-        });
-        if (!login.ok) { this.log(`Login failed: ${login.error}`); return; }
+      if (login.ok) {
         this.sid = extractSid(login.headers);
         this.userId = login.data?.user?.id;
         this.log(`Logged in`);
+      } else if (login.error === "Invalid login") {
+        // Account doesn't exist — register
+        const reg = await api("POST", "/auth/register", {
+          email: this.email,
+          password: this.password,
+        });
+        if (reg.ok) {
+          this.sid = extractSid(reg.headers);
+          this.userId = reg.data?.user?.id;
+          this.log(`Registered: ${this.email}`);
+        } else {
+          this.log(`Register failed: ${reg.error}`);
+          return;
+        }
+      } else {
+        // Rate limited or other error — wait and retry once
+        this.log(`Auth error: ${login.error}, retrying in 5s...`);
+        await sleep(5000);
+        login = await api("POST", "/auth/login", {
+          email: this.email,
+          password: this.password,
+        });
+        if (!login.ok) { this.log(`Login retry failed: ${login.error}`); return; }
+        this.sid = extractSid(login.headers);
+        this.userId = login.data?.user?.id;
+        this.log(`Logged in (retry)`);
       }
       if (!this.sid) { this.log("No session cookie"); return; }
 

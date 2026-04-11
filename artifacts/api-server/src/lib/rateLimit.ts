@@ -69,7 +69,7 @@ export const apiRateLimit = rateLimit({
 
 export const authRateLimit = rateLimit({
   windowMs: 60_000,
-  max: 10,           // 10 auth attempts per minute per IP
+  max: parseInt(process.env.AUTH_RATE_LIMIT || "60", 10),
   keyFn: (req) => `auth:${req.ip}`,
 });
 
