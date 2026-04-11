@@ -146,8 +146,10 @@ const WEAPON_SPRITE_COUNTS = {
   amulet:   { common: 64, rare: 64, legendary: 64 },
   cloth_gloves:  { common: 64, rare: 64, legendary: 64 },
   cloth_boots:   { common: 64, rare: 64, legendary: 64 },
-  plate_gloves:  { common: 64, rare: 64, legendary: 64 },
-  plate_boots:   { common: 64, rare: 64, legendary: 64 },
+  plate_gloves:    { common: 64, rare: 64, legendary: 64 },
+  plate_boots:     { common: 64, rare: 64, legendary: 64 },
+  leather_gloves:  { common: 64, rare: 64, legendary: 64 },
+  leather_boots:   { common: 64, rare: 64, legendary: 64 },
 };
 
 // Simple hash from item ID or name to get a consistent sprite index
@@ -167,7 +169,6 @@ function spriteHash(str) {
 const SPRITE_ALIAS = {
   blade: "dagger", staff: "wand",
   gloves: "cloth_gloves", boots: "cloth_boots",
-  leather_gloves: "cloth_gloves", leather_boots: "cloth_boots",
   shadow_gloves: "plate_gloves", shadow_boots: "plate_boots",
 };
 
@@ -183,7 +184,7 @@ function getEquipmentSprite(item) {
   if (!count) return null;
   const seed = String(item.name || item.id || "");
   const idx = (spriteHash(seed) % count) + 1;
-  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png?v=4`;
+  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png?v=5`;
 }
 
 /**

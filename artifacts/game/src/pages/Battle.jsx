@@ -287,10 +287,10 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
 
-    // Push shared enemy to server for party members (throttled: every 3s)
+    // Push shared enemy to server for party members (throttled: every 1.5s)
     if (isSharedBattle && isLeader && partyData?.id) {
       const now = Date.now();
-      if (now - lastSpawnReportRef.current > 3000) {
+      if (now - lastSpawnReportRef.current > 1500) {
         lastSpawnReportRef.current = now;
         base44.functions.invoke("partyBattleAction", {
           action: "spawn_enemy",
@@ -428,7 +428,7 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     let finalDmg = Math.floor(damage * guildDmgMult);
     if (skill) {
-      if (skill.damage > 0) finalDmg = Math.floor(damage * (skill.damage || 1.5));
+      if (skill.damage > 0) finalDmg = Math.floor(damage * (skill.damage || 1.5) * guildDmgMult);
       setPlayerMp(prev => prev - skill.mp);
       setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
     }
@@ -740,7 +740,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       addLog("⏳ Enemy spawning...");
     } else {
       spawnScheduledRef.current = true;
-      setTimeout(() => spawnEnemy(), 2500);
+      setTimeout(() => spawnEnemy(), 3500);
     }
   }, [enemy, character, partySize, queryClient, spawnEnemy, isSharedBattle, isLeader, partyData?.id]);
 
@@ -1028,7 +1028,7 @@ export default function Battle({ character, onCharacterUpdate }) {
         if (!se) return;
 
         const now = Date.now();
-        const cooldownMs = 2500; // 2.5s cooldown between enemy transitions
+        const cooldownMs = 1500; // 1.5s cooldown between enemy transitions
         const isOnCooldown = now - sharedEnemyLoadedAtRef.current < cooldownMs;
 
         // Sync shared enemy HP to local state (same enemy, just HP update)
