@@ -187,7 +187,7 @@ export default function Shop({ character, onCharacterUpdate }) {
                 transition={{ delay: idx * 0.05 }}
                 className={`bg-card border rounded-xl p-4 flex items-start gap-4 ${rarity.border}`}
               >
-                <div className={`p-3 rounded-lg ${rarity.bg} flex-shrink-0`}>
+                <div className={`p-3 rounded-lg ${rarity.bg} flex-shrink-0 overflow-hidden`}>
                   {getItemSprite(item) ? (
                     <img src={getItemSprite(item)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
                   ) : (

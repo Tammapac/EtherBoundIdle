@@ -140,7 +140,7 @@ const WEAPON_SPRITE_COUNTS = {
   medium:       { common: 64, rare: 64, legendary: 64 },
   leather_helm: { common: 40, rare: 64, legendary: 64 },
   dagger:   { common: 64, rare: 64, legendary: 64 },
-  leather:  { common: 64, rare: 64, legendary: 64 },
+  leather:  { common: 64, rare: 48, legendary: 64 },
   hood:     { common: 64, rare: 64, legendary: 64 },
   ring:     { common: 64, rare: 64, legendary: 64 },
   amulet:   { common: 64, rare: 64, legendary: 64 },

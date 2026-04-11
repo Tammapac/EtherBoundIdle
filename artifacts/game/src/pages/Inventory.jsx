@@ -199,7 +199,7 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
           </span>
         )}
         <div className="flex items-center gap-2 mb-1">
-          <div className="relative flex-shrink-0">
+          <div className="relative flex-shrink-0 w-12 h-12 overflow-hidden flex items-center justify-center">
             {getItemSprite(item) ? (
               <img src={getItemSprite(item)} alt="" className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
             ) : (
@@ -278,11 +278,13 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
         }`}
         title={item ? item.name : SLOT_LABELS[slot]}
       >
-        {item && getItemSprite(item) ? (
-          <img src={getItemSprite(item)} alt="" className="w-10 h-10 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
-        ) : (
-          <Icon className={`w-8 h-8 flex-shrink-0 ${item ? rarity?.color : "text-gray-600"}`} />
-        )}
+        <div className="w-10 h-10 flex-shrink-0 overflow-hidden flex items-center justify-center">
+          {item && getItemSprite(item) ? (
+            <img src={getItemSprite(item)} alt="" className="w-10 h-10" style={{ imageRendering: "pixelated" }} />
+          ) : (
+            <Icon className={`w-8 h-8 ${item ? rarity?.color : "text-gray-600"}`} />
+          )}
+        </div>
         <div className="flex-1 min-w-0 text-left">
           <span className={`text-[10px] font-semibold truncate block leading-tight ${item ? rarity?.color : "text-gray-600"}`}>
             {item ? item.name : SLOT_LABELS[slot]}
