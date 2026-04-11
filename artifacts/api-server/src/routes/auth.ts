@@ -51,7 +51,7 @@ router.post("/auth/register", async (req: Request, res: Response) => {
       .values({
         email: email.toLowerCase().trim(),
         passwordHash,
-        username: username ?? null,
+        username: username || email.split("@")[0],
       })
       .returning();
 

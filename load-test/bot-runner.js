@@ -166,6 +166,7 @@ class Bot {
         const reg = await api("POST", "/auth/register", {
           email: this.email,
           password: this.password,
+          username: this.characterName,
         });
         if (reg.ok) {
           this.sid = extractSid(reg.headers);
