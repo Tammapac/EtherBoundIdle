@@ -71,19 +71,23 @@ export default function GuildBoss({ guild, myMemberEntry, character, onAttack, o
 
             <Button
               onClick={onAttack}
-              disabled={isAttacking || hp <= 0 || (bossCooldown && !bossCooldown.ready)}
+              disabled={isAttacking || hp <= 0 || timeLeftSec <= 0 || (bossCooldown && !bossCooldown.ready)}
               className="w-full gap-2 bg-destructive hover:bg-destructive/90"
             >
               <Swords className="w-4 h-4" />
-              {bossCooldown && !bossCooldown.ready
-                ? bossCooldown.windowFormatted
-                : "Attack Boss"}
+              {timeLeftSec <= 0
+                ? "Boss Expired"
+                : bossCooldown && !bossCooldown.ready
+                  ? bossCooldown.windowFormatted
+                  : "Attack Boss"}
             </Button>
             <p className="text-xs text-muted-foreground text-center mt-2">
               Your damage today: <span className="text-red-400 font-semibold">{myDmgToday.toLocaleString()}</span>
               {bossCooldown && (
                 <span className="block mt-1 text-yellow-400">
-                  {bossCooldown.windowFormatted} (resets every 8h)
+                  {bossCooldown.attacksLeft !== undefined
+                    ? `${bossCooldown.attacksLeft}/${bossCooldown.maxAttacks || 10} attacks remaining`
+                    : bossCooldown.windowFormatted} (resets every 8h)
                 </span>
               )}
               <span className="block mt-1 text-purple-400">Tokens awarded when boss is defeated!</span>

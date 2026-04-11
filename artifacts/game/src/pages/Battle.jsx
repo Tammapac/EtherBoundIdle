@@ -666,7 +666,7 @@ export default function Battle({ character, onCharacterUpdate }) {
         partySize: partySize,
       });
 
-      const { rewards, character: updatedChar, levelsGained, loot, droppedRune, partyBonuses, petInfo, petSkillResult } = result;
+      const { rewards, delta, levelsGained, loot, droppedRune, partyBonuses, petInfo, petSkillResult } = result;
       if (petInfo) setLastPetInfo(petInfo);
       if (petSkillResult) {
         const petIcon = petInfo?.species ? ({"Wolf":"🐺","Phoenix":"🔥","Dragon":"🐉","Turtle":"🐢","Cat":"🐱","Owl":"🦉","Slime":"🫧","Fairy":"🧚","Serpent":"🐍","Golem":"🪨"}[petInfo.species] || "🐾") : "🐾";
@@ -704,7 +704,9 @@ export default function Battle({ character, onCharacterUpdate }) {
         addLog(`⚔️ Defeated ${enemy.name}! +${rewards.exp} EXP +${rewards.gold} Gold`);
       }
 
-      onCharacterUpdate(updatedChar);
+      if (delta) {
+        onCharacterUpdate({ ...character, ...delta });
+      }
 
       queryClient.invalidateQueries({ queryKey: ["quests", character.id] });
     } catch (err) {
@@ -1021,10 +1023,9 @@ export default function Battle({ character, onCharacterUpdate }) {
 
         // Load a NEW shared enemy (different from current)
         if (se.key && se.currentHp > 0 && (!enemy || enemy.key !== se.key || enemy.spawned_at !== se.spawned_at)) {
-          // Don't swap enemies mid-fight — only load when idle or enemy_dead
-          if (enemy && (combatPhase === "player_turn" || combatPhase === "enemy_turn")) {
-            // If we're fighting our own pre-party enemy, let it finish naturally
-            if (enemy.spawned_at !== se.spawned_at) return;
+          // Don't swap enemies mid-fight or during death animation
+          if (enemy && (enemyDeadRef.current || combatPhase === "player_turn" || combatPhase === "enemy_turn" || combatPhase === "enemy_dead")) {
+            return;
           }
           // Respect cooldown between enemy loads
           if (isOnCooldown) return;

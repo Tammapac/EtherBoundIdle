@@ -538,9 +538,15 @@ export default function Inventory({ character, onCharacterUpdate }) {
 
   const sellAllMutation = useMutation({
     mutationFn: async () => {
-      const unequipped = items.filter(i => !i.equipped && SLOT_ORDER.includes(i.type));
+      const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+      const typeFilter = filter === "all" ? gearTypes : filter === "consumable" || filter === "special" || filter === "sets" ? [] : [filter];
+      const unequipped = items.filter(i => !i.equipped && typeFilter.includes(i.type));
       if (unequipped.length === 0) return;
-      await Promise.all(unequipped.map(item => base44.functions.invoke('sellItem', { itemId: item.id })));
+      // Sell in batches of 10 to avoid overwhelming the server
+      for (let i = 0; i < unequipped.length; i += 10) {
+        const batch = unequipped.slice(i, i + 10);
+        await Promise.all(batch.map(item => base44.functions.invoke('sellItem', { itemId: item.id })));
+      }
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
@@ -645,7 +651,12 @@ export default function Inventory({ character, onCharacterUpdate }) {
   };
 
   const filtered = getFilteredItems();
-  const sellableCount = items.filter(i => !i.equipped && SLOT_ORDER.includes(i.type)).length;
+  const sellableItems = (() => {
+    const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+    const typeFilter = filter === "all" ? gearTypes : filter === "consumable" || filter === "special" || filter === "sets" ? [] : [filter];
+    return items.filter(i => !i.equipped && typeFilter.includes(i.type));
+  })();
+  const sellableCount = sellableItems.length;
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
@@ -663,7 +674,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
             className="gap-1.5"
           >
             <Coins className="w-3.5 h-3.5" />
-            Sell All ({sellableCount} · {items.filter(i => !i.equipped && SLOT_ORDER.includes(i.type)).reduce((s, i) => s + (i.sell_price || 5), 0)}g)
+            Sell All {filter !== "all" ? filter.charAt(0).toUpperCase() + filter.slice(1) + "s" : ""} ({sellableCount} · {sellableItems.reduce((s, i) => s + (i.sell_price || 5), 0)}g)
           </Button>
         )}
       </div>

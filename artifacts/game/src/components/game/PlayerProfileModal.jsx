@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RARITY_CONFIG, CLASSES } from "@/lib/gameData";
 import { calculateFinalStats } from "@/lib/statSystem";
+import { getItemSprite } from "@/lib/itemIcons";
 
 const SLOT_ICONS = {
   weapon: Swords, armor: Shield, helmet: Crown,
@@ -144,7 +145,11 @@ export default function PlayerProfileModal({ characterId, characterName, onClose
                         item ? `${rarity?.border || "border-border"} bg-muted/30` : "border-border/30 bg-muted/10"
                       }`}
                     >
-                      <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${item ? rarity?.color : "text-muted-foreground/30"}`} />
+                      {item && getItemSprite(item) ? (
+                        <img src={getItemSprite(item)} alt="" className="w-7 h-7 flex-shrink-0" style={{ imageRendering: "pixelated" }} />
+                      ) : (
+                        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${item ? rarity?.color : "text-muted-foreground/30"}`} />
+                      )}
                       <div className="min-w-0">
                         <p className={`truncate ${item ? rarity?.color : "text-muted-foreground/40"}`}>
                           {item ? item.name : `No ${slot}`}

@@ -828,8 +828,8 @@ export default function Portal({ character, onCharacterUpdate }) {
             </div>
             <div className="bg-card border border-indigo-500/20 rounded-xl p-2.5 text-center">
               <Swords className="w-3.5 h-3.5 text-indigo-400 mx-auto mb-0.5" />
-              <p className="text-lg font-bold text-indigo-300">{(Math.pow(1.25, portalLevel - 1) * 100).toFixed(0)}%</p>
-              <p className="text-[9px] text-muted-foreground uppercase">Power</p>
+              <p className="text-lg font-bold text-indigo-300">+{Math.round((Math.pow(1.25, portalLevel - 1) - 1) * 100)}%</p>
+              <p className="text-[9px] text-muted-foreground uppercase">Enemy Strength</p>
             </div>
             <div className="bg-card border border-green-500/20 rounded-xl p-2.5 text-center">
               <Sparkles className="w-3.5 h-3.5 text-green-400 mx-auto mb-0.5" />

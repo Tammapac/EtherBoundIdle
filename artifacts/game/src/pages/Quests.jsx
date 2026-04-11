@@ -107,7 +107,7 @@ export default function Quests({ character, onCharacterUpdate }) {
               <h3 className="font-semibold">{quest.title}</h3>
               {quest.type === "daily" && (
                 <Badge variant="secondary" className="text-xs gap-1 flex items-center">
-                  <Clock className="w-3 h-3" /> Daily
+                  <Clock className="w-3 h-3" /> Infinite
                 </Badge>
               )}
               {quest.expires_at && (
@@ -187,7 +187,7 @@ export default function Quests({ character, onCharacterUpdate }) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="daily" className="gap-1 flex items-center justify-center">
-            <Clock className="w-4 h-4" /> Daily
+            <Clock className="w-4 h-4" /> Infinite
             {dailyQuests.filter(q => q.status !== "claimed").length > 0 && (
               <span className="ml-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
                 {dailyQuests.filter(q => q.status !== "claimed").length}

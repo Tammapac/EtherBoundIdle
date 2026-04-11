@@ -152,10 +152,15 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
   const { base, equipBonus, total, derived } = calculateFinalStats(previewChar, equippedItems, null, equippedRunes);
   derived.lootBonus = Math.min(50, Math.round((total.luck || 0) * 0.5));
 
-  // Add guild + pet bonuses to EXP/Gold display so player sees total
+  // Add guild + pet bonuses to EXP/Gold/Damage display so player sees total
   const guildBuffs2 = guildData?.buffs && typeof guildData.buffs === 'object' ? guildData.buffs : {};
   derived.expGainPct = (derived.expGainPct || 0) + (guildBuffs2.exp_bonus || 0);
   derived.goldGainPct = (derived.goldGainPct || 0) + (guildBuffs2.gold_bonus || 0);
+  if (guildBuffs2.damage_bonus) {
+    const dmgBonus = 1 + (guildBuffs2.damage_bonus / 100);
+    derived.attackPower = Math.floor((derived.attackPower || 0) * dmgBonus);
+    derived.magicAttack = Math.floor((derived.magicAttack || 0) * dmgBonus);
+  }
   if (equippedPetForStats) {
     if (equippedPetForStats.passiveType === "exp_gain") derived.expGainPct += equippedPetForStats.passiveValue || 0;
     if (equippedPetForStats.passiveType === "gold_gain") derived.goldGainPct += equippedPetForStats.passiveValue || 0;

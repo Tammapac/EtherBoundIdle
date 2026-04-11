@@ -949,9 +949,9 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
     const { characterId } = req.body;
     const now = new Date();
 
-    // Expire old daily quests that have passed their expiry or are older than 24h without expiry
+    // Expire old quests that have passed their expiry
     const existing = await db.select().from(questsTable).where(
-      and(eq(questsTable.characterId, characterId), eq(questsTable.type, "daily"))
+      and(eq(questsTable.characterId, characterId), or(eq(questsTable.type, "daily"), eq(questsTable.type, "weekly")))
     );
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     for (const q of existing) {
@@ -960,6 +960,15 @@ router.post("/functions/manageDailyQuests", async (req: Request, res: Response) 
       if (expired) {
         await db.update(questsTable).set({ status: "expired" }).where(eq(questsTable.id, q.id));
         q.status = "expired";
+      }
+    }
+
+    // Clean up old expired/completed quests to prevent buildup (keep last 20)
+    const oldQuests = existing.filter(q => q.status === "expired" || q.status === "completed");
+    if (oldQuests.length > 20) {
+      const toDelete = oldQuests.slice(0, oldQuests.length - 20);
+      for (const q of toDelete) {
+        await db.delete(questsTable).where(eq(questsTable.id, q.id));
       }
     }
 

@@ -10,6 +10,7 @@ import {
   Trophy, Medal, Swords, Coins, Crown, Lock, Trash2, Edit, Backpack, Check, X, UserPlus
 } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
+import { getItemSprite, getItemIcon } from "@/lib/itemIcons";
 import RoleBadge from "@/components/game/RoleBadge";
 
 import { useEffect } from "react";
@@ -272,7 +273,11 @@ export default function Leaderboard({ character }) {
                       const slotLabel = SLOT_LABELS[item.slot] || item.slot || "";
                       return (
                         <div key={item.id} className={`flex items-center gap-1.5 p-1.5 rounded ${rarity?.bg || "bg-muted/30"} ${rarity?.border || "border-border"} border`}>
-                          <span className="text-sm">{item.icon || "⚔️"}</span>
+                          {getItemSprite(item) ? (
+                            <img src={getItemSprite(item)} alt="" className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
+                          ) : (
+                            <span className="text-sm">{item.icon || "⚔️"}</span>
+                          )}
                           <div className="min-w-0 flex-1">
                             <p className={`text-xs font-medium truncate ${rarity?.color || "text-foreground"}`}>{item.name}</p>
                             <p className="text-[10px] text-muted-foreground">{slotLabel}</p>
