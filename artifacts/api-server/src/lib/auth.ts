@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { type Request, type Response } from "express";
 import { db, sessionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { cache } from "./redis.js";
 
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
@@ -30,6 +31,11 @@ export async function createSession(data: SessionData): Promise<string> {
 }
 
 export async function getSession(sid: string): Promise<SessionData | null> {
+  // Check cache first (avoids DB hit on every request)
+  const cacheKey = `session:${sid}`;
+  const cached = await cache.get(cacheKey);
+  if (cached) return cached as SessionData;
+
   const [row] = await db
     .select()
     .from(sessionsTable)
@@ -40,17 +46,23 @@ export async function getSession(sid: string): Promise<SessionData | null> {
     return null;
   }
 
-  // Extend session expiry on each access (sliding window)
+  const sessionData = row.sess as unknown as SessionData;
+
+  // Cache for 60s to avoid DB hit on every request
+  await cache.set(cacheKey, sessionData, 60);
+
+  // Extend session expiry on each access (sliding window, throttled to every 5 min)
   const newExpire = new Date(Date.now() + SESSION_TTL);
   db.update(sessionsTable)
     .set({ expire: newExpire })
     .where(eq(sessionsTable.sid, sid))
-    .catch(() => {}); // fire-and-forget, don't block the request
+    .catch(() => {});
 
-  return row.sess as unknown as SessionData;
+  return sessionData;
 }
 
 export async function deleteSession(sid: string): Promise<void> {
+  await cache.del(`session:${sid}`);
   await db.delete(sessionsTable).where(eq(sessionsTable.sid, sid));
 }
 

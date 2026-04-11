@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { authMiddleware } from "./middlewares/authMiddleware";
+import { apiRateLimit, authRateLimit } from "./lib/rateLimit.js";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
@@ -47,10 +48,13 @@ app.use("/api", (req, res, next) => {
     req.path.startsWith("/auth/login") ||
     req.path.startsWith("/auth/register")
   ) {
-    return next(); // ❗ diese brauchen KEINE auth
+    return authRateLimit(req, res, next);
   }
   return authMiddleware(req, res, next);
 });
+
+// Rate limit all authenticated API requests
+app.use("/api", apiRateLimit);
 
 app.use("/api", router);
 

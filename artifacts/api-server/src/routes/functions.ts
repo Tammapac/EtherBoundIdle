@@ -1519,12 +1519,16 @@ router.get("/functions/getMyParty", async (req: Request, res: Response) => {
     const characterId = req.query.characterId as string;
     if (!characterId) { sendError(res, 400, "characterId required"); return; }
     if (!(await requireCharacterOwner(req, res, characterId))) return;
-    const allActive = await db.select().from(partiesTable).where(sql`${partiesTable.status} != 'disbanded'`);
-    const myParty = allActive.find(p => {
-      if (p.leaderId === characterId) return true;
-      const members = (p.members as any[]) || [];
-      return members.some((m: any) => m.character_id === characterId);
-    }) || null;
+    // Use SQL to find party directly instead of loading all parties
+    const [myParty] = await db.select().from(partiesTable).where(
+      and(
+        sql`${partiesTable.status} != 'disbanded'`,
+        or(
+          eq(partiesTable.leaderId, characterId),
+          sql`${partiesTable.members}::jsonb @> ${JSON.stringify([{ character_id: characterId }])}::jsonb`
+        )
+      )
+    );
     // Set no-cache headers so browsers/proxies don't cache stale party state
     res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     res.set("Pragma", "no-cache");
@@ -3894,10 +3898,12 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
       req.log.error({ err: lootErr }, "fight loot generation error");
     }
 
+    // Batch quest updates (single query instead of N+1)
     try {
       const activeQuests = await db.select().from(questsTable).where(
         and(eq(questsTable.characterId, characterId), eq(questsTable.status, "active"))
       );
+      const questUpdates: { id: string; progress: number; status: string }[] = [];
       for (const q of activeQuests) {
         const objType = (q.objective as any)?.type || q.type;
         let increment = 0;
@@ -3907,19 +3913,26 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         if (increment > 0) {
           const newProgress = Math.min((q.progress || 0) + increment, q.target || 1);
           const newStatus = newProgress >= (q.target || 1) ? "completed" : "active";
-          await db.update(questsTable).set({ progress: newProgress, status: newStatus }).where(eq(questsTable.id, q.id));
+          questUpdates.push({ id: q.id, progress: newProgress, status: newStatus });
         }
+      }
+      // Batch update all quests in a single query
+      if (questUpdates.length > 0) {
+        await Promise.all(questUpdates.map(u =>
+          db.update(questsTable).set({ progress: u.progress, status: u.status }).where(eq(questsTable.id, u.id))
+        ));
       }
     } catch (questErr: any) {
       req.log.error({ err: questErr }, "fight quest update error");
     }
 
-    // Update season pass mission progress
+    // Batch season pass mission updates
     try {
       const seasonMissions = await db.select().from(seasonMissionsTable).where(
         and(eq(seasonMissionsTable.characterId, characterId), eq(seasonMissionsTable.status, "active"))
       );
       const now = new Date();
+      const missionUpdates: { id: string; progress: number; status: string }[] = [];
       for (const m of seasonMissions) {
         if (m.expiresAt && new Date(m.expiresAt) < now) continue;
         let inc = 0;
@@ -3933,8 +3946,14 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
         if (inc > 0) {
           const newProg = Math.min((m.progress || 0) + inc, m.target);
           const newSt = newProg >= m.target ? "completed" : "active";
-          await db.update(seasonMissionsTable).set({ progress: newProg, status: newSt }).where(eq(seasonMissionsTable.id, m.id));
+          missionUpdates.push({ id: m.id, progress: newProg, status: newSt });
         }
+      }
+      // Batch update all missions in parallel
+      if (missionUpdates.length > 0) {
+        await Promise.all(missionUpdates.map(u =>
+          db.update(seasonMissionsTable).set({ progress: u.progress, status: u.status }).where(eq(seasonMissionsTable.id, u.id))
+        ));
       }
     } catch (smErr: any) {
       req.log.error({ err: smErr }, "fight season mission update error");

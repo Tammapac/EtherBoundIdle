@@ -1,0 +1,14 @@
+{
+  "name": "etherbound-load-test",
+  "version": "1.0.0",
+  "description": "Bot simulation for EtherBound Idle load testing",
+  "type": "module",
+  "scripts": {
+    "test": "node bot-runner.js",
+    "ramp": "node bot-runner.js --ramp",
+    "stress": "node bot-runner.js --bots 500 --ramp-delay 100"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.7.0"
+  }
+}
