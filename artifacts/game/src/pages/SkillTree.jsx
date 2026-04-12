@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Star, Lock, CheckCircle2, Sparkles, Flame, ChevronDown, ChevronUp, Shield, Swords, X } from "lucide-react";
+import { Zap, Star, Lock, CheckCircle2, Sparkles, Flame } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { CLASS_SKILLS, SKILL_TIERS, ELEMENT_CONFIG, SKILL_SYNERGIES, getActiveSynergies, ELEMENT_STACK_BONUSES, getElementStackBonuses } from "@/lib/skillData";
 import SkillHotbar from "@/components/game/SkillHotbar";
@@ -24,176 +24,187 @@ const EFFECT_LABELS = {
   buff: { icon: "✨", label: "Buff" },
 };
 
-/* ─── Single Skill Node (square icon tile) ─── */
-function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, onClick, onHover, nodeRef }) {
+const NODE_SIZE = 72;
+const H_GAP = 16;
+const V_GAP = 120;
+const PADDING = 24;
+
+/* ======================
+   DFS PATH (from prototype)
+====================== */
+function getPath(skillId, skills, visited = new Set()) {
+  if (visited.has(skillId)) return visited;
+  visited.add(skillId);
+  const skill = skills.find(s => s.id === skillId);
+  if (skill?.requires) getPath(skill.requires, skills, visited);
+  return visited;
+}
+
+/* ======================
+   COMPUTE LAYOUT (dynamic positions from skill data)
+====================== */
+function computeLayout(filteredSkills) {
+  const tiers = {};
+  filteredSkills.forEach(s => {
+    if (!tiers[s.tier]) tiers[s.tier] = [];
+    tiers[s.tier].push(s);
+  });
+
+  const tierNums = Object.keys(tiers).map(Number).sort();
+  const maxPerRow = Math.max(...tierNums.map(t => tiers[t].length), 1);
+  const containerW = Math.max(maxPerRow * (NODE_SIZE + H_GAP) + PADDING * 2, 400);
+
+  const positions = {};
+  tierNums.forEach((tier, tierIdx) => {
+    const tierSkills = tiers[tier];
+    const count = tierSkills.length;
+    const totalW = count * NODE_SIZE + (count - 1) * H_GAP;
+    const startX = (containerW - totalW) / 2;
+
+    tierSkills.forEach((skill, i) => {
+      positions[skill.id] = {
+        x: startX + i * (NODE_SIZE + H_GAP),
+        y: PADDING + tierIdx * V_GAP
+      };
+    });
+  });
+
+  const connections = [];
+  filteredSkills.forEach(skill => {
+    if (skill.requires && positions[skill.requires]) {
+      connections.push([skill.requires, skill.id]);
+    }
+  });
+
+  const containerH = PADDING * 2 + (tierNums.length - 1) * V_GAP + NODE_SIZE;
+
+  return { positions, connections, containerW, containerH, tiers: tierNums };
+}
+
+/* ======================
+   SKILL NODE (from prototype + game styling)
+====================== */
+function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, isInPath, onClick, onHover, onLeave }) {
   const elemCfg = skill.element ? ELEMENT_CONFIG[skill.element] : { icon: "⚔️", label: "Physical" };
   const elemColor = ELEM_BORDER[skill.element] || ELEM_BORDER.physical;
-  const effectInfo = skill.effect ? EFFECT_LABELS[skill.effect.type] : null;
 
-  // Border style
-  const borderColor = learned ? elemColor : canLearn ? "#a78bfa" : "#3a3a44";
-  const bgColor = learned ? `${elemColor}15` : canLearn ? "#a78bfa10" : "#12121a";
-  const glowShadow = learned
-    ? `0 0 12px ${elemColor}44, inset 0 0 8px ${elemColor}22`
-    : canLearn
-    ? "0 0 10px #a78bfa33"
+  const borderColor = isInPath ? "#38bdf8"
+    : isSelected ? elemColor
+    : learned ? elemColor
+    : canLearn ? "#a78bfa"
+    : "#475569";
+
+  const bgColor = learned ? `${elemColor}20` : "#1e293b";
+  const shadow = isInPath ? `0 0 12px #38bdf8`
+    : isSelected ? `0 0 14px ${elemColor}66`
+    : learned ? `0 0 10px ${elemColor}44`
     : "none";
 
   return (
-    <div className="flex flex-col items-center gap-1.5" style={{ width: 88 }} ref={nodeRef}
-      onMouseEnter={() => onHover?.(skill.id)} onMouseLeave={() => onHover?.(null)}>
-      {/* The square node */}
-      <div
-        onClick={onClick}
-        className={`relative w-[72px] h-[72px] rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center ${
-          isSelected ? "scale-110" : "hover:scale-105"
-        }`}
-        style={{
-          border: `3px solid ${borderColor}`,
-          background: bgColor,
-          boxShadow: isSelected ? `0 0 16px ${elemColor}66, ${glowShadow}` : glowShadow,
-        }}
-      >
-        {/* Icon */}
-        <span className="text-4xl select-none">{elemCfg.icon}</span>
+    <div
+      onClick={onClick}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      style={{
+        width: NODE_SIZE,
+        height: NODE_SIZE,
+        border: `3px solid ${borderColor}`,
+        background: bgColor,
+        boxShadow: shadow,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        position: "relative",
+        borderRadius: 8,
+        transition: "all 0.2s",
+        transform: isSelected ? "scale(1.08)" : undefined,
+      }}
+    >
+      <span style={{ fontSize: 28, userSelect: "none" }}>{elemCfg.icon}</span>
 
-        {/* Lock overlay */}
-        {locked && !learned && (
-          <div className="absolute inset-0 rounded-lg bg-black/60 flex items-center justify-center">
-            <Lock className="w-5 h-5 text-gray-500" />
-          </div>
-        )}
+      {/* Lock overlay */}
+      {locked && !learned && (
+        <div style={{
+          position: "absolute", inset: 0, borderRadius: 6,
+          background: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <Lock style={{ width: 20, height: 20, color: "#6b7280" }} />
+        </div>
+      )}
 
-        {/* Can learn pulse indicator */}
-        {canLearn && !learned && (
-          <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center animate-pulse shadow-lg shadow-violet-500/50">
-            <Star className="w-3 h-3 text-white" />
-          </div>
-        )}
+      {/* Learned checkmark */}
+      {learned && (
+        <div style={{
+          position: "absolute", top: -6, right: -6,
+          width: 18, height: 18, borderRadius: "50%",
+          background: "#10b981", display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <CheckCircle2 style={{ width: 13, height: 13, color: "white" }} />
+        </div>
+      )}
 
-        {/* Learned checkmark */}
-        {learned && (
-          <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-          </div>
-        )}
+      {/* Can learn pulse */}
+      {canLearn && !learned && (
+        <div style={{
+          position: "absolute", top: -6, right: -6,
+          width: 18, height: 18, borderRadius: "50%",
+          background: "#8b5cf6", display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "pulse 2s infinite"
+        }}>
+          <Star style={{ width: 11, height: 11, color: "white" }} />
+        </div>
+      )}
 
-        {/* Equipped badge */}
-        {isEquipped && (
-          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-primary/80 text-[8px] font-bold text-white">
-            EQ
-          </div>
-        )}
-
-        {/* Effect type badge */}
-        {effectInfo && learned && (
-          <div className="absolute -bottom-1.5 -left-1.5 text-sm bg-black/80 rounded px-1">
-            {effectInfo.icon}
-          </div>
-        )}
-      </div>
-
-      {/* Skill name below */}
-      <p className={`text-xs text-center leading-tight font-bold truncate w-full ${
-        learned ? "text-gray-200" : locked ? "text-gray-600" : "text-gray-400"
-      }`}>
-        {skill.name}
-      </p>
+      {/* Equipped badge */}
+      {isEquipped && (
+        <div style={{
+          position: "absolute", bottom: -6, left: "50%", transform: "translateX(-50%)",
+          padding: "1px 6px", borderRadius: 4,
+          background: "rgba(139,92,246,0.8)", fontSize: 8, fontWeight: "bold", color: "white"
+        }}>EQ</div>
+      )}
     </div>
   );
 }
 
-/* ─── Build prerequisite chain (DFS up the tree, like prototype) ─── */
-function getPrereqChain(skillId, skills) {
-  const chain = new Set();
-  const pairs = [];
-  function dfs(id) {
-    if (chain.has(id)) return;
-    chain.add(id);
-    const skill = skills.find(s => s.id === id);
-    if (skill?.requires) {
-      pairs.push([skill.requires, id]);
-      dfs(skill.requires);
-    }
-  }
-  dfs(skillId);
-  return { chain, pairs };
-}
-
-/* ─── SVG Connection Lines Overlay ─── */
-function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, selectedSkillId, hoveredSkillId }) {
-  const [lines, setLines] = useState([]);
-
-  const calcLines = useCallback(() => {
-    if (!containerRef.current) return;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const newLines = [];
-
-    // Get the active skill (hovered takes priority over selected)
-    const activeId = hoveredSkillId || selectedSkillId;
-    if (!activeId) { setLines([]); return; }
-
-    // DFS up the prerequisite chain
-    const { pairs } = getPrereqChain(activeId, skills);
-    if (pairs.length === 0) { setLines([]); return; }
-
-    for (const [parentId, childId] of pairs) {
-      const fromEl = nodeRefs.current[parentId];
-      const toEl = nodeRefs.current[childId];
-      if (!fromEl || !toEl) continue;
-      if (!fromEl.isConnected || !toEl.isConnected) continue;
-
-      const fromRect = fromEl.getBoundingClientRect();
-      const toRect = toEl.getBoundingClientRect();
-      if (fromRect.width === 0 || toRect.width === 0) continue;
-
-      // Center of icon square (72px)
-      const iconH = 72;
-      const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
-      const y1 = fromRect.top + iconH / 2 - containerRect.top;
-      const x2 = toRect.left + toRect.width / 2 - containerRect.left;
-      const y2 = toRect.top + iconH / 2 - containerRect.top;
-
-      const childSkill = skills.find(s => s.id === childId);
-      const parentLearned = learnedSkills.includes(parentId);
-      const childLearned = learnedSkills.includes(childId);
-      const bothLearned = parentLearned && childLearned;
-      const elemColor = ELEM_BORDER[childSkill?.element] || "#555";
-      const isHover = !!hoveredSkillId && !selectedSkillId;
-
-      newLines.push({ x1, y1, x2, y2, bothLearned, parentLearned, elemColor, isHover, id: `${parentId}-${childId}` });
-    }
-    setLines(newLines);
-  }, [skills, learnedSkills, nodeRefs, containerRef, selectedSkillId, hoveredSkillId]);
-
-  useEffect(() => {
-    calcLines();
-    const observer = new ResizeObserver(calcLines);
-    if (containerRef.current) observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, [calcLines]);
-
-  if (lines.length === 0) return null;
-
+/* ======================
+   CONNECTION LINES (from prototype - 3 segment SVG)
+====================== */
+function ConnectionLines({ positions, connections, learnedSkills, hoverPath }) {
   return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-      {lines.map(line => {
-        // Color: learned = element color, partially = faded, locked = gray
-        const color = line.bothLearned ? line.elemColor
-          : line.parentLearned ? `${line.elemColor}aa`
-          : line.isHover ? "#38bdf8" : "#64748b";
-        const width = 4;
+    <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+      {connections.map(([a, b]) => {
+        const from = positions[a];
+        const to = positions[b];
+        if (!from || !to) return null;
 
-        // 3-segment path: down from parent, across at midY, down to child
-        const midY = line.y1 + (line.y2 - line.y1) / 2;
-        const path = `M${line.x1},${line.y1} L${line.x1},${midY} L${line.x2},${midY} L${line.x2},${line.y2}`;
+        const x1 = from.x + NODE_SIZE / 2;
+        const y1 = from.y + NODE_SIZE / 2;
+        const x2 = to.x + NODE_SIZE / 2;
+        const y2 = to.y + NODE_SIZE / 2;
+
+        const midY = y1 + (y2 - y1) / 2;
+
+        const parentLearned = learnedSkills.includes(a);
+        const childLearned = learnedSkills.includes(b);
+        const isHover = hoverPath.has(a) && hoverPath.has(b);
+
+        const color = isHover ? "#38bdf8"
+          : parentLearned && childLearned ? "#facc15"
+          : parentLearned ? "#facc1588"
+          : "#475569";
+
+        const path = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
 
         return (
-          <g key={line.id}>
-            {/* Glow layer */}
-            <path d={path} fill="none" stroke={color} strokeWidth={10} strokeOpacity={0.15} />
-            {/* Main line */}
-            <path d={path} fill="none" stroke={color} strokeWidth={width} />
+          <g key={a + b}>
+            {(isHover || (parentLearned && childLearned)) && (
+              <path d={path} fill="none" stroke={color} strokeWidth={10} strokeOpacity={0.15} />
+            )}
+            <path d={path} fill="none" stroke={color} strokeWidth={4} />
           </g>
         );
       })}
@@ -201,8 +212,10 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, select
   );
 }
 
-/* ─── Skill Preview (Left Panel) ─── */
-function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, elemStats, onLearn, isPending }) {
+/* ======================
+   SKILL PREVIEW (left panel)
+====================== */
+function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, onLearn, isPending }) {
   if (!skill) {
     return (
       <div className="border border-border/50 rounded-xl bg-black/30 p-4 flex flex-col items-center justify-center text-center h-[160px]">
@@ -277,7 +290,9 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, el
   );
 }
 
-/* ─── Synergy Panel (Right Panel) ─── */
+/* ======================
+   SYNERGY PANEL (right panel)
+====================== */
 function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
   const allSynergies = SKILL_SYNERGIES[charClass] || [];
   const activeSynergies = getActiveSynergies(charClass, learnedSkills, equippedSkills);
@@ -317,7 +332,9 @@ function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
   );
 }
 
-/* ─── Main Component ─── */
+/* ======================
+   MAIN COMPONENT
+====================== */
 export default function SkillTree({ character, onCharacterUpdate }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -326,21 +343,13 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   const [hoveredSkillId, setHoveredSkillId] = useState(null);
   const [showPreviewMobile, setShowPreviewMobile] = useState(false);
   const [showSynergyMobile, setShowSynergyMobile] = useState(false);
-  const treeContainerRef = useRef(null);
-  const nodeRefs = useRef({});
 
   const charClass = character?.class || "warrior";
-  const skills = CLASS_SKILLS[charClass] || [];
+  const allSkills = CLASS_SKILLS[charClass] || [];
   const learnedSkills = character?.skills || [];
   const skillPoints = character?.skill_points || 0;
   const charLevel = character?.level || 1;
   const equippedSkills = character?.hotbar_skills || [];
-
-  const elemStats = {
-    fire_dmg: character?.fire_dmg || 0, ice_dmg: character?.ice_dmg || 0,
-    lightning_dmg: character?.lightning_dmg || 0, poison_dmg: character?.poison_dmg || 0,
-    blood_dmg: character?.blood_dmg || 0, sand_dmg: character?.sand_dmg || 0,
-  };
 
   const learnMutation = useMutation({
     mutationFn: async (skill) => {
@@ -355,37 +364,45 @@ export default function SkillTree({ character, onCharacterUpdate }) {
     },
   });
 
-  // Group skills by tier
-  const tierGroups = useMemo(() => {
-    const groups = {};
-    for (let t = 1; t <= 6; t++) groups[t] = [];
-    for (const s of skills) {
-      if (groups[s.tier]) groups[s.tier].push(s);
-    }
-    return groups;
-  }, [skills]);
+  // Filter skills by active element
+  const filteredSkills = useMemo(() => {
+    if (!activeElement) return allSkills;
+    return allSkills.filter(s => (s.element || "none") === activeElement);
+  }, [allSkills, activeElement]);
+
+  // Compute layout positions + connections
+  const { positions, connections, containerW, containerH } = useMemo(
+    () => computeLayout(filteredSkills),
+    [filteredSkills]
+  );
+
+  // Hover path (DFS up the prereq chain)
+  const hoverPath = useMemo(() => {
+    if (!hoveredSkillId) return new Set();
+    return getPath(hoveredSkillId, filteredSkills);
+  }, [hoveredSkillId, filteredSkills]);
 
   // Available elements
   const availableElements = useMemo(() => {
     const elems = new Set();
-    for (const s of skills) elems.add(s.element || "none");
+    for (const s of allSkills) elems.add(s.element || "none");
     return ELEMENT_ORDER.filter(e => elems.has(e)).concat(elems.has("none") ? ["none"] : []);
-  }, [skills]);
+  }, [allSkills]);
 
   // Count learned per element
   const elemCounts = useMemo(() => {
     const counts = {};
     for (const e of availableElements) {
-      const es = skills.filter(s => (s.element || "none") === e);
+      const es = allSkills.filter(s => (s.element || "none") === e);
       counts[e] = { total: es.length, learned: es.filter(s => learnedSkills.includes(s.id)).length };
     }
     return counts;
-  }, [skills, learnedSkills, availableElements]);
+  }, [allSkills, learnedSkills, availableElements]);
 
-  const getFilteredSkills = (tierSkills) => {
-    if (!activeElement) return tierSkills;
-    return tierSkills.filter(s => (s.element || "none") === activeElement);
-  };
+  function canUnlock(skill) {
+    if (!skill.requires) return true;
+    return learnedSkills.includes(skill.requires);
+  }
 
   return (
     <div className="p-2 md:p-3 max-w-7xl mx-auto space-y-2">
@@ -401,7 +418,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 text-sm px-3 py-1">
             <Star className="w-3.5 h-3.5" /> {skillPoints} SP
           </Badge>
-          <Badge variant="outline" className="text-xs">{learnedSkills.length}/{skills.length}</Badge>
+          <Badge variant="outline" className="text-xs">{learnedSkills.length}/{allSkills.length}</Badge>
         </div>
       </div>
 
@@ -422,14 +439,14 @@ export default function SkillTree({ character, onCharacterUpdate }) {
       <AnimatePresence>
         {showPreviewMobile && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden lg:hidden">
-            <SkillPreview skill={selectedSkill} skills={skills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} elemStats={elemStats} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
+            <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
           </motion.div>
         )}
       </AnimatePresence>
       <AnimatePresence>
         {showSynergyMobile && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden lg:hidden">
-            <SynergyPanel charClass={charClass} skills={skills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
+            <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -440,9 +457,9 @@ export default function SkillTree({ character, onCharacterUpdate }) {
         {/* LEFT: Skill Preview + Element Stacks */}
         <div className="hidden lg:block">
           <div className="sticky top-3 space-y-3">
-            <SkillPreview skill={selectedSkill} skills={skills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} elemStats={elemStats} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
+            <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
 
-            {/* Element Stacks (left panel) */}
+            {/* Element Stacks */}
             {(() => {
               const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
               const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
@@ -478,7 +495,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           </div>
         </div>
 
-        {/* CENTER: Element Filter + Skill Tree Grid */}
+        {/* CENTER: Element Filter + Skill Tree */}
         <div className="space-y-2 min-w-0">
           {/* Element pills */}
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
@@ -503,76 +520,84 @@ export default function SkillTree({ character, onCharacterUpdate }) {
             })}
           </div>
 
-          {/* ── SKILL TREE: Tier rows with nodes and connecting lines ── */}
-          <div className="border border-border rounded-xl bg-[#0d0d14] p-3 relative" ref={treeContainerRef}>
-            {/* SVG connection lines — only shown for selected/hovered skill chain */}
-            <ConnectionLines
-              skills={skills}
-              learnedSkills={learnedSkills}
-              nodeRefs={nodeRefs}
-              containerRef={treeContainerRef}
-              selectedSkillId={selectedSkill?.id}
-              hoveredSkillId={hoveredSkillId}
-            />
-            {[1, 2, 3, 4, 5, 6].map((tier, tierIdx) => {
-              const meta = SKILL_TIERS[tier];
-              const tierUnlocked = charLevel >= meta.levelReq;
-              const filtered = getFilteredSkills(tierGroups[tier] || []);
-              const tierLearned = filtered.filter(s => learnedSkills.includes(s.id)).length;
+          {/* ═══ SKILL TREE (prototype layout) ═══ */}
+          <div className="border border-border rounded-xl bg-[#0d0d14] overflow-x-auto">
+            <div style={{
+              position: "relative",
+              width: containerW,
+              height: containerH,
+              minWidth: containerW,
+            }}>
+              {/* Connection lines (behind nodes) */}
+              <ConnectionLines
+                positions={positions}
+                connections={connections}
+                learnedSkills={learnedSkills}
+                hoverPath={hoverPath}
+              />
 
-              if (filtered.length === 0) return null;
+              {/* Skill nodes (absolute positioned) */}
+              {filteredSkills.map(skill => {
+                const pos = positions[skill.id];
+                if (!pos) return null;
 
-              return (
-                <React.Fragment key={tier}>
-                  {/* Tier label */}
-                  <div className="flex items-center gap-2 mb-3 mt-2" style={{ position: "relative", zIndex: 2 }}>
-                    <span className={`text-xs font-orbitron font-bold px-2 py-0.5 rounded ${meta.color}`}>T{tier}</span>
-                    <span className={`text-sm font-bold ${tierUnlocked ? "text-gray-200" : "text-gray-600"}`}>{meta.label}</span>
-                    {!tierUnlocked && <Lock className="w-3.5 h-3.5 text-gray-600" />}
-                    <span className={`text-xs font-bold ml-auto ${tierLearned === filtered.length && filtered.length > 0 ? "text-emerald-400" : "text-gray-600"}`}>{tierLearned}/{filtered.length}</span>
+                const isLearned = learnedSkills.includes(skill.id);
+                const prereqMet = canUnlock(skill);
+                const levelOk = charLevel >= skill.levelReq;
+                const canLearnThis = !isLearned && prereqMet && levelOk && skillPoints >= skill.cost;
+                const isLocked = !prereqMet || !levelOk;
+                const isSelected = selectedSkill?.id === skill.id;
+                const isInPath = hoverPath.has(skill.id);
+
+                return (
+                  <div key={skill.id} style={{
+                    position: "absolute",
+                    left: pos.x,
+                    top: pos.y,
+                    zIndex: 2,
+                  }}>
+                    <SkillNode
+                      skill={skill}
+                      learned={isLearned}
+                      canLearn={canLearnThis}
+                      locked={isLocked}
+                      isSelected={isSelected}
+                      isEquipped={equippedSkills.includes(skill.id)}
+                      isInPath={isInPath}
+                      onClick={() => setSelectedSkill(isSelected ? null : skill)}
+                      onHover={() => setHoveredSkillId(skill.id)}
+                      onLeave={() => setHoveredSkillId(null)}
+                    />
+                    {/* Skill name below node */}
+                    <p style={{
+                      fontSize: 10,
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      marginTop: 4,
+                      width: NODE_SIZE,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      color: isLearned ? "#e5e7eb" : isLocked ? "#4b5563" : "#9ca3af",
+                    }}>
+                      {skill.name}
+                    </p>
                   </div>
-
-                  {/* Skill nodes grid */}
-                  <div className="flex flex-wrap justify-center gap-4 mb-3" style={{ position: "relative", zIndex: 3 }}>
-                    {filtered.map(skill => {
-                      const isLearned = learnedSkills.includes(skill.id);
-                      const prereqMet = !skill.requires || learnedSkills.includes(skill.requires);
-                      const levelOk = charLevel >= skill.levelReq;
-                      const canLearnThis = !isLearned && prereqMet && levelOk && skillPoints >= skill.cost;
-                      const isLocked = !prereqMet || !levelOk;
-                      const isSelected = selectedSkill?.id === skill.id;
-
-                      return (
-                        <SkillNode
-                          key={skill.id}
-                          skill={skill}
-                          learned={isLearned}
-                          canLearn={canLearnThis}
-                          locked={isLocked}
-                          isSelected={isSelected}
-                          isEquipped={equippedSkills.includes(skill.id)}
-                          onClick={() => setSelectedSkill(isSelected ? null : skill)}
-                          onHover={setHoveredSkillId}
-                          nodeRef={(el) => { if (el) nodeRefs.current[skill.id] = el; }}
-                        />
-                      );
-                    })}
-                  </div>
-                </React.Fragment>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* RIGHT: Synergies */}
         <div className="hidden lg:block">
           <div className="sticky top-3">
-            <SynergyPanel charClass={charClass} skills={skills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
+            <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
           </div>
         </div>
       </div>
 
-      {/* ELEMENT STACKS (mobile only — on desktop it's in left panel) */}
+      {/* ELEMENT STACKS (mobile only) */}
       <div className="lg:hidden">
         {(() => {
           const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
