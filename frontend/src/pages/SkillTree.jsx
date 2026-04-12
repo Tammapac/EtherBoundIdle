@@ -401,9 +401,9 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   }
 
   return (
-    <div className="p-2 md:p-3 mx-auto space-y-2" style={{ maxWidth: "100%" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="p-2 md:p-3 space-y-2">
+      {/* Header (centered) */}
+      <div className="flex items-center justify-between max-w-5xl mx-auto">
         <div>
           <h2 className="font-orbitron text-lg font-bold flex items-center gap-2">
             <Zap className="w-5 h-5 text-primary" /> Skill Tree
@@ -418,49 +418,17 @@ export default function SkillTree({ character, onCharacterUpdate }) {
         </div>
       </div>
 
-      <SkillHotbar character={character} onCharacterUpdate={onCharacterUpdate} />
-
-      {/* Mobile toggles */}
-      <div className="flex gap-2 lg:hidden">
-        <button onClick={() => { setShowPreviewMobile(!showPreviewMobile); setShowSynergyMobile(false); }}
-          className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold border ${showPreviewMobile ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
-          <Zap className="w-3.5 h-3.5" /> Preview
-        </button>
-        <button onClick={() => { setShowSynergyMobile(!showSynergyMobile); setShowPreviewMobile(false); }}
-          className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold border ${showSynergyMobile ? "border-amber-500/50 bg-amber-500/10 text-amber-400" : "border-border text-muted-foreground"}`}>
-          <Sparkles className="w-3.5 h-3.5" /> Synergies
-        </button>
+      {/* Hotbar (centered) */}
+      <div className="max-w-5xl mx-auto">
+        <SkillHotbar character={character} onCharacterUpdate={onCharacterUpdate} />
       </div>
 
-      <AnimatePresence>
-        {showPreviewMobile && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden lg:hidden">
-            <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showSynergyMobile && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden lg:hidden">
-            <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ═══ DESKTOP: FLEX LAYOUT — left panel | center tree | right panel ═══ */}
+      <div className="hidden lg:flex gap-2 items-start">
 
-      {/* ═══ MAIN LAYOUT — panels float independently, skill tree takes full width ═══ */}
-      <div className="relative">
-
-        {/* LEFT PANEL: Skill Preview + Element Stacks (floating, not in grid) */}
-        <div className="hidden lg:block" style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: 380,
-          zIndex: 10,
-          maxHeight: "calc(100vh - 200px)",
-          overflowY: "auto",
-        }}>
-          <div className="space-y-3 pr-2">
+        {/* LEFT PANEL: Skill Preview + Element Stacks (fixed width) */}
+        <div style={{ width: 380, flexShrink: 0, maxHeight: "calc(100vh - 200px)", overflowY: "auto" }} className="scrollbar-hide">
+          <div className="space-y-3">
             <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
 
             {/* Element Stacks */}
@@ -470,7 +438,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
               const allElements = Object.keys(ELEMENT_STACK_BONUSES);
               return (
-                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5" style={{ background: "rgba(5,5,15,0.95)", backdropFilter: "blur(8px)" }}>
+                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5">
                   <h3 className="font-orbitron font-bold text-base text-violet-400 flex items-center gap-2">
                     <Flame className="w-4 h-4" /> Element Stacks
                   </h3>
@@ -499,25 +467,8 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           </div>
         </div>
 
-        {/* RIGHT PANEL: Synergies (floating, not in grid) */}
-        <div className="hidden lg:block" style={{
-          position: "absolute",
-          right: 0,
-          top: 0,
-          width: 380,
-          zIndex: 10,
-          maxHeight: "calc(100vh - 200px)",
-          overflowY: "auto",
-        }}>
-          <div className="pl-2">
-            <div style={{ background: "rgba(5,5,15,0.95)", backdropFilter: "blur(8px)", borderRadius: 12 }}>
-              <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
-            </div>
-          </div>
-        </div>
-
-        {/* CENTER: Element Filter + Skill Tree (full width, not constrained by panels) */}
-        <div className="space-y-2">
+        {/* CENTER: Element Filter + Skill Tree (fills remaining space) */}
+        <div style={{ flex: 1, minWidth: 0 }} className="space-y-2">
           {/* Element pills */}
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
             <button onClick={() => setActiveElement(null)}
@@ -567,6 +518,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               width: containerW * zoom,
               height: containerH * zoom,
               minWidth: containerW * zoom,
+              margin: "0 auto",
             }}>
             <div style={{
               transform: `scale(${zoom})`,
@@ -636,10 +588,87 @@ export default function SkillTree({ character, onCharacterUpdate }) {
             </div>
           </div>
         </div>
+
+        {/* RIGHT PANEL: Synergies (fixed width) */}
+        <div style={{ width: 380, flexShrink: 0, maxHeight: "calc(100vh - 200px)", overflowY: "auto" }} className="scrollbar-hide">
+          <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
+        </div>
       </div>
 
-      {/* ELEMENT STACKS (mobile only) */}
-      <div className="lg:hidden">
+      {/* ═══ MOBILE LAYOUT (stacked, below lg breakpoint) ═══ */}
+      <div className="lg:hidden space-y-2">
+        {/* Element pills */}
+        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+          <button onClick={() => setActiveElement(null)}
+            className={`px-3 py-1.5 rounded-full text-sm font-bold whitespace-nowrap border-2 ${!activeElement ? "border-white/30 bg-white/10 text-white" : "border-transparent bg-white/5 text-gray-500"}`}>
+            All
+          </button>
+          {availableElements.map(elem => {
+            const cfg = ELEMENT_CONFIG[elem] || { icon: "⚔️", label: elem };
+            const c = elemCounts[elem] || { total: 0, learned: 0 };
+            const isActive = activeElement === elem;
+            const color = ELEM_BORDER[elem] || "#666";
+            return (
+              <button key={elem} onClick={() => setActiveElement(isActive ? null : elem)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold whitespace-nowrap"
+                style={{ border: `2px solid ${isActive ? color : "transparent"}`, background: isActive ? `${color}22` : "rgba(255,255,255,0.03)", color: isActive ? color : "#777" }}>
+                <span className="text-base">{cfg.icon}</span>
+                <span className="hidden sm:inline">{cfg.label}</span>
+                <span style={{ opacity: 0.5 }}>{c.learned}/{c.total}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Zoom controls */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}
+            className="px-3 py-1 rounded-lg text-sm font-bold border border-border bg-white/5 text-gray-300 hover:bg-white/10">−</button>
+          <span className="text-xs text-gray-400 font-bold min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(1.5, z + 0.1))}
+            className="px-3 py-1 rounded-lg text-sm font-bold border border-border bg-white/5 text-gray-300 hover:bg-white/10">+</button>
+          {zoom !== 1 && (
+            <button onClick={() => setZoom(1)}
+              className="px-2 py-1 rounded-lg text-xs font-bold border border-border bg-white/5 text-gray-400 hover:bg-white/10">Reset</button>
+          )}
+        </div>
+
+        {/* Skill Tree */}
+        <div className="border border-border rounded-xl bg-[#0d0d14] overflow-auto">
+          <div style={{ position: "relative", width: containerW * zoom, height: containerH * zoom, minWidth: containerW * zoom }}>
+            <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", position: "relative", width: containerW, height: containerH }}>
+              <ConnectionLines positions={positions} connections={connections} learnedSkills={learnedSkills} hoverPath={hoverPath} />
+              {filteredSkills.map(skill => {
+                const pos = positions[skill.id];
+                if (!pos) return null;
+                const isLearned = learnedSkills.includes(skill.id);
+                const prereqMet = canUnlock(skill);
+                const levelOk = charLevel >= skill.levelReq;
+                const canLearnThis = !isLearned && prereqMet && levelOk && skillPoints >= skill.cost;
+                const isLocked = !prereqMet || !levelOk;
+                const isSelected = selectedSkill?.id === skill.id;
+                const isInPath = hoverPath.has(skill.id);
+                return (
+                  <div key={skill.id} style={{ position: "absolute", left: pos.x, top: pos.y, zIndex: 2 }}>
+                    <SkillNode skill={skill} learned={isLearned} canLearn={canLearnThis} locked={isLocked}
+                      isSelected={isSelected} isEquipped={equippedSkills.includes(skill.id)} isInPath={isInPath}
+                      onClick={() => setSelectedSkill(isSelected ? null : skill)}
+                      onHover={() => setHoveredSkillId(skill.id)} onLeave={() => setHoveredSkillId(null)} />
+                    <p style={{ fontSize: 10, textAlign: "center", fontWeight: "bold", marginTop: 4, width: NODE_SIZE,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      color: isLearned ? "#e5e7eb" : isLocked ? "#4b5563" : "#9ca3af" }}>{skill.name}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile: Skill Preview */}
+        <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
+        {/* Mobile: Synergies */}
+        <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
+        {/* Mobile: Element Stacks */}
         {(() => {
           const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
           const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
