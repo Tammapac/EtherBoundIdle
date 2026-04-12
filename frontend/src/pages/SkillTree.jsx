@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,7 +25,7 @@ const EFFECT_LABELS = {
 };
 
 /* ─── Single Skill Node (square icon tile) ─── */
-function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, onClick }) {
+function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, onClick, nodeRef }) {
   const elemCfg = skill.element ? ELEMENT_CONFIG[skill.element] : { icon: "⚔️", label: "Physical" };
   const elemColor = ELEM_BORDER[skill.element] || ELEM_BORDER.physical;
   const effectInfo = skill.effect ? EFFECT_LABELS[skill.effect.type] : null;
@@ -40,7 +40,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, o
     : "none";
 
   return (
-    <div className="flex flex-col items-center gap-1.5" style={{ width: 88 }}>
+    <div className="flex flex-col items-center gap-1.5" style={{ width: 88 }} ref={nodeRef}>
       {/* The square node */}
       <div
         onClick={onClick}
@@ -102,28 +102,81 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, o
   );
 }
 
-/* ─── Connecting lines between tier rows ─── */
-function TierConnector({ nodesAbove, nodesBelow, learnedSkills }) {
-  if (nodesAbove === 0 || nodesBelow === 0) return null;
+/* ─── SVG Connection Lines Overlay ─── */
+function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, activeElement }) {
+  const [lines, setLines] = useState([]);
 
-  // Draw a horizontal bar with vertical drops
-  const anyAboveLearned = true; // simplified — show line always
-  const lineColor = "#333";
+  const calcLines = useCallback(() => {
+    if (!containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const newLines = [];
+
+    for (const skill of skills) {
+      if (!skill.requires) continue;
+      // Filter check: only show connections for visible skills
+      if (activeElement && (skill.element || "none") !== activeElement) continue;
+
+      const fromEl = nodeRefs.current[skill.requires];
+      const toEl = nodeRefs.current[skill.id];
+      if (!fromEl || !toEl) continue;
+
+      const fromRect = fromEl.getBoundingClientRect();
+      const toRect = toEl.getBoundingClientRect();
+
+      // Center-bottom of parent → center-top of child
+      const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
+      const y1 = fromRect.top + fromRect.height * 0.75 - containerRect.top; // bottom of icon area
+      const x2 = toRect.left + toRect.width / 2 - containerRect.left;
+      const y2 = toRect.top + toRect.height * 0.1 - containerRect.top; // top of icon area
+
+      const parentLearned = learnedSkills.includes(skill.requires);
+      const childLearned = learnedSkills.includes(skill.id);
+      const bothLearned = parentLearned && childLearned;
+      const elemColor = ELEM_BORDER[skill.element] || "#555";
+
+      newLines.push({ x1, y1, x2, y2, bothLearned, parentLearned, elemColor, id: `${skill.requires}-${skill.id}` });
+    }
+    setLines(newLines);
+  }, [skills, learnedSkills, nodeRefs, containerRef, activeElement]);
+
+  useEffect(() => {
+    calcLines();
+    // Recalc on resize
+    const observer = new ResizeObserver(calcLines);
+    if (containerRef.current) observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [calcLines]);
+
+  // Also recalc when learnedSkills or activeElement changes
+  useEffect(() => { calcLines(); }, [learnedSkills, activeElement, calcLines]);
+
+  if (lines.length === 0) return null;
 
   return (
-    <div className="flex justify-center py-1">
-      <div className="relative flex items-center justify-center" style={{ width: "80%", height: 24 }}>
-        {/* Vertical line down from above */}
-        <div className="absolute top-0 left-1/2 w-[3px] h-[10px] -translate-x-1/2 rounded-full" style={{ background: lineColor }} />
-        {/* Horizontal bar */}
-        <div className="absolute top-[10px] left-[10%] right-[10%] h-[3px] rounded-full" style={{ background: lineColor }} />
-        {/* Vertical line down to below */}
-        <div className="absolute bottom-0 left-1/2 w-[3px] h-[10px] -translate-x-1/2 rounded-full" style={{ background: lineColor }} />
-        {/* Branch dots at ends */}
-        <div className="absolute top-[8px] left-[10%] w-[7px] h-[7px] rounded-full -translate-x-1/2" style={{ background: lineColor, border: `2px solid #555` }} />
-        <div className="absolute top-[8px] right-[10%] w-[7px] h-[7px] rounded-full translate-x-1/2" style={{ background: lineColor, border: `2px solid #555` }} />
-      </div>
-    </div>
+    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+      {lines.map(line => {
+        const color = line.bothLearned ? line.elemColor : line.parentLearned ? `${line.elemColor}88` : "#2a2a33";
+        const width = line.bothLearned ? 2.5 : 2;
+        const glow = line.bothLearned ? line.elemColor : "none";
+        // Draw an L-shaped or straight path
+        const midY = (line.y1 + line.y2) / 2;
+        const path = line.x1 === line.x2
+          ? `M${line.x1},${line.y1} L${line.x2},${line.y2}`
+          : `M${line.x1},${line.y1} L${line.x1},${midY} L${line.x2},${midY} L${line.x2},${line.y2}`;
+
+        return (
+          <g key={line.id}>
+            {/* Glow layer */}
+            {line.bothLearned && (
+              <path d={path} fill="none" stroke={glow} strokeWidth={6} strokeOpacity={0.15} strokeLinecap="round" strokeLinejoin="round" />
+            )}
+            {/* Main line */}
+            <path d={path} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round"
+              strokeDasharray={line.parentLearned ? "none" : "4 3"} />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
@@ -251,6 +304,8 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [showPreviewMobile, setShowPreviewMobile] = useState(false);
   const [showSynergyMobile, setShowSynergyMobile] = useState(false);
+  const treeContainerRef = useRef(null);
+  const nodeRefs = useRef({});
 
   const charClass = character?.class || "warrior";
   const skills = CLASS_SKILLS[charClass] || [];
@@ -427,7 +482,15 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           </div>
 
           {/* ── SKILL TREE: Tier rows with nodes and connecting lines ── */}
-          <div className="border border-border rounded-xl bg-[#0d0d14] p-3 space-y-0">
+          <div className="border border-border rounded-xl bg-[#0d0d14] p-3 relative" ref={treeContainerRef}>
+            {/* SVG connection lines */}
+            <ConnectionLines
+              skills={skills}
+              learnedSkills={learnedSkills}
+              nodeRefs={nodeRefs}
+              containerRef={treeContainerRef}
+              activeElement={activeElement}
+            />
             {[1, 2, 3, 4, 5, 6].map((tier, tierIdx) => {
               const meta = SKILL_TIERS[tier];
               const tierUnlocked = charLevel >= meta.levelReq;
@@ -438,17 +501,8 @@ export default function SkillTree({ character, onCharacterUpdate }) {
 
               return (
                 <React.Fragment key={tier}>
-                  {/* Connector lines between tiers */}
-                  {tierIdx > 0 && (
-                    <TierConnector
-                      nodesAbove={getFilteredSkills(tierGroups[tier - 1] || []).length}
-                      nodesBelow={filtered.length}
-                      learnedSkills={learnedSkills}
-                    />
-                  )}
-
                   {/* Tier label */}
-                  <div className="flex items-center gap-2 mb-3 mt-2">
+                  <div className="flex items-center gap-2 mb-3 mt-2" style={{ position: "relative", zIndex: 2 }}>
                     <span className={`text-xs font-orbitron font-bold px-2 py-0.5 rounded ${meta.color}`}>T{tier}</span>
                     <span className={`text-sm font-bold ${tierUnlocked ? "text-gray-200" : "text-gray-600"}`}>{meta.label}</span>
                     {!tierUnlocked && <Lock className="w-3.5 h-3.5 text-gray-600" />}
@@ -456,7 +510,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
                   </div>
 
                   {/* Skill nodes grid */}
-                  <div className="flex flex-wrap justify-center gap-4 mb-3">
+                  <div className="flex flex-wrap justify-center gap-4 mb-3" style={{ position: "relative", zIndex: 2 }}>
                     {filtered.map(skill => {
                       const isLearned = learnedSkills.includes(skill.id);
                       const prereqMet = !skill.requires || learnedSkills.includes(skill.requires);
@@ -475,6 +529,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
                           isSelected={isSelected}
                           isEquipped={equippedSkills.includes(skill.id)}
                           onClick={() => setSelectedSkill(isSelected ? null : skill)}
+                          nodeRef={(el) => { if (el) nodeRefs.current[skill.id] = el; }}
                         />
                       );
                     })}
