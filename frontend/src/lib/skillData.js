@@ -128,6 +128,16 @@ export const SKILL_ANIMATIONS = {
   ro_blood_nick: "bleed",
   ro_sand_toss: "smoke",           ro_dune_ambush: "smoke",         ro_tomb_wraith: "smoke",
   ro_astral_blade: "blackhole",    ro_cosmic_erasure: "blackhole",
+  // Support skill animations
+  w_rallying_cry: "roar",         w_fortress: "frostshield",       w_berserker_fury: "berserker",
+  w_iron_bastion: "shield",
+  m_healing_light: "divine",      m_greater_heal: "divine",        m_arcane_barrier: "frostshield",
+  m_prismatic_ward: "frostshield",m_mana_surge: "nova",            m_mana_font: "nova",
+  m_elemental_attunement: "nova", m_arcane_empowerment: "divine",
+  r_natures_touch: "divine",      r_focused_aim: "eagleeye",       r_meditate: "dodge",
+  r_pack_leader: "divine",
+  ro_shadow_mend: "smoke",        ro_shadow_cloak: "smoke",        ro_adrenaline_rush: "berserker",
+  ro_siphon_energy: "smoke",
 };
 
 export const CLASS_SKILLS = {
@@ -575,6 +585,36 @@ export const CLASS_SKILLS = {
       description: "Tears a rift in the fabric of existence, consuming the target in pure void.",
       requires: "w_dimension_breaker", synergy: "Ignores all enemy resistances and immunities.",
     },
+
+    // ── Support skills ──
+    {
+      id: "w_rallying_cry", name: "Rallying Cry", tier: 2, levelReq: 12, cost: 2,
+      mp: 45, cooldown: 5, damage: 0, element: null,
+      special: "heal", healPct: 0.15,
+      description: "Let out a mighty war cry that reinvigorates you, healing 15% max HP. STR increases heal amount.",
+      requires: null, statScale: "strength",
+    },
+    {
+      id: "w_fortress", name: "Fortress", tier: 3, levelReq: 28, cost: 3,
+      mp: 60, cooldown: 6, damage: 0, element: null,
+      special: "shield", shieldPct: 0.25,
+      description: "Channel your armor's power to create a shield worth 25% max HP. VIT scaling.",
+      requires: "w_rallying_cry", statScale: "vitality",
+    },
+    {
+      id: "w_berserker_fury", name: "Berserker Fury", tier: 3, levelReq: 30, cost: 3,
+      mp: 55, cooldown: 6, damage: 0, element: null,
+      buffEffect: { atk_pct: 35, crit_pct: 10 }, buffDuration: 3,
+      description: "Enter a berserker rage: +35% ATK and +10% crit for 3 turns. STR amplifies effect.",
+      requires: null, statScale: "strength",
+    },
+    {
+      id: "w_iron_bastion", name: "Iron Bastion", tier: 4, levelReq: 48, cost: 4,
+      mp: 80, cooldown: 6, damage: 0, element: null,
+      buffEffect: { def_pct: 50, block_pct: 20 }, buffDuration: 3,
+      description: "Become an immovable bastion: +50% DEF and +20% block for 3 turns.",
+      requires: "w_fortress",
+    },
   ],
 
   mage: [
@@ -947,7 +987,65 @@ export const CLASS_SKILLS = {
       description: "Invokes the dread curse of an ancient pharaoh, burying enemies in cursed sand.",
       requires: "m_desert_wrath", synergy: "Cursed enemies take increased damage from all sand skills.",
     },
-  
+
+    // ── Support skills (Mage has the most) ──
+    {
+      id: "m_healing_light", name: "Healing Light", tier: 1, levelReq: 3, cost: 1,
+      mp: 30, cooldown: 4, damage: 0, element: "arcane",
+      special: "heal", healPct: 0.20,
+      description: "Channel arcane energy to restore 20% max HP. INT increases healing power.",
+      requires: null, statScale: "intelligence",
+    },
+    {
+      id: "m_greater_heal", name: "Greater Heal", tier: 3, levelReq: 28, cost: 3,
+      mp: 65, cooldown: 5, damage: 0, element: "arcane",
+      special: "heal", healPct: 0.35,
+      description: "Powerful restoration spell: heal 35% max HP. INT greatly amplifies the heal.",
+      requires: "m_healing_light", statScale: "intelligence",
+    },
+    {
+      id: "m_arcane_barrier", name: "Arcane Barrier", tier: 2, levelReq: 10, cost: 2,
+      mp: 40, cooldown: 5, damage: 0, element: "arcane",
+      special: "shield", shieldPct: 0.25,
+      description: "Conjure a magical barrier worth 25% max HP. INT increases shield strength.",
+      requires: null, statScale: "intelligence",
+    },
+    {
+      id: "m_prismatic_ward", name: "Prismatic Ward", tier: 4, levelReq: 50, cost: 4,
+      mp: 85, cooldown: 6, damage: 0, element: "arcane",
+      special: "shield", shieldPct: 0.45,
+      description: "Create a prismatic shield worth 45% max HP that reflects 10% damage.",
+      requires: "m_arcane_barrier", statScale: "intelligence",
+    },
+    {
+      id: "m_mana_surge", name: "Mana Surge", tier: 2, levelReq: 12, cost: 2,
+      mp: 15, cooldown: 5, damage: 0, element: "arcane",
+      special: "mana", manaPct: 0.30,
+      description: "Draw mana from the ether: restore 30% max MP. INT increases mana restored.",
+      requires: null, statScale: "intelligence",
+    },
+    {
+      id: "m_mana_font", name: "Mana Font", tier: 4, levelReq: 48, cost: 4,
+      mp: 10, cooldown: 6, damage: 0, element: "arcane",
+      special: "mana", manaPct: 0.50,
+      description: "Open a font of pure mana: restore 50% max MP. The mage's lifeline.",
+      requires: "m_mana_surge", statScale: "intelligence",
+    },
+    {
+      id: "m_elemental_attunement", name: "Elemental Attunement", tier: 3, levelReq: 30, cost: 3,
+      mp: 55, cooldown: 6, damage: 0, element: null,
+      buffEffect: { atk_pct: 40, crit_pct: 15 }, buffDuration: 4,
+      description: "Attune to the elements: +40% spell damage and +15% crit for 4 turns. INT amplifies.",
+      requires: null, statScale: "intelligence",
+    },
+    {
+      id: "m_arcane_empowerment", name: "Arcane Empowerment", tier: 5, levelReq: 72, cost: 5,
+      mp: 100, cooldown: 7, damage: 0, element: "arcane",
+      buffEffect: { atk_pct: 60, crit_pct: 25, def_pct: 20 }, buffDuration: 4,
+      description: "Empower yourself with pure arcane force: +60% ATK, +25% crit, +20% DEF for 4 turns. Ultimate mage buff.",
+      requires: "m_elemental_attunement", statScale: "intelligence",
+    },
+
   ],
 
   ranger: [
@@ -1376,7 +1474,38 @@ export const CLASS_SKILLS = {
       description: "Opens a void portal and fires arrows through it, striking from impossible angles.",
       requires: "r_cosmic_shot", synergy: "Attacks from the void cannot be blocked or dodged.",
     },
-  
+
+    // ── Support skills ──
+    {
+      id: "r_natures_touch", name: "Nature's Touch", tier: 2, levelReq: 12, cost: 2,
+      mp: 40, cooldown: 5, damage: 0, element: null,
+      special: "heal", healPct: 0.18,
+      description: "Call upon nature spirits to restore 18% max HP. DEX improves healing speed.",
+      requires: null, statScale: "dexterity",
+    },
+    {
+      id: "r_focused_aim", name: "Focused Aim", tier: 3, levelReq: 28, cost: 3,
+      mp: 50, cooldown: 6, damage: 0, element: null,
+      buffEffect: { crit_pct: 25, atk_pct: 20 }, buffDuration: 3,
+      description: "Sharpen your focus: +25% crit chance and +20% ATK for 3 turns. DEX amplifies.",
+      requires: null, statScale: "dexterity",
+    },
+    {
+      id: "r_meditate", name: "Meditate", tier: 2, levelReq: 14, cost: 2,
+      mp: 15, cooldown: 5, damage: 0, element: null,
+      special: "mana", manaPct: 0.25,
+      description: "Center yourself and recover 25% max MP. A ranger's way to sustain in long fights.",
+      requires: null,
+    },
+    {
+      id: "r_pack_leader", name: "Pack Leader", tier: 4, levelReq: 50, cost: 4,
+      mp: 75, cooldown: 7, damage: 0, element: null,
+      special: "group_heal", healPct: 0.15,
+      buffEffect: { atk_pct: 15, crit_pct: 10 }, buffDuration: 3,
+      description: "Rally your party: heal 15% HP and grant +15% ATK, +10% crit for 3 turns.",
+      requires: "r_natures_touch",
+    },
+
   ],
 
   rogue: [
@@ -1809,7 +1938,37 @@ export const CLASS_SKILLS = {
       description: "Erases the target from existence by severing their connection to reality.",
       requires: "ro_astral_blade", synergy: "Erased targets cannot resurrect or respawn.",
     },
-  
+
+    // ── Support skills ──
+    {
+      id: "ro_shadow_mend", name: "Shadow Mend", tier: 2, levelReq: 12, cost: 2,
+      mp: 35, cooldown: 5, damage: 0, element: null,
+      special: "heal", healPct: 0.15,
+      description: "Mend your wounds using shadow magic, restoring 15% max HP. DEX scaling.",
+      requires: null, statScale: "dexterity",
+    },
+    {
+      id: "ro_shadow_cloak", name: "Shadow Cloak", tier: 3, levelReq: 28, cost: 3,
+      mp: 50, cooldown: 6, damage: 0, element: null,
+      special: "shield", shieldPct: 0.20,
+      description: "Wrap yourself in shadows that absorb 20% max HP in damage. DEX improves shield.",
+      requires: "ro_shadow_mend", statScale: "dexterity",
+    },
+    {
+      id: "ro_adrenaline_rush", name: "Adrenaline Rush", tier: 3, levelReq: 30, cost: 3,
+      mp: 50, cooldown: 6, damage: 0, element: null,
+      buffEffect: { atk_pct: 30, crit_pct: 20, atk_speed: 15 }, buffDuration: 3,
+      description: "Surge of adrenaline: +30% ATK, +20% crit, +15 speed for 3 turns.",
+      requires: null, statScale: "dexterity",
+    },
+    {
+      id: "ro_siphon_energy", name: "Siphon Energy", tier: 2, levelReq: 14, cost: 2,
+      mp: 10, cooldown: 5, damage: 0, element: null,
+      special: "mana", manaPct: 0.25,
+      description: "Siphon energy from the shadows, restoring 25% max MP.",
+      requires: null,
+    },
+
   ],
 };
 

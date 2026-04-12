@@ -241,14 +241,40 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5 text-sm">
-        <div className="bg-white/5 rounded px-2 py-1.5 text-center">
-          {skill.damage > 0 ? <span className="text-orange-400 font-bold">{Math.round(skill.damage * 100)}%</span> : <span className="text-blue-300 font-bold">Utility</span>}
+      <div className="grid grid-cols-2 gap-1.5 text-xs">
+        <div className="bg-white/5 rounded px-2 py-1.5">
+          <span className="text-gray-500 block text-[10px]">Damage</span>
+          {skill.damage > 0 ? <span className="text-orange-400 font-bold">{Math.round(skill.damage * 100)}% weapon dmg</span> : skill.special === "heal" || skill.special === "group_heal" ? <span className="text-green-400 font-bold">Heal {Math.round((skill.healPct || 0.2) * 100)}% HP</span> : skill.special === "shield" ? <span className="text-cyan-400 font-bold">Shield {Math.round((skill.shieldPct || 0.25) * 100)}% HP</span> : skill.special === "mana" ? <span className="text-indigo-400 font-bold">Restore {Math.round((skill.manaPct || 0.2) * 100)}% MP</span> : skill.buffEffect ? <span className="text-amber-400 font-bold">Buff ({skill.buffDuration || 3} turns)</span> : <span className="text-blue-300 font-bold">Utility</span>}
         </div>
-        <div className="bg-white/5 rounded px-2 py-1.5 text-center"><span className="text-blue-400 font-bold">{skill.mp} MP</span></div>
-        <div className="bg-white/5 rounded px-2 py-1.5 text-center"><span className="text-gray-400">{skill.cooldown}T CD</span></div>
-        <div className="bg-white/5 rounded px-2 py-1.5 text-center"><span className="text-amber-400">{skill.cost} SP</span></div>
+        <div className="bg-white/5 rounded px-2 py-1.5">
+          <span className="text-gray-500 block text-[10px]">Mana Cost</span>
+          <span className="text-blue-400 font-bold">{skill.mp} MP per use</span>
+        </div>
+        <div className="bg-white/5 rounded px-2 py-1.5">
+          <span className="text-gray-500 block text-[10px]">Cooldown</span>
+          <span className="text-gray-300 font-bold">{skill.cooldown} {skill.cooldown === 1 ? "turn" : "turns"}</span>
+        </div>
+        <div className="bg-white/5 rounded px-2 py-1.5">
+          <span className="text-gray-500 block text-[10px]">Skill Points</span>
+          <span className="text-amber-400 font-bold">{skill.cost} SP to learn</span>
+        </div>
       </div>
+
+      {skill.buffEffect && (
+        <div className="text-xs px-2.5 py-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300">
+          <span className="text-gray-500 text-[10px] block mb-0.5">Buff Effects</span>
+          {Object.entries(skill.buffEffect).map(([k, v]) => (
+            <span key={k} className="mr-2">+{v}% {k === "atk_pct" ? "Attack" : k === "def_pct" ? "Defense" : k === "crit_pct" ? "Crit Chance" : k === "block_pct" ? "Block" : k === "atk_speed" ? "Speed" : k === "evasion" ? "Evasion" : k.replace(/_/g, " ")}</span>
+          ))}
+          <span className="text-gray-500 ml-1">for {skill.buffDuration || 3} turns</span>
+        </div>
+      )}
+
+      {skill.statScale && (
+        <div className="text-xs px-2.5 py-1.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-300">
+          Scales with: <span className="font-bold capitalize">{skill.statScale}</span>
+        </div>
+      )}
 
       {effectInfo && (
         <div className="text-xs px-2.5 py-2 rounded bg-white/5 border border-white/10 text-gray-200">
