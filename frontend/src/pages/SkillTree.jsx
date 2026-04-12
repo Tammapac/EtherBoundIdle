@@ -113,21 +113,33 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
 
     for (const skill of skills) {
       if (!skill.requires) continue;
-      // Filter check: only show connections for visible skills
-      if (activeElement && (skill.element || "none") !== activeElement) continue;
+      // Filter: only show connections when BOTH nodes are visible in current filter
+      if (activeElement) {
+        if ((skill.element || "none") !== activeElement) continue;
+        const parentSkill = skills.find(s => s.id === skill.requires);
+        if (parentSkill && (parentSkill.element || "none") !== activeElement) continue;
+      }
 
       const fromEl = nodeRefs.current[skill.requires];
       const toEl = nodeRefs.current[skill.id];
       if (!fromEl || !toEl) continue;
 
+      // Check both nodes are actually in the DOM (not stale refs from previous filter)
+      if (!fromEl.isConnected || !toEl.isConnected) continue;
+
       const fromRect = fromEl.getBoundingClientRect();
       const toRect = toEl.getBoundingClientRect();
 
-      // Center-bottom of parent → center-top of child
+      // Skip if either node has zero size (hidden)
+      if (fromRect.width === 0 || toRect.width === 0) continue;
+
+      // The node container is 88px wide, icon square is 72px at the top
+      // Connect: center-bottom of parent icon → center-top of child icon
+      const iconHeight = 72;
       const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
-      const y1 = fromRect.top + fromRect.height * 0.75 - containerRect.top; // bottom of icon area
+      const y1 = fromRect.top + iconHeight + 2 - containerRect.top; // just below parent icon bottom edge
       const x2 = toRect.left + toRect.width / 2 - containerRect.left;
-      const y2 = toRect.top + toRect.height * 0.1 - containerRect.top; // top of icon area
+      const y2 = toRect.top - 2 - containerRect.top; // just above child icon top edge
 
       const parentLearned = learnedSkills.includes(skill.requires);
       const childLearned = learnedSkills.includes(skill.id);
