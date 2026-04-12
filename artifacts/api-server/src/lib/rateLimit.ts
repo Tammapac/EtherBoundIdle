@@ -61,10 +61,10 @@ export function rateLimit(opts: RateLimitOptions) {
   };
 }
 
-// Pre-built rate limiters
+// Pre-built rate limiters (all configurable via env vars for load testing)
 export const apiRateLimit = rateLimit({
   windowMs: 60_000,  // 1 minute
-  max: 300,          // 300 requests per minute per user (5/sec avg)
+  max: parseInt(process.env.API_RATE_LIMIT || "300", 10),
 });
 
 export const authRateLimit = rateLimit({
@@ -75,7 +75,7 @@ export const authRateLimit = rateLimit({
 
 export const fightRateLimit = rateLimit({
   windowMs: 10_000,  // 10 seconds
-  max: 10,           // 10 fights per 10s per user (1/sec)
+  max: parseInt(process.env.FIGHT_RATE_LIMIT || "10", 10),
   keyFn: (req) => `fight:${(req as any).userId || req.ip}`,
 });
 

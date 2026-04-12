@@ -37,7 +37,9 @@ const BOT_COUNT = parseInt(getArg("bots", "10"), 10);
 // Auto-ramp when > 20 bots to avoid hitting auth rate limits
 const RAMP = getArg("ramp", BOT_COUNT > 20 ? true : false);
 const RAMP_DELAY_MS = parseInt(getArg("ramp-delay", BOT_COUNT > 50 ? "1000" : "500"), 10);
-const FIGHT_INTERVAL_MS = parseInt(getArg("fight-interval", "5000"), 10);
+// Scale fight interval with bot count to avoid rate limits
+const DEFAULT_FIGHT_INTERVAL = BOT_COUNT > 50 ? "15000" : BOT_COUNT > 20 ? "10000" : "5000";
+const FIGHT_INTERVAL_MS = parseInt(getArg("fight-interval", DEFAULT_FIGHT_INTERVAL), 10);
 const IDLE_CLAIM_INTERVAL_MS = parseInt(getArg("idle-interval", "60000"), 10);
 const CHAT_INTERVAL_MS = parseInt(getArg("chat-interval", "30000"), 10);
 const DURATION_MS = parseInt(getArg("duration", "300000"), 10); // 5 min default
