@@ -294,28 +294,28 @@ function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
   if (allSynergies.length === 0) return null;
 
   return (
-    <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-3 space-y-2.5">
+    <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-4 space-y-3">
       <h3 className="font-orbitron font-bold text-sm text-amber-400 flex items-center gap-2">
         <Sparkles className="w-4 h-4" /> Synergies
         <span className="text-xs text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
       </h3>
-      <div className="space-y-2 max-h-[55vh] overflow-y-auto scrollbar-hide">
+      <div className="space-y-2.5 max-h-[70vh] overflow-y-auto scrollbar-hide">
         {allSynergies.map(syn => {
           const isActive = activeSynergies.some(a => a.id === syn.id);
           const progress = syn.requires.filter(id => learnedSet.has(id)).length;
           return (
-            <div key={syn.id} className={`p-2.5 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-base">{syn.icon}</span>
-                <span className={`text-xs font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
-                {isActive ? <CheckCircle2 className="w-4 h-4 text-amber-400" /> : <span className="text-[10px] text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
+            <div key={syn.id} className={`p-3 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-lg">{syn.icon}</span>
+                <span className={`text-sm font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
+                {isActive ? <CheckCircle2 className="w-4 h-4 text-amber-400" /> : <span className="text-xs text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
               </div>
-              <p className={`text-[11px] leading-relaxed ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
-              <div className="flex gap-1 flex-wrap mt-1.5">
+              <p className={`text-xs leading-relaxed ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
+              <div className="flex gap-1.5 flex-wrap mt-2">
                 {syn.requires.map(id => {
                   const sk = skills.find(s => s.id === id);
                   const has = learnedSet.has(id);
-                  return <span key={id} className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
+                  return <span key={id} className={`text-[10px] px-2 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
                 })}
               </div>
             </div>
@@ -335,6 +335,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   const [activeElement, setActiveElement] = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [hoveredSkillId, setHoveredSkillId] = useState(null);
+  const [zoom, setZoom] = useState(1);
   const [showPreviewMobile, setShowPreviewMobile] = useState(false);
   const [showSynergyMobile, setShowSynergyMobile] = useState(false);
 
@@ -446,7 +447,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
       </AnimatePresence>
 
       {/* ═══ 3-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_200px] gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-2">
 
         {/* LEFT: Skill Preview + Element Stacks */}
         <div className="hidden lg:block">
@@ -460,24 +461,24 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
               const allElements = Object.keys(ELEMENT_STACK_BONUSES);
               return (
-                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-3 space-y-2">
-                  <h3 className="font-orbitron font-bold text-xs text-violet-400 flex items-center gap-2">
-                    <Flame className="w-3.5 h-3.5" /> Element Stacks
+                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5">
+                  <h3 className="font-orbitron font-bold text-sm text-violet-400 flex items-center gap-2">
+                    <Flame className="w-4 h-4" /> Element Stacks
                   </h3>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {allElements.map(element => {
                       const tiers = ELEMENT_STACK_BONUSES[element];
                       const activeStack = activeStacks.find(s => s.element === element);
                       const activeTier = activeStack?.tier || 0;
                       return (
-                        <div key={element} className={`rounded-lg p-2 ${activeTier > 0 ? "bg-white/5 border border-white/10" : "bg-black/20 border border-gray-800/50 opacity-40"}`}>
-                          <p className={`text-[11px] font-bold mb-0.5 ${ELEM_COLORS[element]}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
+                        <div key={element} className={`rounded-lg p-2.5 ${activeTier > 0 ? "bg-white/5 border border-white/10" : "bg-black/20 border border-gray-800/50 opacity-40"}`}>
+                          <p className={`text-sm font-bold mb-1 ${ELEM_COLORS[element]}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
                           {[2, 3, 4].map(t => {
                             const bonus = tiers[t];
                             if (!bonus) return null;
                             const isActive = activeTier >= t;
                             const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
-                            return <p key={t} className={`text-[10px] ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
+                            return <p key={t} className={`text-xs ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
                           })}
                         </div>
                       );
@@ -514,13 +515,39 @@ export default function SkillTree({ character, onCharacterUpdate }) {
             })}
           </div>
 
+          {/* Zoom controls */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}
+              className="px-3 py-1 rounded-lg text-sm font-bold border border-border bg-white/5 text-gray-300 hover:bg-white/10">
+              −
+            </button>
+            <span className="text-xs text-gray-400 font-bold min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(1.5, z + 0.1))}
+              className="px-3 py-1 rounded-lg text-sm font-bold border border-border bg-white/5 text-gray-300 hover:bg-white/10">
+              +
+            </button>
+            {zoom !== 1 && (
+              <button onClick={() => setZoom(1)}
+                className="px-2 py-1 rounded-lg text-xs font-bold border border-border bg-white/5 text-gray-400 hover:bg-white/10">
+                Reset
+              </button>
+            )}
+          </div>
+
           {/* ═══ SKILL TREE (prototype layout) ═══ */}
-          <div className="border border-border rounded-xl bg-[#0d0d14] overflow-x-auto">
+          <div className="border border-border rounded-xl bg-[#0d0d14] overflow-auto">
             <div style={{
+              position: "relative",
+              width: containerW * zoom,
+              height: containerH * zoom,
+              minWidth: containerW * zoom,
+            }}>
+            <div style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: "top left",
               position: "relative",
               width: containerW,
               height: containerH,
-              minWidth: containerW,
             }}>
               {/* Connection lines (behind nodes) */}
               <ConnectionLines
@@ -579,6 +606,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
         </div>
