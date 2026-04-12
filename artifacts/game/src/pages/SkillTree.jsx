@@ -135,12 +135,11 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
       // Skip if either node has zero size (hidden)
       if (fromRect.width === 0 || toRect.width === 0) continue;
 
-      // Icon is 72px tall at top of the node container
-      const iconH = 72;
+      // Node = 72px icon + gap + name text. Connect from bottom of FULL node to top of child node.
       const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
-      const y1 = fromRect.top + iconH + 2 - containerRect.top;
+      const y1 = fromRect.top + fromRect.height - containerRect.top; // bottom of full node (below name text)
       const x2 = toRect.left + toRect.width / 2 - containerRect.left;
-      const y2 = toRect.top - 2 - containerRect.top;
+      const y2 = toRect.top - 2 - containerRect.top; // just above child icon top
 
       const parentLearned = learnedSkills.includes(skill.requires);
       const childLearned = learnedSkills.includes(skill.id);
@@ -167,11 +166,11 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
     <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
       {lines.map(line => {
         const color = line.bothLearned ? line.elemColor : line.parentLearned ? `${line.elemColor}88` : "#2a2a33";
-        const width = line.bothLearned ? 3.5 : 3;
+        const width = line.bothLearned ? 5 : 4;
         const glow = line.bothLearned ? line.elemColor : "none";
 
-        // Route: drop 10px from parent, go horizontal in the gap, then drop to child
-        const bendY = line.y1 + 10;
+        // Route: midpoint of the gap between parent bottom and child top
+        const bendY = (line.y1 + line.y2) / 2;
         const path = Math.abs(line.x1 - line.x2) < 2
           ? `M${line.x1},${line.y1} L${line.x2},${line.y2}`
           : `M${line.x1},${line.y1} L${line.x1},${bendY} L${line.x2},${bendY} L${line.x2},${line.y2}`;
@@ -179,10 +178,11 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
         return (
           <g key={line.id}>
             {line.bothLearned && (
-              <path d={path} fill="none" stroke={glow} strokeWidth={8} strokeOpacity={0.18} strokeLinecap="round" strokeLinejoin="round" />
+              <path d={path} fill="none" stroke={glow} strokeWidth={10} strokeOpacity={0.2} strokeLinecap="square" strokeLinejoin="miter" />
             )}
-            <path d={path} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round"
-              strokeDasharray={line.parentLearned ? "none" : "5 4"} />
+            <path d={path} fill="none" stroke={color} strokeWidth={width} strokeLinecap="square" strokeLinejoin="miter"
+              strokeDasharray={line.parentLearned ? "none" : "6 4"}
+              style={{ imageRendering: "pixelated" }} />
           </g>
         );
       })}
