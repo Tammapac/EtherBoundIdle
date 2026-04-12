@@ -273,7 +273,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             >
               {quickAccessOpen ? <X className="w-4 h-4 text-gray-400" /> : <Menu className="w-4 h-4 text-gray-400" />}
             </div>
-            {quickAccessOpen && <div className="grid grid-cols-5 gap-2">
+            {quickAccessOpen && <div className="grid grid-cols-3 gap-2">
             <div
               onClick={() => navigate("/tower")}
               className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
