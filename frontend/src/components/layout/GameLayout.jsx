@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { 
-  Swords, Shield, Backpack, Map, Users, ShoppingBag, 
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Swords, Shield, Backpack, Map, Users, ShoppingBag,
   Trophy, ScrollText, Menu, X, Coins, Gem, MessageCircle,
-  LogOut, RotateCcw, Leaf, ChevronDown, BarChart3, Wrench, Skull, Zap, Settings
+  LogOut, RotateCcw, Leaf, ChevronDown, BarChart3, Wrench, Skull, Zap, Settings,
+  ArrowUp, Star, PawPrint, Sparkles, Wheat
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import RoleBadge from "@/components/game/RoleBadge";
 import CharacterProfileModal from "@/components/game/CharacterProfileModal";
 import IdleStatusBar from "@/components/game/IdleStatusBar";
+import ActiveBuffsBar from "@/components/game/ActiveBuffsBar";
+import { useSocket } from "@/lib/SocketContext";
 
 const NAV_ITEMS = [
   { path: "/", icon: Swords, label: "Battle" },
@@ -22,30 +26,72 @@ const NAV_ITEMS = [
   { path: "/dashboard", icon: BarChart3, label: "Dashboard" },
   { path: "/social", icon: MessageCircle, label: "Social" },
   { path: "/lifeskills", icon: Leaf, label: "Life Skills" },
-  { path: "/gearupgrading", icon: Wrench, label: "Gear Upgrading" },
+  { path: "/gearupgrading", icon: Wrench, label: "Forge" },
   { path: "/dungeons", icon: Skull, label: "Dungeons" },
   { path: "/skilltree", icon: Zap, label: "Skill Tree" },
+  { path: "/runes", icon: Gem, label: "Runes" },
   { path: "/admin", icon: Shield, label: "Admin", admin: true },
   { path: "/gameconfig", icon: Settings, label: "Game Config", admin: true },
 ];
 
 export default function GameLayout({ character, onCharacterUpdate, onBackToSelection }) {
+  const { logout } = useAuth();
+  const { connected, onlineCount } = useSocket();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [quickAccessOpen, setQuickAccessOpen] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     const loadUserRole = async () => {
       try {
         const response = await base44.functions.invoke("getCurrentUser", {});
-        setCurrentUserRole(response.data?.role);
+        setCurrentUserRole(response?.role);
       } catch (e) {
         console.log("Could not fetch user role");
       }
     };
     loadUserRole();
   }, []);
+
+  // Clean up presence and party on tab close / logout
+  const cleanupOnLeave = React.useCallback(async () => {
+    if (!character?.id) return;
+    try {
+      // Set presence to offline
+      const presences = await base44.entities.Presence.filter({ character_id: character.id });
+      if (presences[0]) {
+        base44.entities.Presence.update(presences[0].id, { status: "offline" }).catch(() => {});
+      }
+      // Leave party
+      base44.functions.invoke("manageParty", {
+        characterId: character.id,
+        action: "leave",
+      }).catch(() => {});
+    } catch {}
+  }, [character?.id]);
+
+  React.useEffect(() => {
+    if (!character?.id) return;
+    const handleUnload = () => {
+      // Use sendBeacon for reliable delivery on page close
+      const token = localStorage.getItem("auth_token") || "";
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      navigator.sendBeacon(
+        `${baseUrl}/api/functions/cleanupOnDisconnect`,
+        new Blob([JSON.stringify({ characterId: character.id, token })], { type: "application/json" })
+      );
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [character?.id]);
+
+  const handleLogout = async () => {
+    await cleanupOnLeave();
+    logout();
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -55,7 +101,15 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
           <h1 className="font-orbitron text-xl font-bold text-primary tracking-wider">
             IDLE REALM
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">Online MMORPG</p>
+          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+            Online MMORPG
+            {onlineCount > 0 && (
+              <span className="flex items-center gap-1 text-green-400">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                {onlineCount.toLocaleString()} online
+              </span>
+            )}
+          </p>
         </div>
 
         {character && (
@@ -64,15 +118,18 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
               onClick={() => setProfileOpen(true)}
               className="flex items-center gap-3 w-full hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors group"
             >
-              <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center group-hover:border-primary/60 transition-colors">
-                <Shield className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center group-hover:border-primary/60 transition-colors overflow-hidden">
+                <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-1.5">
                   <p className="font-semibold text-sm truncate">{character.name}</p>
                   <RoleBadge role={currentUserRole} />
                 </div>
-                <p className="text-xs text-muted-foreground">Lv.{character.level} {character.class}</p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} title={connected ? "Connected" : "Reconnecting..."} />
+                  Lv.{character.level} {character.class}
+                </p>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
             </button>
@@ -121,7 +178,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
           <Button
             variant="ghost"
             className="w-full gap-2 text-xs justify-start text-destructive hover:text-destructive"
-            onClick={() => base44.auth.logout()}
+            onClick={() => handleLogout()}
           >
             <LogOut className="w-3.5 h-3.5" /> Logout
           </Button>
@@ -131,7 +188,15 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
       {/* Mobile Header */}
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="md:hidden flex items-center justify-between p-3 border-b border-border bg-card/50">
-          <h1 className="font-orbitron text-lg font-bold text-primary">IDLE REALM</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-orbitron text-lg font-bold text-primary">IDLE REALM</h1>
+            {onlineCount > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-green-400">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                {onlineCount.toLocaleString()}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {character && (
               <>
@@ -185,7 +250,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
                  <Button
                    variant="ghost"
                    className="w-full gap-2 justify-start text-destructive hover:text-destructive"
-                   onClick={() => base44.auth.logout()}
+                   onClick={() => handleLogout()}
                  >
                    <LogOut className="w-4 h-4" /> Logout
                  </Button>
@@ -195,9 +260,70 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
          )}
 
         {character && <IdleStatusBar character={character} />}
+        {character && <ActiveBuffsBar character={character} />}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative">
+          {/* Feature quick-access icons — hidden on immersive pages, collapsible */}
+          {!["/fields", "/portal", "/tower"].includes(location.pathname) && <div className="fixed top-16 left-4 md:left-[17rem] z-30 flex items-start gap-1">
+            <div
+              onClick={() => setQuickAccessOpen(o => !o)}
+              className="w-8 h-8 rounded-lg bg-gray-800/90 border border-gray-600/50 flex items-center justify-center cursor-pointer hover:bg-gray-700/90 transition-all shrink-0"
+              title={quickAccessOpen ? "Hide shortcuts" : "Show shortcuts"}
+            >
+              {quickAccessOpen ? <X className="w-4 h-4 text-gray-400" /> : <Menu className="w-4 h-4 text-gray-400" />}
+            </div>
+            {quickAccessOpen && <div className="grid grid-cols-5 gap-2">
+            <div
+              onClick={() => navigate("/tower")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
+              title="Tower of Trials"
+            >
+              <ArrowUp className="w-6 h-6 text-amber-400 group-hover:text-amber-300 transition-colors" />
+              <span className="text-[8px] font-bold text-amber-400/80 group-hover:text-amber-300 mt-0.5 tracking-wide">TOWER</span>
+            </div>
+            <div
+              onClick={() => navigate("/seasonpass")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-600/20 border-2 border-purple-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-purple-400 hover:from-purple-500/40 hover:to-pink-500/30 transition-all shadow-lg shadow-purple-500/20 group"
+              title="Battle Pass"
+            >
+              <Star className="w-6 h-6 text-purple-400 group-hover:text-purple-300 transition-colors" />
+              <span className="text-[8px] font-bold text-purple-400/80 group-hover:text-purple-300 mt-0.5 tracking-wide">PASS</span>
+            </div>
+            <div
+              onClick={() => navigate("/pets")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-teal-600/20 border-2 border-cyan-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-cyan-400 hover:from-cyan-500/40 hover:to-teal-500/30 transition-all shadow-lg shadow-cyan-500/20 group"
+              title="Pet Companions"
+            >
+              <PawPrint className="w-6 h-6 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
+              <span className="text-[8px] font-bold text-cyan-400/80 group-hover:text-cyan-300 mt-0.5 tracking-wide">PETS</span>
+            </div>
+            <div
+              onClick={() => navigate("/portal")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/30 to-indigo-600/20 border-2 border-violet-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-violet-400 hover:from-violet-500/40 hover:to-indigo-500/30 transition-all shadow-lg shadow-violet-500/20 group"
+              title="Infinite Portal"
+            >
+              <Sparkles className="w-6 h-6 text-violet-400 group-hover:text-violet-300 transition-colors" />
+              <span className="text-[8px] font-bold text-violet-400/80 group-hover:text-violet-300 mt-0.5 tracking-wide">PORTAL</span>
+            </div>
+            <div
+              onClick={() => navigate("/fields")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500/30 to-emerald-600/20 border-2 border-green-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-green-400 hover:from-green-500/40 hover:to-emerald-500/30 transition-all shadow-lg shadow-green-500/20 group"
+              title="The Fields"
+            >
+              <Wheat className="w-6 h-6 text-green-400 group-hover:text-green-300 transition-colors" />
+              <span className="text-[8px] font-bold text-green-400/80 group-hover:text-green-300 mt-0.5 tracking-wide">FIELDS</span>
+            </div>
+            <div
+              onClick={() => navigate("/worldboss")}
+              className="w-14 h-14 rounded-2xl bg-gradient-to-br from-red-500/30 to-amber-600/20 border-2 border-red-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-red-400 hover:from-red-500/40 hover:to-amber-500/30 transition-all shadow-lg shadow-red-500/20 group"
+              title="World Boss"
+            >
+              <Skull className="w-6 h-6 text-red-400 group-hover:text-red-300 transition-colors" />
+              <span className="text-[8px] font-bold text-red-400/80 group-hover:text-red-300 mt-0.5 tracking-wide">BOSS</span>
+            </div>
+            </div>}
+          </div>}
           <Outlet />
         </main>
       </div>
