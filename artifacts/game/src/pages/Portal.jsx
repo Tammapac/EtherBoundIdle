@@ -89,7 +89,20 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
     onLeave();
   };
 
-  // Poll for session updates (so all players see same enemies/state)
+  // Real-time portal combat updates via Socket.IO
+  useEffect(() => {
+    if (!session?.id) return;
+    const handler = (e) => {
+      const data = e.detail;
+      if (data && data.id === session.id) {
+        setSession(prev => ({ ...prev, ...data }));
+      }
+    };
+    window.addEventListener("portal-combat-update", handler);
+    return () => window.removeEventListener("portal-combat-update", handler);
+  }, [session?.id]);
+
+  // Fallback poll for session updates (reduced to 5s since socket handles most syncing)
   useEffect(() => {
     if (!session?.id) return;
     const interval = setInterval(async () => {
@@ -98,7 +111,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
         if (res?.session) setSession(res.session);
         if (res?.success === false) onLeave(); // session ended
       } catch {}
-    }, 30000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [session?.id, character.id]);
 
@@ -525,7 +538,21 @@ function PortalLobby({ session: initialSession, character, onLeave, onStart }) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Poll for member updates
+  // Real-time lobby updates via Socket.IO
+  useEffect(() => {
+    if (!session?.id) return;
+    const handler = (e) => {
+      const data = e.detail;
+      if (data && data.id === session.id) {
+        setSession(prev => ({ ...prev, ...data }));
+        if (data.status === "combat") onStart(data);
+      }
+    };
+    window.addEventListener("portal-combat-update", handler);
+    return () => window.removeEventListener("portal-combat-update", handler);
+  }, [session?.id]);
+
+  // Fallback poll for member updates (reduced to 5s)
   useEffect(() => {
     if (session.status !== "waiting") return;
     const interval = setInterval(async () => {
@@ -536,7 +563,7 @@ function PortalLobby({ session: initialSession, character, onLeave, onStart }) {
           if (res.session.status === "combat") onStart(res.session);
         }
       } catch {}
-    }, 15000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [session.id, session.status, character.id]);
 

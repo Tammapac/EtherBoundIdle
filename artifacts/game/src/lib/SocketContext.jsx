@@ -134,6 +134,11 @@ export function SocketProvider({ children, character, onCharacterUpdate }) {
       if (data.onlineCount != null) setOnlineCount(data.onlineCount);
     });
 
+    // Portal combat real-time updates
+    socket.on("portal:combat_update", (data) => {
+      window.dispatchEvent(new CustomEvent("portal-combat-update", { detail: data }));
+    });
+
     socketRef.current = socket;
 
     return () => {

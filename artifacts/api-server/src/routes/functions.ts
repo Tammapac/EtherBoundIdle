@@ -6118,7 +6118,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       d.totalRewards = { gold: 0, exp: 0, portalShards: 0, dust: {}, loot: [] };
       d.combat_log = [{ type: "system", text: `The Infinite Portal (Lv.${level}) opens! Wave 1 begins! ${members.length} player${members.length > 1 ? "s" : ""} enter the rift!` }];
       await db.update(portalSessionsTable).set({ status: "combat", wave: 1, data: d }).where(eq(portalSessionsTable.id, session.id));
-      sendSuccess(res, { success: true, session: { id: session.id, wave: 1, status: "combat", ...d, members } });
+      const startState = { id: session.id, wave: 1, status: "combat", ...d, members };
+      // Broadcast combat start to all party members
+      for (const m of members) {
+        if (m.characterId !== characterId) {
+          emitToCharacter(String(m.characterId), "portal:combat_update", startState);
+        }
+      }
+      sendSuccess(res, { success: true, session: startState });
       return;
     }
 
@@ -6316,7 +6323,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
       d.combat_log = d.combat_log || [];
       d.combat_log.push({ type: "system", text: `${char.name} has joined the portal!` });
       await db.update(portalSessionsTable).set({ members, data: d }).where(eq(portalSessionsTable.id, session.id));
-      sendSuccess(res, { success: true, session: { id: session.id, wave: session.wave, status: session.status, ...d, members } });
+      const joinState = { id: session.id, wave: session.wave, status: session.status, ...d, members };
+      // Broadcast join to existing members
+      for (const m of members) {
+        if (m.characterId !== characterId) {
+          emitToCharacter(String(m.characterId), "portal:combat_update", joinState);
+        }
+      }
+      sendSuccess(res, { success: true, session: joinState });
       return;
     }
 
@@ -6607,7 +6621,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         members[meIdx] = me;
         await db.update(portalSessionsTable).set({ wave: nextWave, data: d, members }).where(eq(portalSessionsTable.id, session.id));
         const _ta2 = { ...d, combat_log: (d.combat_log || []).slice(-10) };
-        sendSuccess(res, { success: true, session: { id: session.id, wave: nextWave, status: "combat", ..._ta2, members } });
+        const waveState = { id: session.id, wave: nextWave, status: "combat", ..._ta2, members };
+        // Broadcast wave clear + new wave to all party members
+        for (const m of members) {
+          if (m.characterId !== characterId) {
+            emitToCharacter(String(m.characterId), "portal:combat_update", waveState);
+          }
+        }
+        sendSuccess(res, { success: true, session: waveState });
         return;
       }
 
@@ -6650,7 +6671,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
         d.finalWave = wave;
         await db.update(portalSessionsTable).set({ status: "defeat", data: d, members }).where(eq(portalSessionsTable.id, session.id));
         const _ta3 = { ...d, combat_log: (d.combat_log || []).slice(-10) };
-        sendSuccess(res, { success: true, session: { id: session.id, wave, status: "defeat", ..._ta3, members } });
+        const defeatState = { id: session.id, wave, status: "defeat", ..._ta3, members };
+        // Broadcast defeat to all party members
+        for (const m of members) {
+          if (m.characterId !== characterId) {
+            emitToCharacter(String(m.characterId), "portal:combat_update", defeatState);
+          }
+        }
+        sendSuccess(res, { success: true, session: defeatState });
         return;
       }
 
@@ -6672,7 +6700,14 @@ router.post("/functions/portalAction", async (req: Request, res: Response) => {
 
       await db.update(portalSessionsTable).set({ data: d, members }).where(eq(portalSessionsTable.id, session.id));
       const _ta4 = { ...d, combat_log: (d.combat_log || []).slice(-10) };
-      sendSuccess(res, { success: true, session: { id: session.id, wave: session.wave, status: session.status, ..._ta4, members } });
+      const portalState = { id: session.id, wave: session.wave, status: session.status, ..._ta4, members };
+      // Broadcast portal state to all party members in real-time
+      for (const m of members) {
+        if (m.characterId !== characterId) {
+          emitToCharacter(String(m.characterId), "portal:combat_update", portalState);
+        }
+      }
+      sendSuccess(res, { success: true, session: portalState });
       return;
     }
 
