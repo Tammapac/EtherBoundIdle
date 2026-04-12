@@ -2076,113 +2076,373 @@ const DUNGEON_MAX_ENTRIES = 5;
 const DUNGEON_RESET_COST = 500;
 const DUNGEON_WINDOW_MS = 8 * 60 * 60 * 1000;
 
-// Skill data for damage multipliers (mirrored from frontend skillData.js)
-const SKILL_DATA: Record<string, { damage: number; mp: number; element?: string }> = {
+// Skill effect types: shield (absorb), dot (damage over time), stun (skip turn), slow (take more dmg), buff (stat boost)
+interface SkillEffect {
+  type: "shield" | "dot" | "stun" | "slow" | "buff";
+  value: number;    // shield: % of max_hp absorbed; dot: % of base dmg per tick; stun/slow: 1; buff: % increase
+  duration: number; // turns the effect lasts
+  stat?: string;    // for buff: "attack" | "defense" | "crit"
+}
+interface SkillEntry { damage: number; mp: number; element?: string; effect?: SkillEffect; }
+
+// Skill data for damage multipliers + effects (mirrored from frontend skillData.js)
+const SKILL_DATA: Record<string, SkillEntry> = {
   // ── Warrior ──
-  w_basic_strike: { damage: 1.3, mp: 18, element: "physical" }, w_shield_block: { damage: 0, mp: 22 },
-  w_power_strike: { damage: 1.8, mp: 32, element: "physical" }, w_flame_slash: { damage: 1.5, mp: 35, element: "fire" },
-  w_shield_bash: { damage: 1.5, mp: 42, element: "physical" }, w_war_cry: { damage: 0, mp: 40 },
-  w_rage: { damage: 2.2, mp: 55, element: "physical" }, w_blood_rage: { damage: 1.7, mp: 48, element: "blood" },
-  w_whirlwind: { damage: 1.7, mp: 65, element: "physical" }, w_taunt: { damage: 0, mp: 45 },
-  w_ground_slam: { damage: 2.5, mp: 75, element: "physical" }, w_thunder_strike: { damage: 2.0, mp: 70, element: "lightning" },
-  w_bulwark: { damage: 0, mp: 85 }, w_avatar: { damage: 3.0, mp: 110, element: "physical" },
-  w_juggernaut: { damage: 2.8, mp: 100, element: "physical" }, w_sand_veil: { damage: 1.5, mp: 90, element: "sand" },
-  w_titan_form: { damage: 0, mp: 140 }, w_armageddon: { damage: 5.0, mp: 160, element: "fire" },
+  w_basic_strike: { damage: 1.3, mp: 18, element: "physical" },
+  w_shield_block: { damage: 0, mp: 22, effect: { type: "shield", value: 25, duration: 2 } },
+  w_power_strike: { damage: 1.8, mp: 32, element: "physical" },
+  w_flame_slash: { damage: 1.5, mp: 35, element: "fire", effect: { type: "dot", value: 15, duration: 2 } },
+  w_shield_bash: { damage: 1.5, mp: 42, element: "physical", effect: { type: "stun", value: 1, duration: 1 } },
+  w_war_cry: { damage: 0, mp: 40, effect: { type: "buff", value: 30, duration: 3, stat: "attack" } },
+  w_rage: { damage: 2.2, mp: 55, element: "physical", effect: { type: "buff", value: 20, duration: 2, stat: "attack" } },
+  w_blood_rage: { damage: 1.7, mp: 48, element: "blood", effect: { type: "dot", value: 20, duration: 3 } },
+  w_whirlwind: { damage: 1.7, mp: 65, element: "physical" },
+  w_taunt: { damage: 0, mp: 45, effect: { type: "buff", value: 40, duration: 3, stat: "defense" } },
+  w_ground_slam: { damage: 2.5, mp: 75, element: "physical", effect: { type: "slow", value: 1, duration: 2 } },
+  w_thunder_strike: { damage: 2.0, mp: 70, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  w_bulwark: { damage: 0, mp: 85, effect: { type: "shield", value: 35, duration: 3 } },
+  w_avatar: { damage: 3.0, mp: 110, element: "physical" },
+  w_juggernaut: { damage: 2.8, mp: 100, element: "physical" },
+  w_sand_veil: { damage: 1.5, mp: 90, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  w_titan_form: { damage: 0, mp: 140, effect: { type: "shield", value: 50, duration: 4 } },
+  w_armageddon: { damage: 5.0, mp: 160, element: "fire", effect: { type: "dot", value: 30, duration: 3 } },
   w_eternal_guard: { damage: 3.5, mp: 130, element: "physical" },
-  w_cleave: { damage: 1.6, mp: 40, element: "physical" }, w_iron_skin: { damage: 0, mp: 35 },
-  w_execute: { damage: 2.0, mp: 60, element: "physical" }, w_earthquake: { damage: 2.2, mp: 80, element: "sand" },
-  w_battle_shout: { damage: 0, mp: 50 }, w_blood_sacrifice: { damage: 3.2, mp: 95, element: "blood" },
-  w_tremor: { damage: 2.8, mp: 100, element: "physical" }, w_inferno_blade: { damage: 4.5, mp: 145, element: "fire" },
-  w_godslayer: { damage: 8.0, mp: 200, element: "physical" }, w_warlord_aura: { damage: 0, mp: 180 },
-  w_ragnarok: { damage: 10.0, mp: 250, element: "fire" },
+  w_cleave: { damage: 1.6, mp: 40, element: "physical" },
+  w_iron_skin: { damage: 0, mp: 35, effect: { type: "shield", value: 20, duration: 2 } },
+  w_execute: { damage: 2.0, mp: 60, element: "physical" },
+  w_earthquake: { damage: 2.2, mp: 80, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  w_battle_shout: { damage: 0, mp: 50, effect: { type: "buff", value: 25, duration: 3, stat: "attack" } },
+  w_blood_sacrifice: { damage: 3.2, mp: 95, element: "blood", effect: { type: "dot", value: 25, duration: 3 } },
+  w_tremor: { damage: 2.8, mp: 100, element: "physical", effect: { type: "stun", value: 1, duration: 1 } },
+  w_inferno_blade: { damage: 4.5, mp: 145, element: "fire", effect: { type: "dot", value: 30, duration: 3 } },
+  w_godslayer: { damage: 8.0, mp: 200, element: "physical" },
+  w_warlord_aura: { damage: 0, mp: 180, effect: { type: "buff", value: 40, duration: 4, stat: "attack" } },
+  w_ragnarok: { damage: 10.0, mp: 250, element: "fire", effect: { type: "dot", value: 40, duration: 3 } },
   // New warrior elemental
-  w_frost_cleave: { damage: 1.4, mp: 40, element: "ice" }, w_glacial_shield: { damage: 0, mp: 55 },
-  w_frozen_wrath: { damage: 2.2, mp: 82, element: "ice" }, w_avalanche_strike: { damage: 3.2, mp: 125, element: "ice" },
-  w_venomous_edge: { damage: 1.2, mp: 38, element: "poison" }, w_toxic_slam: { damage: 1.6, mp: 52, element: "poison" },
-  w_plague_strike: { damage: 2.2, mp: 78, element: "poison" }, w_pandemic_cleave: { damage: 3.0, mp: 118, element: "poison" },
-  w_runic_blade: { damage: 1.8, mp: 55, element: "arcane" }, w_arcane_shatter: { damage: 2.5, mp: 85, element: "arcane" },
-  w_void_cleave: { damage: 3.5, mp: 130, element: "arcane" }, w_dimension_breaker: { damage: 5.5, mp: 185, element: "arcane" },
-  w_static_charge: { damage: 1.3, mp: 38, element: "lightning" }, w_storm_shield: { damage: 0, mp: 50 },
-  w_mjolnir_strike: { damage: 3.2, mp: 120, element: "lightning" }, w_tempest_fury: { damage: 5.5, mp: 180, element: "lightning" },
+  w_frost_cleave: { damage: 1.4, mp: 40, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  w_glacial_shield: { damage: 0, mp: 55, effect: { type: "shield", value: 25, duration: 2 } },
+  w_frozen_wrath: { damage: 2.2, mp: 82, element: "ice", effect: { type: "slow", value: 1, duration: 2 } },
+  w_avalanche_strike: { damage: 3.2, mp: 125, element: "ice", effect: { type: "stun", value: 1, duration: 1 } },
+  w_venomous_edge: { damage: 1.2, mp: 38, element: "poison", effect: { type: "dot", value: 12, duration: 3 } },
+  w_toxic_slam: { damage: 1.6, mp: 52, element: "poison", effect: { type: "dot", value: 18, duration: 3 } },
+  w_plague_strike: { damage: 2.2, mp: 78, element: "poison", effect: { type: "dot", value: 22, duration: 3 } },
+  w_pandemic_cleave: { damage: 3.0, mp: 118, element: "poison", effect: { type: "dot", value: 28, duration: 4 } },
+  w_runic_blade: { damage: 1.8, mp: 55, element: "arcane" },
+  w_arcane_shatter: { damage: 2.5, mp: 85, element: "arcane" },
+  w_void_cleave: { damage: 3.5, mp: 130, element: "arcane", effect: { type: "slow", value: 1, duration: 2 } },
+  w_dimension_breaker: { damage: 5.5, mp: 185, element: "arcane", effect: { type: "stun", value: 1, duration: 1 } },
+  w_static_charge: { damage: 1.3, mp: 38, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  w_storm_shield: { damage: 0, mp: 50, effect: { type: "shield", value: 22, duration: 2 } },
+  w_mjolnir_strike: { damage: 3.2, mp: 120, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  w_tempest_fury: { damage: 5.5, mp: 180, element: "lightning", effect: { type: "stun", value: 1, duration: 2 } },
+  // Warrior gap fills
+  w_blazing_cleave: { damage: 1.5, mp: 45, element: "fire", effect: { type: "dot", value: 14, duration: 2 } },
+  w_inferno_slam: { damage: 2.2, mp: 75, element: "fire", effect: { type: "dot", value: 20, duration: 3 } },
+  w_magma_rend: { damage: 3.0, mp: 110, element: "fire", effect: { type: "dot", value: 25, duration: 3 } },
+  w_permafrost_crush: { damage: 4.5, mp: 155, element: "ice", effect: { type: "slow", value: 1, duration: 2 } },
+  w_glacial_annihilation: { damage: 7.0, mp: 210, element: "ice", effect: { type: "stun", value: 1, duration: 2 } },
+  w_thundergod_wrath: { damage: 9.0, mp: 240, element: "lightning", effect: { type: "stun", value: 1, duration: 2 } },
+  w_blight_cleave: { damage: 4.0, mp: 140, element: "poison", effect: { type: "dot", value: 30, duration: 3 } },
+  w_plague_lord: { damage: 6.5, mp: 195, element: "poison", effect: { type: "dot", value: 40, duration: 4 } },
+  w_crimson_edge: { damage: 1.2, mp: 30, element: "blood", effect: { type: "dot", value: 10, duration: 2 } },
+  w_sanguine_slam: { damage: 2.3, mp: 78, element: "blood", effect: { type: "dot", value: 18, duration: 3 } },
+  w_hemorrhage_strike: { damage: 5.0, mp: 150, element: "blood", effect: { type: "dot", value: 35, duration: 3 } },
+  w_bloodstorm_tyrant: { damage: 8.5, mp: 230, element: "blood", effect: { type: "dot", value: 45, duration: 4 } },
+  w_dust_strike: { damage: 1.1, mp: 28, element: "sand", effect: { type: "slow", value: 1, duration: 1 } },
+  w_sandstone_bash: { damage: 1.6, mp: 48, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  w_dune_colossus: { damage: 4.8, mp: 160, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
+  w_tomb_warden: { damage: 7.5, mp: 220, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
+  w_mystic_strike: { damage: 1.3, mp: 35, element: "arcane" },
+  w_void_annihilator: { damage: 9.5, mp: 260, element: "arcane" },
   // ── Mage ──
-  m_magic_bolt: { damage: 1.4, mp: 22, element: "arcane" }, m_frost_armor: { damage: 0, mp: 28 },
-  m_fireball: { damage: 1.9, mp: 38, element: "fire" }, m_poison_bolt: { damage: 1.2, mp: 30, element: "poison" },
-  m_ice_lance: { damage: 1.6, mp: 48, element: "ice" }, m_mana_shield: { damage: 0, mp: 55 },
-  m_arcane_burst: { damage: 2.4, mp: 65, element: "arcane" }, m_lightning_bolt: { damage: 1.8, mp: 45, element: "lightning" },
-  m_blizzard: { damage: 2.0, mp: 85, element: "ice" }, m_flame_wall: { damage: 1.8, mp: 80, element: "fire" },
-  m_time_warp: { damage: 0, mp: 75 }, m_meteor: { damage: 3.0, mp: 100, element: "fire" },
-  m_black_hole: { damage: 2.5, mp: 110, element: "arcane" }, m_arcane_nova: { damage: 3.2, mp: 130, element: "arcane" },
-  m_blood_pact: { damage: 2.0, mp: 95, element: "blood" }, m_chrono_rift: { damage: 0, mp: 100 },
-  m_ice_prison: { damage: 2.2, mp: 105, element: "ice" },
-  m_singularity: { damage: 4.0, mp: 150, element: "arcane" }, m_genesis: { damage: 3.5, mp: 140, element: "arcane" },
-  m_apocalypse: { damage: 6.0, mp: 180, element: "fire" },
-  m_arcane_shield: { damage: 0, mp: 55 }, m_chain_lightning: { damage: 2.0, mp: 60, element: "lightning" },
-  m_poison_cloud: { damage: 1.5, mp: 55, element: "poison" }, m_frost_nova: { damage: 1.8, mp: 70, element: "ice" },
-  m_mana_burn: { damage: 1.6, mp: 65, element: "arcane" }, m_infernal_pact: { damage: 2.5, mp: 90, element: "fire" },
-  m_sandstorm: { damage: 2.0, mp: 80, element: "sand" }, m_arcane_god: { damage: 5.0, mp: 160, element: "arcane" },
-  m_supernova: { damage: 7.0, mp: 200, element: "fire" }, m_absolute_zero: { damage: 5.5, mp: 170, element: "ice" },
+  m_magic_bolt: { damage: 1.4, mp: 22, element: "arcane" },
+  m_frost_armor: { damage: 0, mp: 28, effect: { type: "shield", value: 20, duration: 3 } },
+  m_fireball: { damage: 1.9, mp: 38, element: "fire", effect: { type: "dot", value: 15, duration: 2 } },
+  m_poison_bolt: { damage: 1.2, mp: 30, element: "poison", effect: { type: "dot", value: 12, duration: 3 } },
+  m_ice_lance: { damage: 1.6, mp: 48, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  m_mana_shield: { damage: 0, mp: 55, effect: { type: "shield", value: 30, duration: 3 } },
+  m_arcane_burst: { damage: 2.4, mp: 65, element: "arcane" },
+  m_lightning_bolt: { damage: 1.8, mp: 45, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  m_blizzard: { damage: 2.0, mp: 85, element: "ice", effect: { type: "slow", value: 1, duration: 2 } },
+  m_flame_wall: { damage: 1.8, mp: 80, element: "fire", effect: { type: "dot", value: 20, duration: 3 } },
+  m_time_warp: { damage: 0, mp: 75, effect: { type: "buff", value: 25, duration: 3, stat: "crit" } },
+  m_meteor: { damage: 3.0, mp: 100, element: "fire", effect: { type: "dot", value: 25, duration: 2 } },
+  m_black_hole: { damage: 2.5, mp: 110, element: "arcane", effect: { type: "slow", value: 1, duration: 2 } },
+  m_arcane_nova: { damage: 3.2, mp: 130, element: "arcane" },
+  m_blood_pact: { damage: 2.0, mp: 95, element: "blood", effect: { type: "dot", value: 20, duration: 3 } },
+  m_chrono_rift: { damage: 0, mp: 100, effect: { type: "stun", value: 1, duration: 2 } },
+  m_ice_prison: { damage: 2.2, mp: 105, element: "ice", effect: { type: "stun", value: 1, duration: 1 } },
+  m_singularity: { damage: 4.0, mp: 150, element: "arcane", effect: { type: "slow", value: 1, duration: 3 } },
+  m_genesis: { damage: 3.5, mp: 140, element: "arcane" },
+  m_apocalypse: { damage: 6.0, mp: 180, element: "fire", effect: { type: "dot", value: 35, duration: 3 } },
+  m_arcane_shield: { damage: 0, mp: 55, effect: { type: "shield", value: 25, duration: 3 } },
+  m_chain_lightning: { damage: 2.0, mp: 60, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  m_poison_cloud: { damage: 1.5, mp: 55, element: "poison", effect: { type: "dot", value: 18, duration: 4 } },
+  m_frost_nova: { damage: 1.8, mp: 70, element: "ice", effect: { type: "slow", value: 1, duration: 2 } },
+  m_mana_burn: { damage: 1.6, mp: 65, element: "arcane" },
+  m_infernal_pact: { damage: 2.5, mp: 90, element: "fire", effect: { type: "dot", value: 22, duration: 3 } },
+  m_sandstorm: { damage: 2.0, mp: 80, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  m_arcane_god: { damage: 5.0, mp: 160, element: "arcane" },
+  m_supernova: { damage: 7.0, mp: 200, element: "fire", effect: { type: "dot", value: 40, duration: 3 } },
+  m_absolute_zero: { damage: 5.5, mp: 170, element: "ice", effect: { type: "stun", value: 1, duration: 2 } },
   // New mage elemental
-  m_blood_bolt: { damage: 1.3, mp: 35, element: "blood" }, m_hemomancy: { damage: 2.5, mp: 90, element: "blood" },
-  m_crimson_storm: { damage: 5.0, mp: 175, element: "blood" }, m_sanguine_ritual: { damage: 0, mp: 120 },
-  m_sand_barrier: { damage: 0, mp: 50 }, m_dust_devil: { damage: 2.0, mp: 78, element: "sand" },
-  m_desert_wrath: { damage: 5.0, mp: 180, element: "sand" }, m_thunderstorm: { damage: 3.5, mp: 125, element: "lightning" },
-  m_ball_lightning: { damage: 4.5, mp: 170, element: "lightning" }, m_plague: { damage: 3.0, mp: 120, element: "poison" },
-  m_miasma: { damage: 4.5, mp: 172, element: "poison" },
+  m_blood_bolt: { damage: 1.3, mp: 35, element: "blood", effect: { type: "dot", value: 12, duration: 3 } },
+  m_hemomancy: { damage: 2.5, mp: 90, element: "blood", effect: { type: "dot", value: 22, duration: 3 } },
+  m_crimson_storm: { damage: 5.0, mp: 175, element: "blood", effect: { type: "dot", value: 35, duration: 3 } },
+  m_sanguine_ritual: { damage: 0, mp: 120, effect: { type: "buff", value: 35, duration: 4, stat: "attack" } },
+  m_sand_barrier: { damage: 0, mp: 50, effect: { type: "shield", value: 22, duration: 2 } },
+  m_dust_devil: { damage: 2.0, mp: 78, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  m_desert_wrath: { damage: 5.0, mp: 180, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
+  m_thunderstorm: { damage: 3.5, mp: 125, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  m_ball_lightning: { damage: 4.5, mp: 170, element: "lightning", effect: { type: "stun", value: 1, duration: 2 } },
+  m_plague: { damage: 3.0, mp: 120, element: "poison", effect: { type: "dot", value: 25, duration: 4 } },
+  m_miasma: { damage: 4.5, mp: 172, element: "poison", effect: { type: "dot", value: 30, duration: 4 } },
+  // Mage gap fills
+  m_pyroclasm: { damage: 1.7, mp: 52, element: "fire", effect: { type: "dot", value: 16, duration: 2 } },
+  m_frozen_eternity: { damage: 4.8, mp: 165, element: "ice", effect: { type: "stun", value: 1, duration: 2 } },
+  m_spark_bolt: { damage: 1.3, mp: 32, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  m_voltaic_surge: { damage: 2.2, mp: 78, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  m_tempest_god: { damage: 8.0, mp: 235, element: "lightning", effect: { type: "stun", value: 1, duration: 2 } },
+  m_toxic_nova: { damage: 1.4, mp: 48, element: "poison", effect: { type: "dot", value: 12, duration: 2 } },
+  m_pandemic_ritual: { damage: 7.0, mp: 205, element: "poison", effect: { type: "dot", value: 42, duration: 4 } },
+  m_sanguine_lance: { damage: 1.6, mp: 55, element: "blood", effect: { type: "dot", value: 14, duration: 2 } },
+  m_blood_god: { damage: 8.5, mp: 240, element: "blood", effect: { type: "dot", value: 48, duration: 4 } },
+  m_sand_bolt: { damage: 1.1, mp: 28, element: "sand", effect: { type: "slow", value: 1, duration: 1 } },
+  m_tomb_pharaoh: { damage: 7.5, mp: 200, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
   // ── Ranger ──
-  r_quick_shot: { damage: 1.2, mp: 15, element: "physical" }, r_dodge_roll: { damage: 0, mp: 20 },
-  r_poison_shot: { damage: 1.0, mp: 22, element: "poison" }, r_fire_arrow: { damage: 1.4, mp: 28, element: "fire" },
-  r_triple_shot: { damage: 1.5, mp: 40, element: "physical" }, r_frost_arrow: { damage: 1.3, mp: 35, element: "ice" },
-  r_multishot: { damage: 2.2, mp: 60, element: "physical" }, r_lightning_arrow: { damage: 1.8, mp: 52, element: "lightning" },
-  r_eagle_eye: { damage: 0, mp: 45 }, r_traps: { damage: 1.5, mp: 55, element: "physical" },
-  r_sand_trap: { damage: 1.4, mp: 50, element: "sand" }, r_arrow_rain: { damage: 2.5, mp: 80, element: "physical" },
-  r_hunters_mark: { damage: 0, mp: 70 }, r_blood_arrow: { damage: 2.0, mp: 75, element: "blood" },
-  r_volley: { damage: 2.8, mp: 100, element: "physical" }, r_shadow_step: { damage: 1.8, mp: 85, element: "physical" },
-  r_death_arrow: { damage: 4.0, mp: 130, element: "poison" }, r_storm_bow: { damage: 4.5, mp: 150, element: "lightning" },
+  r_quick_shot: { damage: 1.2, mp: 15, element: "physical" },
+  r_dodge_roll: { damage: 0, mp: 20, effect: { type: "buff", value: 30, duration: 2, stat: "defense" } },
+  r_poison_shot: { damage: 1.0, mp: 22, element: "poison", effect: { type: "dot", value: 10, duration: 3 } },
+  r_fire_arrow: { damage: 1.4, mp: 28, element: "fire", effect: { type: "dot", value: 12, duration: 2 } },
+  r_triple_shot: { damage: 1.5, mp: 40, element: "physical" },
+  r_frost_arrow: { damage: 1.3, mp: 35, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  r_multishot: { damage: 2.2, mp: 60, element: "physical" },
+  r_lightning_arrow: { damage: 1.8, mp: 52, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  r_eagle_eye: { damage: 0, mp: 45, effect: { type: "buff", value: 25, duration: 3, stat: "crit" } },
+  r_traps: { damage: 1.5, mp: 55, element: "physical", effect: { type: "slow", value: 1, duration: 2 } },
+  r_sand_trap: { damage: 1.4, mp: 50, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  r_arrow_rain: { damage: 2.5, mp: 80, element: "physical" },
+  r_hunters_mark: { damage: 0, mp: 70, effect: { type: "slow", value: 1, duration: 3 } },
+  r_blood_arrow: { damage: 2.0, mp: 75, element: "blood", effect: { type: "dot", value: 18, duration: 3 } },
+  r_volley: { damage: 2.8, mp: 100, element: "physical" },
+  r_shadow_step: { damage: 1.8, mp: 85, element: "physical" },
+  r_death_arrow: { damage: 4.0, mp: 130, element: "poison", effect: { type: "dot", value: 30, duration: 3 } },
+  r_storm_bow: { damage: 4.5, mp: 150, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
   r_wrath_of_hunt: { damage: 5.0, mp: 160, element: "physical" },
-  r_nature_bond: { damage: 0, mp: 55 }, r_explosive_arrow: { damage: 1.6, mp: 35, element: "fire" },
-  r_wind_walk: { damage: 0, mp: 30 }, r_venom_rain: { damage: 2.2, mp: 75, element: "poison" },
-  r_snipe: { damage: 2.5, mp: 65, element: "physical" }, r_elemental_quiver: { damage: 0, mp: 80 },
+  r_nature_bond: { damage: 0, mp: 55, effect: { type: "buff", value: 20, duration: 3, stat: "defense" } },
+  r_explosive_arrow: { damage: 1.6, mp: 35, element: "fire", effect: { type: "dot", value: 14, duration: 2 } },
+  r_wind_walk: { damage: 0, mp: 30, effect: { type: "buff", value: 20, duration: 2, stat: "defense" } },
+  r_venom_rain: { damage: 2.2, mp: 75, element: "poison", effect: { type: "dot", value: 20, duration: 3 } },
+  r_snipe: { damage: 2.5, mp: 65, element: "physical" },
+  r_elemental_quiver: { damage: 0, mp: 80, effect: { type: "buff", value: 30, duration: 3, stat: "attack" } },
   r_piercing_shot: { damage: 3.5, mp: 100, element: "physical" },
-  r_spirit_of_the_wild: { damage: 0, mp: 200 }, r_celestial_barrage: { damage: 9.0, mp: 260, element: "lightning" },
-  r_natures_wrath: { damage: 7.5, mp: 220, element: "poison" },
+  r_spirit_of_the_wild: { damage: 0, mp: 200, effect: { type: "buff", value: 50, duration: 5, stat: "attack" } },
+  r_celestial_barrage: { damage: 9.0, mp: 260, element: "lightning", effect: { type: "stun", value: 1, duration: 2 } },
+  r_natures_wrath: { damage: 7.5, mp: 220, element: "poison", effect: { type: "dot", value: 40, duration: 4 } },
   // New ranger elemental
-  r_arcane_arrow: { damage: 1.3, mp: 35, element: "arcane" }, r_mystic_shot: { damage: 1.8, mp: 52, element: "arcane" },
-  r_ethereal_volley: { damage: 2.5, mp: 82, element: "arcane" }, r_astral_barrage: { damage: 3.5, mp: 125, element: "arcane" },
-  r_frozen_shot: { damage: 2.0, mp: 72, element: "ice" }, r_glacial_rain: { damage: 3.0, mp: 115, element: "ice" },
-  r_absolute_winter: { damage: 5.0, mp: 170, element: "ice" }, r_crimson_arrow: { damage: 1.5, mp: 48, element: "blood" },
-  r_hemorrhage_shot: { damage: 2.2, mp: 75, element: "blood" }, r_sanguine_barrage: { damage: 5.5, mp: 175, element: "blood" },
-  r_dust_devil_arrow: { damage: 1.4, mp: 45, element: "sand" }, r_sandstorm_volley: { damage: 2.8, mp: 108, element: "sand" },
-  r_desert_judgment: { damage: 5.0, mp: 175, element: "sand" }, r_inferno_rain: { damage: 2.5, mp: 80, element: "fire" },
-  r_phoenix_arrow: { damage: 5.0, mp: 168, element: "fire" }, r_thunderbolt_arrow: { damage: 3.2, mp: 118, element: "lightning" },
+  r_arcane_arrow: { damage: 1.3, mp: 35, element: "arcane" },
+  r_mystic_shot: { damage: 1.8, mp: 52, element: "arcane" },
+  r_ethereal_volley: { damage: 2.5, mp: 82, element: "arcane" },
+  r_astral_barrage: { damage: 3.5, mp: 125, element: "arcane", effect: { type: "slow", value: 1, duration: 2 } },
+  r_frozen_shot: { damage: 2.0, mp: 72, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  r_glacial_rain: { damage: 3.0, mp: 115, element: "ice", effect: { type: "slow", value: 1, duration: 2 } },
+  r_absolute_winter: { damage: 5.0, mp: 170, element: "ice", effect: { type: "stun", value: 1, duration: 2 } },
+  r_crimson_arrow: { damage: 1.5, mp: 48, element: "blood", effect: { type: "dot", value: 14, duration: 3 } },
+  r_hemorrhage_shot: { damage: 2.2, mp: 75, element: "blood", effect: { type: "dot", value: 20, duration: 3 } },
+  r_sanguine_barrage: { damage: 5.5, mp: 175, element: "blood", effect: { type: "dot", value: 35, duration: 3 } },
+  r_dust_devil_arrow: { damage: 1.4, mp: 45, element: "sand", effect: { type: "slow", value: 1, duration: 1 } },
+  r_sandstorm_volley: { damage: 2.8, mp: 108, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  r_desert_judgment: { damage: 5.0, mp: 175, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
+  r_inferno_rain: { damage: 2.5, mp: 80, element: "fire", effect: { type: "dot", value: 20, duration: 2 } },
+  r_phoenix_arrow: { damage: 5.0, mp: 168, element: "fire", effect: { type: "dot", value: 30, duration: 3 } },
+  r_thunderbolt_arrow: { damage: 3.2, mp: 118, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  // Ranger gap fills
+  r_apex_predator: { damage: 8.0, mp: 220, element: "physical" },
+  r_blazing_volley: { damage: 3.0, mp: 105, element: "fire", effect: { type: "dot", value: 22, duration: 3 } },
+  r_phoenix_rain: { damage: 7.0, mp: 200, element: "fire", effect: { type: "dot", value: 38, duration: 4 } },
+  r_frost_tip: { damage: 1.1, mp: 22, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  r_arctic_oblivion: { damage: 8.0, mp: 225, element: "ice", effect: { type: "stun", value: 1, duration: 2 } },
+  r_static_arrow: { damage: 1.2, mp: 30, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  r_storm_volley: { damage: 2.0, mp: 68, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  r_toxic_barb: { damage: 1.4, mp: 40, element: "poison", effect: { type: "dot", value: 12, duration: 2 } },
+  r_blight_arrow: { damage: 2.8, mp: 95, element: "poison", effect: { type: "dot", value: 22, duration: 3 } },
+  r_plague_rain: { damage: 4.2, mp: 145, element: "poison", effect: { type: "dot", value: 30, duration: 3 } },
+  r_bloodthorn_arrow: { damage: 1.2, mp: 28, element: "blood", effect: { type: "dot", value: 10, duration: 2 } },
+  r_crimson_apocalypse: { damage: 8.5, mp: 240, element: "blood", effect: { type: "dot", value: 48, duration: 4 } },
+  r_desert_arrow: { damage: 1.0, mp: 25, element: "sand", effect: { type: "slow", value: 1, duration: 1 } },
+  r_sirocco_storm: { damage: 7.5, mp: 215, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
+  r_cosmic_shot: { damage: 4.5, mp: 155, element: "arcane" },
+  r_void_hunter: { damage: 9.0, mp: 250, element: "arcane" },
   // ── Rogue ──
-  ro_quick_slash: { damage: 1.3, mp: 16, element: "physical" }, ro_smoke_bomb: { damage: 0, mp: 22 },
-  ro_poison_blade: { damage: 1.1, mp: 20, element: "poison" }, ro_backstab: { damage: 2.0, mp: 32, element: "physical" },
-  ro_open_wounds: { damage: 1.5, mp: 38, element: "blood" }, ro_pickpocket: { damage: 0, mp: 30 },
-  ro_frost_strike: { damage: 1.4, mp: 35, element: "ice" }, ro_lightning_step: { damage: 1.8, mp: 48, element: "lightning" },
-  ro_blade_dance: { damage: 1.8, mp: 60, element: "physical" }, ro_garrote: { damage: 1.6, mp: 55, element: "blood" },
-  ro_sand_blind: { damage: 1.3, mp: 50, element: "sand" }, ro_shadow_strike: { damage: 2.5, mp: 75, element: "physical" },
-  ro_blood_frenzy: { damage: 2.2, mp: 85, element: "blood" }, ro_death_mark: { damage: 2.0, mp: 80, element: "poison" },
-  ro_assassinate: { damage: 3.5, mp: 110, element: "physical" }, ro_shadow_realm_entry: { damage: 2.0, mp: 90, element: "physical" },
-  ro_oblivion: { damage: 4.0, mp: 130, element: "physical" }, ro_phantom: { damage: 3.5, mp: 125, element: "physical" },
+  ro_quick_slash: { damage: 1.3, mp: 16, element: "physical" },
+  ro_smoke_bomb: { damage: 0, mp: 22, effect: { type: "buff", value: 25, duration: 2, stat: "defense" } },
+  ro_poison_blade: { damage: 1.1, mp: 20, element: "poison", effect: { type: "dot", value: 10, duration: 3 } },
+  ro_backstab: { damage: 2.0, mp: 32, element: "physical" },
+  ro_open_wounds: { damage: 1.5, mp: 38, element: "blood", effect: { type: "dot", value: 15, duration: 3 } },
+  ro_pickpocket: { damage: 0, mp: 30, effect: { type: "buff", value: 15, duration: 2, stat: "crit" } },
+  ro_frost_strike: { damage: 1.4, mp: 35, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  ro_lightning_step: { damage: 1.8, mp: 48, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  ro_blade_dance: { damage: 1.8, mp: 60, element: "physical" },
+  ro_garrote: { damage: 1.6, mp: 55, element: "blood", effect: { type: "dot", value: 18, duration: 3 } },
+  ro_sand_blind: { damage: 1.3, mp: 50, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  ro_shadow_strike: { damage: 2.5, mp: 75, element: "physical" },
+  ro_blood_frenzy: { damage: 2.2, mp: 85, element: "blood", effect: { type: "dot", value: 22, duration: 3 } },
+  ro_death_mark: { damage: 2.0, mp: 80, element: "poison", effect: { type: "dot", value: 22, duration: 4 } },
+  ro_assassinate: { damage: 3.5, mp: 110, element: "physical" },
+  ro_shadow_realm_entry: { damage: 2.0, mp: 90, element: "physical" },
+  ro_oblivion: { damage: 4.0, mp: 130, element: "physical" },
+  ro_phantom: { damage: 3.5, mp: 125, element: "physical" },
   ro_reaper: { damage: 5.5, mp: 170, element: "physical" },
-  ro_dual_strike: { damage: 1.8, mp: 35, element: "physical" }, ro_venomous_fan: { damage: 1.3, mp: 42, element: "poison" },
-  ro_shadowmeld: { damage: 0, mp: 55 }, ro_cheap_shot: { damage: 2.0, mp: 50, element: "physical" },
-  ro_viper_strike: { damage: 2.0, mp: 65, element: "poison" }, ro_mark_of_shadows: { damage: 0, mp: 80 },
+  ro_dual_strike: { damage: 1.8, mp: 35, element: "physical" },
+  ro_venomous_fan: { damage: 1.3, mp: 42, element: "poison", effect: { type: "dot", value: 14, duration: 3 } },
+  ro_shadowmeld: { damage: 0, mp: 55, effect: { type: "buff", value: 35, duration: 2, stat: "crit" } },
+  ro_cheap_shot: { damage: 2.0, mp: 50, element: "physical", effect: { type: "stun", value: 1, duration: 1 } },
+  ro_viper_strike: { damage: 2.0, mp: 65, element: "poison", effect: { type: "dot", value: 20, duration: 3 } },
+  ro_mark_of_shadows: { damage: 0, mp: 80, effect: { type: "slow", value: 1, duration: 3 } },
   ro_executioner: { damage: 3.5, mp: 110, element: "physical" },
-  ro_void_dancer: { damage: 0, mp: 200 }, ro_deaths_embrace: { damage: 10.0, mp: 250, element: "blood" },
+  ro_void_dancer: { damage: 0, mp: 200, effect: { type: "buff", value: 50, duration: 4, stat: "crit" } },
+  ro_deaths_embrace: { damage: 10.0, mp: 250, element: "blood", effect: { type: "dot", value: 50, duration: 3 } },
   ro_thousand_cuts: { damage: 8.0, mp: 230, element: "physical" },
   // New rogue elemental
-  ro_flame_dagger: { damage: 1.3, mp: 35, element: "fire" }, ro_ignition_strike: { damage: 1.6, mp: 48, element: "fire" },
-  ro_infernal_dance: { damage: 2.2, mp: 72, element: "fire" }, ro_phoenix_slash: { damage: 3.0, mp: 115, element: "fire" },
-  ro_void_strike: { damage: 1.2, mp: 38, element: "arcane" }, ro_phase_shift: { damage: 1.5, mp: 50, element: "arcane" },
-  ro_dimensional_slash: { damage: 2.5, mp: 78, element: "arcane" }, ro_reality_rend: { damage: 3.5, mp: 125, element: "arcane" },
-  ro_frozen_blade: { damage: 2.0, mp: 68, element: "ice" }, ro_glacial_ambush: { damage: 3.0, mp: 112, element: "ice" },
-  ro_absolute_chill: { damage: 5.0, mp: 170, element: "ice" }, ro_thunder_strike: { damage: 2.2, mp: 72, element: "lightning" },
-  ro_voltaic_rush: { damage: 3.2, mp: 118, element: "lightning" }, ro_storm_blade: { damage: 5.0, mp: 175, element: "lightning" },
-  ro_dust_shroud: { damage: 1.5, mp: 60, element: "sand" }, ro_sandstorm_slash: { damage: 2.8, mp: 105, element: "sand" },
-  ro_desert_phantom: { damage: 4.5, mp: 165, element: "sand" }, ro_neurotoxin: { damage: 2.8, mp: 105, element: "poison" },
-  ro_plague_blade: { damage: 4.5, mp: 168, element: "poison" },
+  ro_flame_dagger: { damage: 1.3, mp: 35, element: "fire", effect: { type: "dot", value: 12, duration: 2 } },
+  ro_ignition_strike: { damage: 1.6, mp: 48, element: "fire", effect: { type: "dot", value: 16, duration: 2 } },
+  ro_infernal_dance: { damage: 2.2, mp: 72, element: "fire", effect: { type: "dot", value: 22, duration: 3 } },
+  ro_phoenix_slash: { damage: 3.0, mp: 115, element: "fire", effect: { type: "dot", value: 28, duration: 3 } },
+  ro_void_strike: { damage: 1.2, mp: 38, element: "arcane" },
+  ro_phase_shift: { damage: 1.5, mp: 50, element: "arcane" },
+  ro_dimensional_slash: { damage: 2.5, mp: 78, element: "arcane", effect: { type: "slow", value: 1, duration: 2 } },
+  ro_reality_rend: { damage: 3.5, mp: 125, element: "arcane", effect: { type: "stun", value: 1, duration: 1 } },
+  ro_frozen_blade: { damage: 2.0, mp: 68, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  ro_glacial_ambush: { damage: 3.0, mp: 112, element: "ice", effect: { type: "slow", value: 1, duration: 2 } },
+  ro_absolute_chill: { damage: 5.0, mp: 170, element: "ice", effect: { type: "stun", value: 1, duration: 2 } },
+  ro_thunder_strike: { damage: 2.2, mp: 72, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  ro_voltaic_rush: { damage: 3.2, mp: 118, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  ro_storm_blade: { damage: 5.0, mp: 175, element: "lightning", effect: { type: "stun", value: 1, duration: 2 } },
+  ro_dust_shroud: { damage: 1.5, mp: 60, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  ro_sandstorm_slash: { damage: 2.8, mp: 105, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  ro_desert_phantom: { damage: 4.5, mp: 165, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
+  ro_neurotoxin: { damage: 2.8, mp: 105, element: "poison", effect: { type: "dot", value: 25, duration: 4 } },
+  ro_plague_blade: { damage: 4.5, mp: 168, element: "poison", effect: { type: "dot", value: 30, duration: 4 } },
+  // Rogue gap fills
+  ro_hellfire_dance: { damage: 4.5, mp: 150, element: "fire", effect: { type: "dot", value: 30, duration: 3 } },
+  ro_inferno_reaper: { damage: 7.5, mp: 210, element: "fire", effect: { type: "dot", value: 40, duration: 4 } },
+  ro_frostbite_slash: { damage: 1.1, mp: 22, element: "ice", effect: { type: "slow", value: 1, duration: 1 } },
+  ro_glacial_executioner: { damage: 8.0, mp: 225, element: "ice", effect: { type: "stun", value: 1, duration: 2 } },
+  ro_spark_dagger: { damage: 1.2, mp: 30, element: "lightning", effect: { type: "stun", value: 1, duration: 1 } },
+  ro_tempest_assassin: { damage: 8.5, mp: 235, element: "lightning", effect: { type: "stun", value: 1, duration: 2 } },
+  ro_death_blossom: { damage: 7.0, mp: 200, element: "poison", effect: { type: "dot", value: 42, duration: 4 } },
+  ro_blood_nick: { damage: 1.2, mp: 28, element: "blood", effect: { type: "dot", value: 10, duration: 2 } },
+  ro_sand_toss: { damage: 1.0, mp: 20, element: "sand", effect: { type: "slow", value: 1, duration: 1 } },
+  ro_dune_ambush: { damage: 1.5, mp: 42, element: "sand", effect: { type: "slow", value: 1, duration: 2 } },
+  ro_tomb_wraith: { damage: 7.0, mp: 205, element: "sand", effect: { type: "slow", value: 1, duration: 3 } },
+  ro_astral_blade: { damage: 4.8, mp: 155, element: "arcane" },
+  ro_cosmic_erasure: { damage: 9.0, mp: 250, element: "arcane" },
 };
+
+// ── Skill effect processing helpers ──
+function applySkillEffect(skillId: string, attacker: any, target: any, baseDmg: number, log: any[]) {
+  const skill = SKILL_DATA[skillId];
+  if (!skill?.effect) return;
+  const eff = skill.effect;
+  const skillName = skillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+  // Initialize status_effects arrays if needed
+  if (!attacker.status_effects) attacker.status_effects = [];
+  if (!target.status_effects) target.status_effects = [];
+
+  switch (eff.type) {
+    case "shield": {
+      const shieldAmt = Math.floor((attacker.max_hp || attacker.hp) * eff.value / 100);
+      attacker.shield_hp = (attacker.shield_hp || 0) + shieldAmt;
+      attacker.status_effects.push({ type: "shield", value: shieldAmt, duration: eff.duration, name: skillName });
+      log.push({ type: "effect", text: `🛡️ ${attacker.name} gains a shield absorbing ${shieldAmt} damage (${eff.duration} turns)!` });
+      break;
+    }
+    case "dot": {
+      const tickDmg = Math.max(1, Math.floor(baseDmg * eff.value / 100));
+      target.status_effects.push({ type: "dot", damage: tickDmg, duration: eff.duration, element: skill.element || "physical", name: skillName });
+      const dotName = skill.element === "fire" ? "🔥 burn" : skill.element === "poison" ? "☠️ poison" : skill.element === "blood" ? "🩸 bleed" : "💀 decay";
+      log.push({ type: "effect", text: `${dotName} applied to ${target.name || "enemy"}: ${tickDmg}/turn for ${eff.duration} turns!` });
+      break;
+    }
+    case "stun": {
+      target.status_effects.push({ type: "stun", duration: eff.duration, name: skillName });
+      log.push({ type: "effect", text: `⚡ ${target.name || "Enemy"} is STUNNED for ${eff.duration} turn${eff.duration > 1 ? "s" : ""}!` });
+      break;
+    }
+    case "slow": {
+      target.status_effects.push({ type: "slow", duration: eff.duration, name: skillName });
+      log.push({ type: "effect", text: `🌀 ${target.name || "Enemy"} is SLOWED for ${eff.duration} turn${eff.duration > 1 ? "s" : ""} (takes 50% more damage)!` });
+      break;
+    }
+    case "buff": {
+      attacker.status_effects.push({ type: "buff", stat: eff.stat, value: eff.value, duration: eff.duration, name: skillName });
+      const statLabel = eff.stat === "attack" ? "ATK" : eff.stat === "defense" ? "DEF" : "CRIT";
+      log.push({ type: "effect", text: `✨ ${attacker.name} gains +${eff.value}% ${statLabel} for ${eff.duration} turns!` });
+      break;
+    }
+  }
+}
+
+function processDoTEffects(entity: any, log: any[], label: string) {
+  if (!entity.status_effects) return;
+  for (const eff of entity.status_effects) {
+    if (eff.type === "dot" && eff.duration > 0) {
+      const dmg = eff.damage || 0;
+      if (dmg > 0) {
+        // Shield absorbs DoT damage too
+        const { finalDmg, shieldBroken } = absorbWithShield(entity, dmg);
+        entity.hp = Math.max(0, entity.hp - finalDmg);
+        const dotIcon = eff.element === "fire" ? "🔥" : eff.element === "poison" ? "☠️" : eff.element === "blood" ? "🩸" : "💀";
+        log.push({ type: "dot_tick", text: `${dotIcon} ${label} takes ${finalDmg} ${eff.element || ""} tick damage from ${eff.name}${shieldBroken ? " (shield broken!)" : ""}!` });
+      }
+    }
+  }
+}
+
+function tickDownEffects(entity: any) {
+  if (!entity.status_effects) return;
+  entity.status_effects = entity.status_effects.filter((eff: any) => {
+    eff.duration -= 1;
+    return eff.duration > 0;
+  });
+  // Clean up expired shield
+  const hasShieldEffect = entity.status_effects.some((e: any) => e.type === "shield");
+  if (!hasShieldEffect) entity.shield_hp = 0;
+}
+
+function isStunned(entity: any): boolean {
+  if (!entity.status_effects) return false;
+  return entity.status_effects.some((e: any) => e.type === "stun" && e.duration > 0);
+}
+
+function isSlowed(entity: any): boolean {
+  if (!entity.status_effects) return false;
+  return entity.status_effects.some((e: any) => e.type === "slow" && e.duration > 0);
+}
+
+function getBuffMultiplier(entity: any, stat: string): number {
+  if (!entity.status_effects) return 1.0;
+  let bonus = 0;
+  for (const eff of entity.status_effects) {
+    if (eff.type === "buff" && eff.stat === stat && eff.duration > 0) {
+      bonus += eff.value;
+    }
+  }
+  return 1.0 + bonus / 100;
+}
+
+function absorbWithShield(entity: any, incomingDmg: number): { finalDmg: number; shieldBroken: boolean } {
+  const shield = entity.shield_hp || 0;
+  if (shield <= 0) return { finalDmg: incomingDmg, shieldBroken: false };
+  if (shield >= incomingDmg) {
+    entity.shield_hp = shield - incomingDmg;
+    return { finalDmg: 0, shieldBroken: false };
+  }
+  // Shield breaks
+  entity.shield_hp = 0;
+  return { finalDmg: incomingDmg - shield, shieldBroken: true };
+}
 
 // Calculate full member stats including equipment for dungeon sessions
 async function calculateDungeonMemberStats(charId: number, char: any) {
@@ -2525,6 +2785,8 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       const scaling = classScaling[char.class || "warrior"] || classScaling.warrior;
       const primaryStat = scaling.primary === "strength" ? totalStr : scaling.primary === "intelligence" ? totalInt : totalDex;
       let baseDmg = primaryStat * scaling.mult + memberDmgBonus;
+      // Apply attack buff from status effects
+      baseDmg *= getBuffMultiplier(me, "attack");
       // Apply guild damage bonus
       if (char.guildId) {
         try {
@@ -2537,14 +2799,21 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       }
       let dmgMult = 1.0;
       let skillName = "Basic Attack";
-      if (action === "skill" && skillId && SKILL_DATA[skillId]) {
-        dmgMult = SKILL_DATA[skillId].damage || 1.0;
-        skillName = skillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const usedSkillId = (action === "skill" && skillId && SKILL_DATA[skillId]) ? skillId : null;
+      if (usedSkillId) {
+        dmgMult = SKILL_DATA[usedSkillId].damage || 1.0;
+        skillName = usedSkillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
       }
       const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
       // Boss armor reduces incoming damage
       const bossArmor = d.boss_armor || 0;
       let playerDmg = Math.max(1, rawDmg - Math.floor(bossArmor * 0.4));
+
+      // Boss slow debuff: slowed enemies take 50% more damage
+      if (!d.boss_effects) d.boss_effects = [];
+      if (d.boss_effects.some((e: any) => e.type === "slow" && e.duration > 0)) {
+        playerDmg = Math.floor(playerDmg * 1.5);
+      }
 
       // Elemental damage bonus from gear vs boss weakness/resistance
       const memberElemDmg = me.elemental_damage || {};
@@ -2572,7 +2841,8 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
       }
 
       // Crit uses gear crit_chance + luck scaling (mirrors frontend)
-      const effectiveCritChance = Math.min(0.5, (memberCritChance + totalLuck * 0.3 + totalDex * 0.1) / 100);
+      const critBuffMult = getBuffMultiplier(me, "crit");
+      const effectiveCritChance = Math.min(0.5, (memberCritChance * critBuffMult + totalLuck * 0.3 + totalDex * 0.1) / 100);
       const isCrit = Math.random() < effectiveCritChance;
       const critMultiplier = 1.5 + (memberCritDmgPct / 100);
       const finalDmg = isCrit ? Math.floor(playerDmg * critMultiplier) : playerDmg;
@@ -2581,6 +2851,14 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
         type: "player_attack",
         text: `${me.name} uses ${skillName} for ${finalDmg} damage${isCrit ? " (CRIT!)" : ""}${elemText}!`,
       });
+
+      // Apply skill effects (shield on self, dot/stun/slow on boss, buff on self)
+      if (usedSkillId) {
+        const bossTarget = { name: d.boss_name, status_effects: d.boss_effects, hp: d.boss_hp, max_hp: d.boss_max_hp, shield_hp: d.boss_shield_hp || 0 };
+        applySkillEffect(usedSkillId, me, bossTarget, baseDmg, d.combat_log);
+        d.boss_effects = bossTarget.status_effects;
+        d.boss_shield_hp = bossTarget.shield_hp;
+      }
 
       // Check victory
       if (d.boss_hp <= 0) {
@@ -2645,27 +2923,73 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
         return;
       }
 
-      // Boss counter-attack on the acting player
-      const bossDmgBase = d.boss_dmg_base || 15;
-      const bossDmgPerLvl = d.boss_dmg_per_level || 3;
-      const bossDmg = Math.max(1, Math.floor((bossDmgBase + (char.level || 1) * bossDmgPerLvl * 0.3) * (0.8 + Math.random() * 0.4)));
-      // Use member's full defense (includes gear) for damage reduction
-      const memberDef = me.defense || (char.defense || 0);
-      const memberVit = me.vitality || (char.vitality || 8);
-      const totalDefense = memberDef + memberVit * 0.5;
-      // Evasion check (mirrors frontend)
-      const memberEvasion = Math.min(0.4, (me.evasion || 0) / 100);
-      const evaded = Math.random() < memberEvasion;
-      // Block check (60% damage reduction)
-      const memberBlock = Math.min(0.35, (me.block_chance || 0) / 100);
-      const blocked = !evaded && Math.random() < memberBlock;
-      let actualBossDmg = 0;
-      if (evaded) {
-        actualBossDmg = 0;
-      } else {
-        const mitigated = Math.max(1, bossDmg - Math.floor(totalDefense * 0.3));
-        actualBossDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+      // Process DoT effects on boss (fire burns, poison ticks, etc.)
+      if (d.boss_effects && d.boss_effects.length > 0) {
+        const bossForDot = { name: d.boss_name, status_effects: d.boss_effects, hp: d.boss_hp, max_hp: d.boss_max_hp, shield_hp: d.boss_shield_hp || 0 };
+        processDoTEffects(bossForDot, d.combat_log, d.boss_name);
+        d.boss_hp = bossForDot.hp;
+        d.boss_shield_hp = bossForDot.shield_hp;
+        // Check if boss died from DoT
+        if (d.boss_hp <= 0) {
+          d.status = "victory";
+          d.combat_log.push({ type: "victory", text: `${d.boss_name} succumbed to damage over time! Victory!` });
+          await db.update(dungeonSessionsTable).set({ status: "completed", data: d }).where(eq(dungeonSessionsTable.id, session.id));
+          const dotVictoryResp = buildSessionResponse({ ...session, data: d });
+          for (const m of members) {
+            if (m.character_id !== characterId) emitToCharacter(String(m.character_id), "dungeon:combat_update", dotVictoryResp);
+          }
+          sendSuccess(res, { success: true, session: dotVictoryResp });
+          return;
+        }
+        tickDownEffects(bossForDot);
+        d.boss_effects = bossForDot.status_effects;
       }
+
+      // Boss counter-attack — check if stunned first
+      const bossIsStunned = d.boss_effects && d.boss_effects.some((e: any) => e.type === "stun" && e.duration > 0);
+      if (bossIsStunned) {
+        d.combat_log.push({ type: "boss_attack", target: me.name, text: `⚡ ${d.boss_name} is STUNNED and cannot attack!` });
+      } else {
+        const bossDmgBase = d.boss_dmg_base || 15;
+        const bossDmgPerLvl = d.boss_dmg_per_level || 3;
+        const bossDmg = Math.max(1, Math.floor((bossDmgBase + (char.level || 1) * bossDmgPerLvl * 0.3) * (0.8 + Math.random() * 0.4)));
+        // Use member's full defense (includes gear + defense buff)
+        const defBuffMult = getBuffMultiplier(me, "defense");
+        const memberDef = (me.defense || (char.defense || 0)) * defBuffMult;
+        const memberVit = me.vitality || (char.vitality || 8);
+        const totalDefense = memberDef + memberVit * 0.5;
+        // Evasion check (mirrors frontend)
+        const memberEvasion = Math.min(0.4, (me.evasion || 0) / 100);
+        const evaded = Math.random() < memberEvasion;
+        // Block check (60% damage reduction)
+        const memberBlock = Math.min(0.35, (me.block_chance || 0) / 100);
+        const blocked = !evaded && Math.random() < memberBlock;
+        let actualBossDmg = 0;
+        if (evaded) {
+          actualBossDmg = 0;
+        } else {
+          const mitigated = Math.max(1, bossDmg - Math.floor(totalDefense * 0.3));
+          actualBossDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+        }
+        // Shield absorption before HP damage
+        let shieldText = "";
+        if (actualBossDmg > 0 && (me.shield_hp || 0) > 0) {
+          const { finalDmg: afterShield, shieldBroken } = absorbWithShield(me, actualBossDmg);
+          shieldText = shieldBroken ? " (shield broken!)" : afterShield === 0 ? " (absorbed by shield)" : "";
+          actualBossDmg = afterShield;
+        }
+        me.hp = Math.max(0, me.hp - actualBossDmg);
+        if (evaded) {
+          d.combat_log.push({ type: "boss_attack", target: me.name, text: `🛡️ ${me.name} evaded ${d.boss_name}'s attack!` });
+        } else {
+          d.combat_log.push({
+            type: "boss_attack",
+            target: me.name,
+            text: `⚔️ ${d.boss_name} → ${me.name}: ${actualBossDmg} damage${blocked ? " (BLOCKED!)" : ""}${shieldText}`,
+          });
+        }
+      }
+
       // Lifesteal from player attack
       if (memberLifesteal > 0 && finalDmg > 0) {
         const healAmt = Math.floor(finalDmg * memberLifesteal / 100);
@@ -2674,16 +2998,13 @@ router.post("/functions/dungeonAction", async (req: Request, res: Response) => {
           d.combat_log.push({ type: "heal", text: `${me.name} leeches ${healAmt} HP!` });
         }
       }
-      me.hp = Math.max(0, me.hp - actualBossDmg);
-      if (evaded) {
-        d.combat_log.push({ type: "boss_attack", target: me.name, text: `🛡️ ${me.name} evaded ${d.boss_name}'s attack!` });
-      } else {
-        d.combat_log.push({
-          type: "boss_attack",
-          target: me.name,
-          text: `⚔️ ${d.boss_name} → ${me.name}: ${actualBossDmg} damage${blocked ? " (BLOCKED!)" : ""}`,
-        });
-      }
+
+      // Process DoT effects on player (if any)
+      processDoTEffects(me, d.combat_log, me.name);
+
+      // Tick down player effects at end of turn
+      tickDownEffects(me);
+
       if (me.hp <= 0) {
         d.combat_log.push({ type: "system", text: `${me.name} has been knocked out!` });
       }
@@ -3025,6 +3346,8 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
       const scaling = classScaling[char.class || "warrior"] || classScaling.warrior;
       const primaryStat = scaling.primary === "strength" ? totalStr : scaling.primary === "intelligence" ? totalInt : totalDex;
       let baseDmg = primaryStat * scaling.mult + memberDmgBonus;
+      // Apply attack buff
+      baseDmg *= getBuffMultiplier(me, "attack");
 
       // Guild bonus
       if (char.guildId) {
@@ -3038,12 +3361,19 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
 
       let dmgMult = 1.0;
       let skillName = "Basic Attack";
-      if (action === "skill" && skillId && SKILL_DATA[skillId]) {
-        dmgMult = SKILL_DATA[skillId].damage || 1.0;
-        skillName = skillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const tUsedSkillId = (action === "skill" && skillId && SKILL_DATA[skillId]) ? skillId : null;
+      if (tUsedSkillId) {
+        dmgMult = SKILL_DATA[tUsedSkillId].damage || 1.0;
+        skillName = tUsedSkillId.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
       }
       const rawDmg = Math.max(1, Math.floor(baseDmg * dmgMult * (0.85 + Math.random() * 0.3)));
       let playerDmg = Math.max(1, rawDmg - Math.floor((enemy.armor || 0) * 0.4));
+
+      // Slow check on targeted enemy
+      if (!enemy.status_effects) enemy.status_effects = [];
+      if (enemy.status_effects.some((e: any) => e.type === "slow" && e.duration > 0)) {
+        playerDmg = Math.floor(playerDmg * 1.5);
+      }
 
       // Elemental bonus
       const memberElemDmg = me.elemental_damage || {};
@@ -3065,8 +3395,9 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
       }
       if (elemBonusDmg > 0) playerDmg += elemBonusDmg;
 
-      // Crit
-      const effectiveCritChance = Math.min(0.5, (memberCritChance + totalLuck * 0.3 + totalDex * 0.1) / 100);
+      // Crit (with crit buff)
+      const tCritBuffMult = getBuffMultiplier(me, "crit");
+      const effectiveCritChance = Math.min(0.5, (memberCritChance * tCritBuffMult + totalLuck * 0.3 + totalDex * 0.1) / 100);
       const isCrit = Math.random() < effectiveCritChance;
       const critMultiplier = 1.5 + (memberCritDmgPct / 100);
       const finalDmg = isCrit ? Math.floor(playerDmg * critMultiplier) : playerDmg;
@@ -3077,6 +3408,11 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
         text: `You use ${skillName} on ${enemy.name} for ${finalDmg}${isCrit ? " (CRIT!)" : ""}${elemBonusDmg > 0 ? ` (+${elemBonusDmg} elem)` : ""}!`,
       });
 
+      // Apply skill effects on target enemy
+      if (tUsedSkillId) {
+        applySkillEffect(tUsedSkillId, me, enemy, baseDmg, d.combat_log);
+      }
+
       // Lifesteal (capped at 10% of max HP per hit)
       if (memberLifesteal > 0 && finalDmg > 0) {
         const rawHeal = Math.floor(finalDmg * memberLifesteal / 100);
@@ -3085,6 +3421,14 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
         if (healAmt > 0) {
           me.hp = Math.min(me.max_hp, me.hp + healAmt);
           d.combat_log.push({ type: "heal", text: `You leech ${healAmt} HP!` });
+        }
+      }
+
+      // Process DoT on all enemies
+      for (const e of enemies) {
+        if (e.hp > 0 && e.status_effects && e.status_effects.length > 0) {
+          processDoTEffects(e, d.combat_log, e.name);
+          tickDownEffects(e);
         }
       }
 
@@ -3196,13 +3540,24 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
         return;
       }
 
+      // Process DoT on player and tick effects
+      processDoTEffects(me, d.combat_log, "You");
+      tickDownEffects(me);
+
       // Enemies still alive — all alive enemies counter-attack
       for (let ei = 0; ei < enemies.length; ei++) {
         const e = enemies[ei];
         if (e.hp <= 0) continue;
 
+        // Check if this enemy is stunned
+        if (isStunned(e)) {
+          d.combat_log.push({ type: "boss_attack", text: `⚡ ${e.name} is STUNNED and cannot attack!` });
+          continue;
+        }
+
         const eDmg = Math.max(1, Math.floor((e.dmg || 10) * (0.8 + Math.random() * 0.4)));
-        const memberDef = me.defense || 0;
+        const tDefBuffMult = getBuffMultiplier(me, "defense");
+        const memberDef = (me.defense || 0) * tDefBuffMult;
         const memberVit = me.vitality || 8;
         const totalDefense = memberDef + memberVit * 0.5;
         const memberEvasion = Math.min(0.4, (me.evasion || 0) / 100);
@@ -3216,8 +3571,15 @@ router.post("/functions/towerAction", async (req: Request, res: Response) => {
         } else {
           const mitigated = Math.max(1, eDmg - Math.floor(totalDefense * 0.3));
           actualDmg = blocked ? Math.floor(mitigated * 0.4) : mitigated;
+          // Shield absorption
+          let shieldText = "";
+          if (actualDmg > 0 && (me.shield_hp || 0) > 0) {
+            const { finalDmg: afterShield, shieldBroken } = absorbWithShield(me, actualDmg);
+            shieldText = shieldBroken ? " (shield broken!)" : afterShield === 0 ? " (absorbed by shield)" : "";
+            actualDmg = afterShield;
+          }
           me.hp = Math.max(0, me.hp - actualDmg);
-          d.combat_log.push({ type: "boss_attack", text: `${e.name} hits you for ${actualDmg}${blocked ? " (BLOCKED!)" : ""}` });
+          d.combat_log.push({ type: "boss_attack", text: `${e.name} hits you for ${actualDmg}${blocked ? " (BLOCKED!)" : ""}${shieldText}` });
         }
 
         if (me.hp <= 0) {

@@ -99,6 +99,35 @@ export const SKILL_ANIMATIONS = {
   ro_voltaic_rush: "lightning", ro_storm_blade: "lightning",  ro_dust_shroud: "smoke",
   ro_sandstorm_slash: "smoke", ro_desert_phantom: "smoke",   ro_neurotoxin: "poison",
   ro_plague_blade: "poison",
+  // Gap fill animations
+  w_blazing_cleave: "fireball",    w_inferno_slam: "fireball",     w_magma_rend: "fireball",
+  w_permafrost_crush: "blizzard",  w_glacial_annihilation: "blizzard",
+  w_thundergod_wrath: "lightning",
+  w_blight_cleave: "poison",      w_plague_lord: "poison",
+  w_crimson_edge: "bleed",        w_sanguine_slam: "bleed",       w_hemorrhage_strike: "bleed",
+  w_bloodstorm_tyrant: "bleed",
+  w_dust_strike: "smoke",         w_sandstone_bash: "smoke",      w_dune_colossus: "smoke",
+  w_tomb_warden: "smoke",
+  w_mystic_strike: "nova",        w_void_annihilator: "blackhole",
+  m_pyroclasm: "fireball",         m_frozen_eternity: "blizzard",
+  m_spark_bolt: "lightning",       m_voltaic_surge: "lightning",    m_tempest_god: "lightning",
+  m_toxic_nova: "poison",          m_pandemic_ritual: "poison",
+  m_sanguine_lance: "bleed",       m_blood_god: "bleed",
+  m_sand_bolt: "smoke",            m_tomb_pharaoh: "smoke",
+  r_apex_predator: "arrowrain",    r_blazing_volley: "firearrow",   r_phoenix_rain: "arrowrain",
+  r_frost_tip: "icicle",           r_arctic_oblivion: "blizzard",
+  r_static_arrow: "lightning",     r_storm_volley: "arrowrain",
+  r_toxic_barb: "poison",          r_blight_arrow: "poison",        r_plague_rain: "arrowrain",
+  r_bloodthorn_arrow: "bleed",     r_crimson_apocalypse: "arrowrain",
+  r_desert_arrow: "arrow",         r_sirocco_storm: "smoke",
+  r_cosmic_shot: "arrow",          r_void_hunter: "blackhole",
+  ro_hellfire_dance: "fireball",   ro_inferno_reaper: "fireball",
+  ro_frostbite_slash: "icicle",    ro_glacial_executioner: "blizzard",
+  ro_spark_dagger: "lightning",    ro_tempest_assassin: "lightning",
+  ro_death_blossom: "poison",
+  ro_blood_nick: "bleed",
+  ro_sand_toss: "smoke",           ro_dune_ambush: "smoke",         ro_tomb_wraith: "smoke",
+  ro_astral_blade: "blackhole",    ro_cosmic_erasure: "blackhole",
 };
 
 export const CLASS_SKILLS = {
@@ -431,6 +460,121 @@ export const CLASS_SKILLS = {
       requires: "w_mjolnir_strike",
       synergy: "lightning_dmg build's endgame skill. Devastating AoE.",
     },
+    // ── Gap fills: fire T2, T3, T4 ──
+    {
+      id: "w_blazing_cleave", name: "Blazing Cleave", tier: 2, levelReq: 12, cost: 2,
+      mp: 45, cooldown: 3, damage: 1.5, element: "fire",
+      description: "A sweeping blade wreathed in flame that scorches all in its arc.",
+      requires: null, synergy: "Burn damage increases with consecutive fire attacks.",
+    },
+    {
+      id: "w_inferno_slam", name: "Inferno Slam", tier: 3, levelReq: 30, cost: 4,
+      mp: 75, cooldown: 4, damage: 2.2, element: "fire",
+      description: "Drives a burning fist into the ground, erupting flame beneath the enemy.",
+      requires: null, synergy: "Ground-based fire persists, dealing residual burn damage.",
+    },
+    {
+      id: "w_magma_rend", name: "Magma Rend", tier: 4, levelReq: 50, cost: 5,
+      mp: 110, cooldown: 5, damage: 3.0, element: "fire",
+      description: "Tears open molten fissures with a devastating overhead strike.",
+      requires: null, synergy: "Burning targets take amplified damage from physical skills.",
+    },
+    // ── Gap fills: ice T5, T6 ──
+    {
+      id: "w_permafrost_crush", name: "Permafrost Crush", tier: 5, levelReq: 74, cost: 6,
+      mp: 155, cooldown: 6, damage: 4.5, element: "ice",
+      description: "Encases the weapon in ancient ice and delivers a bone-shattering blow.",
+      requires: "w_avalanche_strike", synergy: "Frozen enemies shatter for bonus physical damage.",
+    },
+    {
+      id: "w_glacial_annihilation", name: "Glacial Annihilation", tier: 6, levelReq: 92, cost: 7,
+      mp: 210, cooldown: 7, damage: 7.0, element: "ice",
+      description: "Summons an arctic cataclysm that flash-freezes everything in range.",
+      requires: "w_permafrost_crush", synergy: "All ice effects gain extended duration while active.",
+    },
+    // ── Gap fills: lightning T6 ──
+    {
+      id: "w_thundergod_wrath", name: "Thundergod's Wrath", tier: 6, levelReq: 93, cost: 8,
+      mp: 240, cooldown: 8, damage: 9.0, element: "lightning",
+      description: "Channels the fury of a storm god into a single cataclysmic strike.",
+      requires: "w_tempest_fury", synergy: "Stunned enemies receive triple lightning damage.",
+    },
+    // ── Gap fills: poison T5, T6 ──
+    {
+      id: "w_blight_cleave", name: "Blight Cleave", tier: 5, levelReq: 72, cost: 5,
+      mp: 140, cooldown: 5, damage: 4.0, element: "poison",
+      description: "A toxic arc that leaves a festering wound on every target it touches.",
+      requires: "w_pandemic_cleave", synergy: "Poison duration doubled against enemies below 50% health.",
+    },
+    {
+      id: "w_plague_lord", name: "Plague Lord's Ruin", tier: 6, levelReq: 91, cost: 7,
+      mp: 195, cooldown: 7, damage: 6.5, element: "poison",
+      description: "Unleashes a pandemic wave that rots armor and flesh alike.",
+      requires: "w_blight_cleave", synergy: "All poison DOTs on the target stack with no cap.",
+    },
+    // ── Gap fills: blood T1, T3, T5, T6 ──
+    {
+      id: "w_crimson_edge", name: "Crimson Edge", tier: 1, levelReq: 6, cost: 2,
+      mp: 30, cooldown: 2, damage: 1.2, element: "blood",
+      description: "A blood-anointed blade that draws vital essence with each cut.",
+      requires: null, synergy: "Heals a small portion of damage dealt.",
+    },
+    {
+      id: "w_sanguine_slam", name: "Sanguine Slam", tier: 3, levelReq: 32, cost: 4,
+      mp: 78, cooldown: 4, damage: 2.3, element: "blood",
+      description: "Hammers the ground with blood-infused fury, leeching life from nearby foes.",
+      requires: null, synergy: "Damage scales with missing health.",
+    },
+    {
+      id: "w_hemorrhage_strike", name: "Hemorrhage Strike", tier: 5, levelReq: 75, cost: 6,
+      mp: 150, cooldown: 6, damage: 5.0, element: "blood",
+      description: "A devastating blow that ruptures blood vessels, causing massive hemorrhaging.",
+      requires: "w_blood_sacrifice", synergy: "Bleeding enemies lose defense over time.",
+    },
+    {
+      id: "w_bloodstorm_tyrant", name: "Bloodstorm Tyrant", tier: 6, levelReq: 94, cost: 8,
+      mp: 230, cooldown: 7, damage: 8.5, element: "blood",
+      description: "Becomes an avatar of carnage, draining life from all enemies in a crimson tempest.",
+      requires: "w_hemorrhage_strike", synergy: "Full health restored if this skill kills the target.",
+    },
+    // ── Gap fills: sand T1, T2, T5, T6 ──
+    {
+      id: "w_dust_strike", name: "Dust Strike", tier: 1, levelReq: 7, cost: 2,
+      mp: 28, cooldown: 2, damage: 1.1, element: "sand",
+      description: "Kicks desert dust into the enemy's eyes before delivering a swift strike.",
+      requires: null, synergy: "Blinded enemies have reduced accuracy.",
+    },
+    {
+      id: "w_sandstone_bash", name: "Sandstone Bash", tier: 2, levelReq: 14, cost: 3,
+      mp: 48, cooldown: 3, damage: 1.6, element: "sand",
+      description: "Slams a fist hardened with compressed sand into the target.",
+      requires: null, synergy: "Sand skills slow enemy attack speed.",
+    },
+    {
+      id: "w_dune_colossus", name: "Dune Colossus", tier: 5, levelReq: 76, cost: 6,
+      mp: 160, cooldown: 6, damage: 4.8, element: "sand",
+      description: "Summons a towering sand construct that crashes down on the battlefield.",
+      requires: null, synergy: "Slowed enemies take bonus damage from all sources.",
+    },
+    {
+      id: "w_tomb_warden", name: "Tomb Warden's Wrath", tier: 6, levelReq: 93, cost: 7,
+      mp: 220, cooldown: 7, damage: 7.5, element: "sand",
+      description: "Invokes ancient desert spirits to entomb and crush enemies in living sand.",
+      requires: "w_dune_colossus", synergy: "Entombed enemies cannot dodge or block.",
+    },
+    // ── Gap fills: arcane T1, T6 ──
+    {
+      id: "w_mystic_strike", name: "Mystic Strike", tier: 1, levelReq: 8, cost: 2,
+      mp: 35, cooldown: 3, damage: 1.3, element: "arcane",
+      description: "Channels raw arcane energy through the blade for a reality-warping slash.",
+      requires: null, synergy: "Arcane damage bypasses a portion of enemy defense.",
+    },
+    {
+      id: "w_void_annihilator", name: "Void Annihilator", tier: 6, levelReq: 95, cost: 8,
+      mp: 260, cooldown: 8, damage: 9.5, element: "arcane",
+      description: "Tears a rift in the fabric of existence, consuming the target in pure void.",
+      requires: "w_dimension_breaker", synergy: "Ignores all enemy resistances and immunities.",
+    },
   ],
 
   mage: [
@@ -731,6 +875,79 @@ export const CLASS_SKILLS = {
       requires: "m_plague",
       synergy: "poison_dmg build mage's endgame. Shuts down enemy regen completely.",
     },
+    // ── Gap fills: fire T2 ──
+    {
+      id: "m_pyroclasm", name: "Pyroclasm", tier: 2, levelReq: 14, cost: 3,
+      mp: 52, cooldown: 3, damage: 1.7, element: "fire",
+      description: "Erupts a cone of superheated magma that engulfs nearby enemies.",
+      requires: null, synergy: "Burning enemies take increased fire spell damage.",
+    },
+    // ── Gap fills: ice T5 ──
+    {
+      id: "m_frozen_eternity", name: "Frozen Eternity", tier: 5, levelReq: 75, cost: 6,
+      mp: 165, cooldown: 6, damage: 4.8, element: "ice",
+      description: "Encases the battlefield in an eternal frost that saps all warmth.",
+      requires: "m_ice_prison", synergy: "Frozen enemies cannot regenerate health or mana.",
+    },
+    // ── Gap fills: lightning T1, T3, T6 ──
+    {
+      id: "m_spark_bolt", name: "Spark Bolt", tier: 1, levelReq: 7, cost: 2,
+      mp: 32, cooldown: 2, damage: 1.3, element: "lightning",
+      description: "Launches a crackling bolt of electricity that arcs toward the target.",
+      requires: null, synergy: "Has a chance to chain to a second target.",
+    },
+    {
+      id: "m_voltaic_surge", name: "Voltaic Surge", tier: 3, levelReq: 30, cost: 4,
+      mp: 78, cooldown: 4, damage: 2.2, element: "lightning",
+      description: "Discharges a massive electrical surge that overloads the target's defenses.",
+      requires: null, synergy: "Shocked enemies have reduced resistance to all elements.",
+    },
+    {
+      id: "m_tempest_god", name: "Tempest Godform", tier: 6, levelReq: 94, cost: 8,
+      mp: 235, cooldown: 8, damage: 8.0, element: "lightning",
+      description: "Transcends mortal form to become a living storm, raining lightning from above.",
+      requires: "m_ball_lightning", synergy: "All attacks gain lightning damage while transformed.",
+    },
+    // ── Gap fills: poison T2, T6 ──
+    {
+      id: "m_toxic_nova", name: "Toxic Nova", tier: 2, levelReq: 13, cost: 2,
+      mp: 48, cooldown: 3, damage: 1.4, element: "poison",
+      description: "Releases a wave of concentrated toxins in all directions.",
+      requires: null, synergy: "Poisoned enemies spread toxins to nearby allies.",
+    },
+    {
+      id: "m_pandemic_ritual", name: "Pandemic Ritual", tier: 6, levelReq: 92, cost: 7,
+      mp: 205, cooldown: 7, damage: 7.0, element: "poison",
+      description: "Completes a forbidden ritual that unleashes an unstoppable plague.",
+      requires: "m_miasma", synergy: "Poison DOTs cannot be cleansed while ritual persists.",
+    },
+    // ── Gap fills: blood T2, T6 ──
+    {
+      id: "m_sanguine_lance", name: "Sanguine Lance", tier: 2, levelReq: 15, cost: 3,
+      mp: 55, cooldown: 4, damage: 1.6, element: "blood",
+      description: "Conjures a lance of crystallized blood and hurls it with devastating force.",
+      requires: null, synergy: "Leech effect restores mana proportional to blood damage.",
+    },
+    {
+      id: "m_blood_god", name: "Blood God's Dominion", tier: 6, levelReq: 93, cost: 8,
+      mp: 240, cooldown: 8, damage: 8.5, element: "blood",
+      description: "Ascends to hemomantic godhood, controlling all vital fluids on the battlefield.",
+      requires: "m_crimson_storm", synergy: "All damage dealt converts to healing at 50% rate.",
+    },
+    // ── Gap fills: sand T1, T6 ──
+    {
+      id: "m_sand_bolt", name: "Sand Bolt", tier: 1, levelReq: 6, cost: 2,
+      mp: 28, cooldown: 2, damage: 1.1, element: "sand",
+      description: "Fires a concentrated blast of razor-sharp sand particles.",
+      requires: null, synergy: "Sand damage erodes enemy armor over time.",
+    },
+    {
+      id: "m_tomb_pharaoh", name: "Tomb Pharaoh's Curse", tier: 6, levelReq: 91, cost: 7,
+      mp: 200, cooldown: 7, damage: 7.5, element: "sand",
+      description: "Invokes the dread curse of an ancient pharaoh, burying enemies in cursed sand.",
+      requires: "m_desert_wrath", synergy: "Cursed enemies take increased damage from all sand skills.",
+    },
+  
   ],
 
   ranger: [
@@ -1055,6 +1272,111 @@ export const CLASS_SKILLS = {
       requires: "r_lightning_arrow",
       synergy: "lightning_dmg % makes chains devastating. Pairs with Storm Bow.",
     },
+    // ── Gap fills: physical T6 ──
+    {
+      id: "r_apex_predator", name: "Apex Predator", tier: 6, levelReq: 92, cost: 7,
+      mp: 220, cooldown: 7, damage: 8.0, element: "physical",
+      description: "Becomes the ultimate hunter, unleashing a devastating barrage of precision strikes.",
+      requires: null, synergy: "Critical hit rate doubled for the next attack.",
+    },
+    // ── Gap fills: fire T4, T6 ──
+    {
+      id: "r_blazing_volley", name: "Blazing Volley", tier: 4, levelReq: 50, cost: 5,
+      mp: 105, cooldown: 5, damage: 3.0, element: "fire",
+      description: "Launches a fan of flame-tipped arrows that ignite on impact.",
+      requires: null, synergy: "Burning targets take bonus damage from subsequent arrows.",
+    },
+    {
+      id: "r_phoenix_rain", name: "Phoenix Rain", tier: 6, levelReq: 91, cost: 7,
+      mp: 200, cooldown: 7, damage: 7.0, element: "fire",
+      description: "Calls down a rain of phoenix feathers that erupt into a firestorm.",
+      requires: "r_phoenix_arrow", synergy: "Enemies killed by fire have a chance to explode.",
+    },
+    // ── Gap fills: ice T1, T6 ──
+    {
+      id: "r_frost_tip", name: "Frost Tip", tier: 1, levelReq: 5, cost: 1,
+      mp: 22, cooldown: 2, damage: 1.1, element: "ice",
+      description: "Coats the arrowhead in frost, chilling the target on impact.",
+      requires: null, synergy: "Chilled enemies move and attack slower.",
+    },
+    {
+      id: "r_arctic_oblivion", name: "Arctic Oblivion", tier: 6, levelReq: 93, cost: 8,
+      mp: 225, cooldown: 7, damage: 8.0, element: "ice",
+      description: "Fires a single arrow that detonates into an arctic apocalypse on impact.",
+      requires: "r_absolute_winter", synergy: "Frozen enemies shatter for area damage.",
+    },
+    // ── Gap fills: lightning T1, T3 ──
+    {
+      id: "r_static_arrow", name: "Static Arrow", tier: 1, levelReq: 7, cost: 2,
+      mp: 30, cooldown: 2, damage: 1.2, element: "lightning",
+      description: "An arrow charged with static electricity that jolts the target.",
+      requires: null, synergy: "Shocked enemies have a chance to drop extra loot.",
+    },
+    {
+      id: "r_storm_volley", name: "Storm Volley", tier: 3, levelReq: 28, cost: 3,
+      mp: 68, cooldown: 4, damage: 2.0, element: "lightning",
+      description: "Fires a spread of lightning-charged arrows that rain down as thunderbolts.",
+      requires: null, synergy: "Each arrow has independent stun chance.",
+    },
+    // ── Gap fills: poison T2, T4, T5 ──
+    {
+      id: "r_toxic_barb", name: "Toxic Barb", tier: 2, levelReq: 12, cost: 2,
+      mp: 40, cooldown: 3, damage: 1.4, element: "poison",
+      description: "Fires a barbed arrow coated in slow-acting venom.",
+      requires: null, synergy: "Poison stacks with each consecutive hit.",
+    },
+    {
+      id: "r_blight_arrow", name: "Blight Arrow", tier: 4, levelReq: 48, cost: 4,
+      mp: 95, cooldown: 5, damage: 2.8, element: "poison",
+      description: "A cursed arrow that spreads blight wherever it lands.",
+      requires: null, synergy: "Blighted enemies take increasing damage over time.",
+    },
+    {
+      id: "r_plague_rain", name: "Plague Rain", tier: 5, levelReq: 73, cost: 5,
+      mp: 145, cooldown: 6, damage: 4.2, element: "poison",
+      description: "Launches a volley of plague-tipped arrows that blanket the area in toxins.",
+      requires: "r_blight_arrow", synergy: "Poison spreads to nearby enemies on target death.",
+    },
+    // ── Gap fills: blood T1, T6 ──
+    {
+      id: "r_bloodthorn_arrow", name: "Bloodthorn Arrow", tier: 1, levelReq: 6, cost: 2,
+      mp: 28, cooldown: 2, damage: 1.2, element: "blood",
+      description: "An arrow tipped with thorns that draw blood and sap vitality.",
+      requires: null, synergy: "Leeches a small amount of health on hit.",
+    },
+    {
+      id: "r_crimson_apocalypse", name: "Crimson Apocalypse", tier: 6, levelReq: 94, cost: 8,
+      mp: 240, cooldown: 8, damage: 8.5, element: "blood",
+      description: "Fires a blood-soaked arrow into the sky that returns as a crimson meteor shower.",
+      requires: "r_sanguine_barrage", synergy: "Each hit heals the ranger and increases blood damage.",
+    },
+    // ── Gap fills: sand T1, T6 ──
+    {
+      id: "r_desert_arrow", name: "Desert Arrow", tier: 1, levelReq: 5, cost: 1,
+      mp: 25, cooldown: 2, damage: 1.0, element: "sand",
+      description: "An arrow infused with desert winds that blinds the target with sand.",
+      requires: null, synergy: "Blinded enemies have reduced hit chance.",
+    },
+    {
+      id: "r_sirocco_storm", name: "Sirocco Storm", tier: 6, levelReq: 92, cost: 7,
+      mp: 215, cooldown: 7, damage: 7.5, element: "sand",
+      description: "Summons a devastating desert storm that shreds enemies with razor sand.",
+      requires: "r_desert_judgment", synergy: "Sand-slowed enemies cannot evade attacks.",
+    },
+    // ── Gap fills: arcane T5, T6 ──
+    {
+      id: "r_cosmic_shot", name: "Cosmic Shot", tier: 5, levelReq: 75, cost: 6,
+      mp: 155, cooldown: 6, damage: 4.5, element: "arcane",
+      description: "Fires an arrow infused with cosmic energy that pierces dimensional barriers.",
+      requires: "r_astral_barrage", synergy: "Arcane arrows ignore a portion of enemy resistance.",
+    },
+    {
+      id: "r_void_hunter", name: "Void Hunter's Barrage", tier: 6, levelReq: 93, cost: 8,
+      mp: 250, cooldown: 8, damage: 9.0, element: "arcane",
+      description: "Opens a void portal and fires arrows through it, striking from impossible angles.",
+      requires: "r_cosmic_shot", synergy: "Attacks from the void cannot be blocked or dodged.",
+    },
+  
   ],
 
   rogue: [
@@ -1402,6 +1724,92 @@ export const CLASS_SKILLS = {
       requires: "ro_neurotoxin",
       synergy: "poison_dmg build rogue's endgame. Highest sustained DoT in the game.",
     },
+    // ── Gap fills: fire T5, T6 ──
+    {
+      id: "ro_hellfire_dance", name: "Hellfire Dance", tier: 5, levelReq: 73, cost: 6,
+      mp: 150, cooldown: 6, damage: 4.5, element: "fire",
+      description: "A whirling dance of flame-wreathed daggers that incinerates everything nearby.",
+      requires: "ro_phoenix_slash", synergy: "Burning enemies take critical hits more often.",
+    },
+    {
+      id: "ro_inferno_reaper", name: "Inferno Reaper", tier: 6, levelReq: 92, cost: 7,
+      mp: 210, cooldown: 7, damage: 7.5, element: "fire",
+      description: "Emerges from shadow wreathed in hellfire, delivering a final inescapable strike.",
+      requires: "ro_hellfire_dance", synergy: "Ignited enemies cannot heal or use potions.",
+    },
+    // ── Gap fills: ice T1, T6 ──
+    {
+      id: "ro_frostbite_slash", name: "Frostbite Slash", tier: 1, levelReq: 5, cost: 1,
+      mp: 22, cooldown: 2, damage: 1.1, element: "ice",
+      description: "A quick dagger slash that leaves frostbite on the wound.",
+      requires: null, synergy: "Frostbitten enemies have reduced attack speed.",
+    },
+    {
+      id: "ro_glacial_executioner", name: "Glacial Executioner", tier: 6, levelReq: 93, cost: 8,
+      mp: 225, cooldown: 7, damage: 8.0, element: "ice",
+      description: "Flash-freezes the target from within, then shatters them with a single precise strike.",
+      requires: "ro_absolute_chill", synergy: "Instantly kills frozen enemies below 15% health.",
+    },
+    // ── Gap fills: lightning T1, T6 ──
+    {
+      id: "ro_spark_dagger", name: "Spark Dagger", tier: 1, levelReq: 7, cost: 2,
+      mp: 30, cooldown: 2, damage: 1.2, element: "lightning",
+      description: "Hurls a dagger crackling with electrical energy at the target.",
+      requires: null, synergy: "Shocked enemies flinch, interrupting their actions.",
+    },
+    {
+      id: "ro_tempest_assassin", name: "Tempest Assassin", tier: 6, levelReq: 94, cost: 8,
+      mp: 235, cooldown: 7, damage: 8.5, element: "lightning",
+      description: "Becomes one with the storm, teleporting between targets with lethal precision.",
+      requires: "ro_storm_blade", synergy: "Each teleport strike increases the next hit's damage.",
+    },
+    // ── Gap fills: poison T6 ──
+    {
+      id: "ro_death_blossom", name: "Death Blossom", tier: 6, levelReq: 91, cost: 7,
+      mp: 200, cooldown: 7, damage: 7.0, element: "poison",
+      description: "Scatters a garden of lethal poison flowers that erupt in a toxic bloom.",
+      requires: "ro_plague_blade", synergy: "Poison damage becomes true damage against fully stacked targets.",
+    },
+    // ── Gap fills: blood T1 ──
+    {
+      id: "ro_blood_nick", name: "Blood Nick", tier: 1, levelReq: 6, cost: 2,
+      mp: 28, cooldown: 2, damage: 1.2, element: "blood",
+      description: "A precise nick that opens a vein, causing the target to bleed slowly.",
+      requires: null, synergy: "Bleeding enemies leave blood trails that boost rogue damage.",
+    },
+    // ── Gap fills: sand T1, T2, T6 ──
+    {
+      id: "ro_sand_toss", name: "Sand Toss", tier: 1, levelReq: 5, cost: 1,
+      mp: 20, cooldown: 2, damage: 1.0, element: "sand",
+      description: "Throws a handful of desert sand to blind and disorient the target.",
+      requires: null, synergy: "Blinded targets cannot counter-attack.",
+    },
+    {
+      id: "ro_dune_ambush", name: "Dune Ambush", tier: 2, levelReq: 12, cost: 2,
+      mp: 42, cooldown: 3, damage: 1.5, element: "sand",
+      description: "Bursts from beneath the sand to deliver a devastating surprise strike.",
+      requires: null, synergy: "Ambush attacks always critically hit slowed targets.",
+    },
+    {
+      id: "ro_tomb_wraith", name: "Tomb Wraith", tier: 6, levelReq: 92, cost: 7,
+      mp: 205, cooldown: 7, damage: 7.0, element: "sand",
+      description: "Becomes an undying desert wraith, phasing through sand to strike without warning.",
+      requires: "ro_desert_phantom", synergy: "Cannot be targeted while phasing between attacks.",
+    },
+    // ── Gap fills: arcane T5, T6 ──
+    {
+      id: "ro_astral_blade", name: "Astral Blade", tier: 5, levelReq: 74, cost: 6,
+      mp: 155, cooldown: 6, damage: 4.8, element: "arcane",
+      description: "Manifests a blade of pure astral energy that cuts through all defenses.",
+      requires: "ro_reality_rend", synergy: "Arcane strikes weaken the target's resistance to all elements.",
+    },
+    {
+      id: "ro_cosmic_erasure", name: "Cosmic Erasure", tier: 6, levelReq: 95, cost: 8,
+      mp: 250, cooldown: 8, damage: 9.0, element: "arcane",
+      description: "Erases the target from existence by severing their connection to reality.",
+      requires: "ro_astral_blade", synergy: "Erased targets cannot resurrect or respawn.",
+    },
+  
   ],
 };
 
