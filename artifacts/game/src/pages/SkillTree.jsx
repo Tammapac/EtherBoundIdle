@@ -401,7 +401,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   }
 
   return (
-    <div className="p-2 md:p-3 space-y-2">
+    <div className="p-2 md:p-3 max-w-[1400px] mx-auto space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -448,7 +448,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
       </AnimatePresence>
 
       {/* ═══ 3-COLUMN GRID (matching screenshot layout) ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr_380px] gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr_340px] gap-2">
 
         {/* LEFT: Skill Preview + Element Stacks */}
         <div className="hidden lg:block">
@@ -541,7 +541,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               position: "relative",
               width: containerW * zoom,
               height: containerH * zoom,
-              minWidth: containerW * zoom,
+              margin: "0 auto",
             }}>
             <div style={{
               transform: `scale(${zoom})`,
