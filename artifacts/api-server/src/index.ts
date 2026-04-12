@@ -27,7 +27,7 @@ await runMigrations().catch((e) => logger.warn({ err: e }, "Migration warning"))
 
 // Create HTTP server and attach Socket.IO
 const httpServer = createServer(app);
-initSocketIO(httpServer);
+await initSocketIO(httpServer);
 
 httpServer.listen(port, () => {
   logger.info({ port }, "Server listening (HTTP + WebSocket)");

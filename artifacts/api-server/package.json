@@ -23,7 +23,9 @@
     "cookie": "^1.0.2",
     "pino": "^9",
     "pino-http": "^10",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "ioredis": "^5.4.1",
+    "@socket.io/redis-adapter": "^8.3.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

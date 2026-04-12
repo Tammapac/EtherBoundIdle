@@ -11,7 +11,7 @@ const characterSockets = new Map<string, Set<string>>();
 // Map: socketId -> characterId
 const socketCharacter = new Map<string, string>();
 
-export function initSocketIO(httpServer: HttpServer): SocketIOServer {
+export async function initSocketIO(httpServer: HttpServer): Promise<SocketIOServer> {
   io = new SocketIOServer(httpServer, {
     cors: {
       origin: process.env.CORS_ORIGIN || true,
@@ -21,6 +21,20 @@ export function initSocketIO(httpServer: HttpServer): SocketIOServer {
     pingTimeout: 20000,
     transports: ["websocket", "polling"],
   });
+
+  // Attach Redis adapter for multi-process/multi-server support
+  if (process.env.REDIS_URL) {
+    try {
+      const { createAdapter } = await import("@socket.io/redis-adapter" as any);
+      const { default: Redis } = await import("ioredis" as any);
+      const pubClient = new Redis(process.env.REDIS_URL);
+      const subClient = pubClient.duplicate();
+      io.adapter(createAdapter(pubClient, subClient));
+      logger.info("Socket.IO Redis adapter attached (multi-process ready)");
+    } catch (e: any) {
+      logger.warn({ err: e.message }, "Socket.IO Redis adapter not available — single-process only");
+    }
+  }
 
   // Auth middleware — validate session cookie before allowing connection
   io.use(async (socket, next) => {

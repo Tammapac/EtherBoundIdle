@@ -37,8 +37,13 @@ echo "Public dir: $(ls dist/public/index.html 2>/dev/null && echo 'OK' || echo '
 
 echo "=== Step 6: Restarting PM2 ==="
 cd "$REPO_DIR"
-pm2 delete all 2>/dev/null || true
-pm2 start ecosystem.config.cjs
+# Use reload for zero-downtime restart in cluster mode, fall back to restart
+if pm2 describe etherbound > /dev/null 2>&1; then
+  pm2 reload ecosystem.config.cjs --update-env
+else
+  pm2 delete all 2>/dev/null || true
+  pm2 start ecosystem.config.cjs
+fi
 pm2 save
 
 echo ""
