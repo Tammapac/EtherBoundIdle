@@ -109,7 +109,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         width: NODE_SIZE,
         height: NODE_SIZE,
         border: `3px solid ${color}`,
-        background: "#1e293b",
+        background: learned ? "#1e293b" : "#0f1520",
         boxShadow: glow,
         display: "flex",
         alignItems: "center",
@@ -130,17 +130,6 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
           display: "flex", alignItems: "center", justifyContent: "center"
         }}>
           <Lock style={{ width: 20, height: 20, color: "#6b7280" }} />
-        </div>
-      )}
-
-      {/* Learned checkmark */}
-      {learned && (
-        <div style={{
-          position: "absolute", top: -6, right: -6,
-          width: 18, height: 18, borderRadius: "50%",
-          background: "#10b981", display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <CheckCircle2 style={{ width: 13, height: 13, color: "white" }} />
         </div>
       )}
 
