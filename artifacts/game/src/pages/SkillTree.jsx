@@ -109,7 +109,8 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         width: NODE_SIZE,
         height: NODE_SIZE,
         border: `3px solid ${color}`,
-        background: learned ? "#1e293b" : "#0f1520",
+        background: learned ? "#1e293b" : "#080b11",
+        opacity: learned ? 1 : 0.6,
         boxShadow: glow,
         display: "flex",
         alignItems: "center",
@@ -447,7 +448,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
       </AnimatePresence>
 
       {/* ═══ 3-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_260px] gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-2">
 
         {/* LEFT: Skill Preview + Element Stacks */}
         <div className="hidden lg:block">
