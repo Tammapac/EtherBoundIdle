@@ -113,11 +113,13 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
 
     for (const skill of skills) {
       if (!skill.requires) continue;
+      const parentSkill = skills.find(s => s.id === skill.requires);
+      if (!parentSkill) continue;
+
       // Filter: only show connections when BOTH nodes are visible in current filter
       if (activeElement) {
         if ((skill.element || "none") !== activeElement) continue;
-        const parentSkill = skills.find(s => s.id === skill.requires);
-        if (parentSkill && (parentSkill.element || "none") !== activeElement) continue;
+        if ((parentSkill.element || "none") !== activeElement) continue;
       }
 
       const fromEl = nodeRefs.current[skill.requires];
@@ -133,13 +135,12 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
       // Skip if either node has zero size (hidden)
       if (fromRect.width === 0 || toRect.width === 0) continue;
 
-      // The node container is 88px wide, icon square is 72px at the top
-      // Connect: center-bottom of parent icon → center-top of child icon
-      const iconHeight = 72;
+      // Icon is 72px tall at top of the node container
+      const iconH = 72;
       const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
-      const y1 = fromRect.top + iconHeight + 2 - containerRect.top; // just below parent icon bottom edge
+      const y1 = fromRect.top + iconH + 2 - containerRect.top;
       const x2 = toRect.left + toRect.width / 2 - containerRect.left;
-      const y2 = toRect.top - 2 - containerRect.top; // just above child icon top edge
+      const y2 = toRect.top - 2 - containerRect.top;
 
       const parentLearned = learnedSkills.includes(skill.requires);
       const childLearned = learnedSkills.includes(skill.id);
@@ -153,38 +154,35 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
 
   useEffect(() => {
     calcLines();
-    // Recalc on resize
     const observer = new ResizeObserver(calcLines);
     if (containerRef.current) observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [calcLines]);
 
-  // Also recalc when learnedSkills or activeElement changes
   useEffect(() => { calcLines(); }, [learnedSkills, activeElement, calcLines]);
 
   if (lines.length === 0) return null;
 
   return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
       {lines.map(line => {
         const color = line.bothLearned ? line.elemColor : line.parentLearned ? `${line.elemColor}88` : "#2a2a33";
-        const width = line.bothLearned ? 2.5 : 2;
+        const width = line.bothLearned ? 3.5 : 3;
         const glow = line.bothLearned ? line.elemColor : "none";
-        // Draw an L-shaped or straight path
-        const midY = (line.y1 + line.y2) / 2;
-        const path = line.x1 === line.x2
+
+        // Route: drop 10px from parent, go horizontal in the gap, then drop to child
+        const bendY = line.y1 + 10;
+        const path = Math.abs(line.x1 - line.x2) < 2
           ? `M${line.x1},${line.y1} L${line.x2},${line.y2}`
-          : `M${line.x1},${line.y1} L${line.x1},${midY} L${line.x2},${midY} L${line.x2},${line.y2}`;
+          : `M${line.x1},${line.y1} L${line.x1},${bendY} L${line.x2},${bendY} L${line.x2},${line.y2}`;
 
         return (
           <g key={line.id}>
-            {/* Glow layer */}
             {line.bothLearned && (
-              <path d={path} fill="none" stroke={glow} strokeWidth={6} strokeOpacity={0.15} strokeLinecap="round" strokeLinejoin="round" />
+              <path d={path} fill="none" stroke={glow} strokeWidth={8} strokeOpacity={0.18} strokeLinecap="round" strokeLinejoin="round" />
             )}
-            {/* Main line */}
             <path d={path} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round"
-              strokeDasharray={line.parentLearned ? "none" : "4 3"} />
+              strokeDasharray={line.parentLearned ? "none" : "5 4"} />
           </g>
         );
       })}
@@ -522,7 +520,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
                   </div>
 
                   {/* Skill nodes grid */}
-                  <div className="flex flex-wrap justify-center gap-4 mb-3" style={{ position: "relative", zIndex: 2 }}>
+                  <div className="flex flex-wrap justify-center gap-4 mb-3" style={{ position: "relative", zIndex: 3 }}>
                     {filtered.map(skill => {
                       const isLearned = learnedSkills.includes(skill.id);
                       const prereqMet = !skill.requires || learnedSkills.includes(skill.requires);
