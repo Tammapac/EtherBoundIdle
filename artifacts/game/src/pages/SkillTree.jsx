@@ -40,11 +40,11 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, o
     : "none";
 
   return (
-    <div className="flex flex-col items-center gap-1" style={{ width: 72 }}>
+    <div className="flex flex-col items-center gap-1.5" style={{ width: 88 }}>
       {/* The square node */}
       <div
         onClick={onClick}
-        className={`relative w-[64px] h-[64px] rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center ${
+        className={`relative w-[72px] h-[72px] rounded-lg cursor-pointer transition-all duration-200 flex items-center justify-center ${
           isSelected ? "scale-110" : "hover:scale-105"
         }`}
         style={{
@@ -54,7 +54,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, o
         }}
       >
         {/* Icon */}
-        <span className="text-3xl select-none">{elemCfg.icon}</span>
+        <span className="text-4xl select-none">{elemCfg.icon}</span>
 
         {/* Lock overlay */}
         {locked && !learned && (
@@ -65,35 +65,35 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, o
 
         {/* Can learn pulse indicator */}
         {canLearn && !learned && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center animate-pulse shadow-lg shadow-violet-500/50">
-            <Star className="w-2.5 h-2.5 text-white" />
+          <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center animate-pulse shadow-lg shadow-violet-500/50">
+            <Star className="w-3 h-3 text-white" />
           </div>
         )}
 
         {/* Learned checkmark */}
         {learned && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-            <CheckCircle2 className="w-3 h-3 text-white" />
+          <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
+            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
           </div>
         )}
 
         {/* Equipped badge */}
         {isEquipped && (
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1.5 py-0 rounded bg-primary/80 text-[7px] font-bold text-white">
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-primary/80 text-[8px] font-bold text-white">
             EQ
           </div>
         )}
 
         {/* Effect type badge */}
         {effectInfo && learned && (
-          <div className="absolute -bottom-1 -left-1 text-[10px] bg-black/80 rounded px-0.5">
+          <div className="absolute -bottom-1.5 -left-1.5 text-sm bg-black/80 rounded px-1">
             {effectInfo.icon}
           </div>
         )}
       </div>
 
       {/* Skill name below */}
-      <p className={`text-[10px] text-center leading-tight font-medium truncate w-full ${
+      <p className={`text-xs text-center leading-tight font-bold truncate w-full ${
         learned ? "text-gray-200" : locked ? "text-gray-600" : "text-gray-400"
       }`}>
         {skill.name}
@@ -131,9 +131,9 @@ function TierConnector({ nodesAbove, nodesBelow, learnedSkills }) {
 function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, elemStats, onLearn, isPending }) {
   if (!skill) {
     return (
-      <div className="border border-border/50 rounded-xl bg-black/30 p-3 flex flex-col items-center justify-center text-center h-[160px]">
-        <Zap className="w-6 h-6 text-gray-600 mb-2" />
-        <p className="text-xs text-gray-500">Click a skill to preview</p>
+      <div className="border border-border/50 rounded-xl bg-black/30 p-4 flex flex-col items-center justify-center text-center h-[160px]">
+        <Zap className="w-7 h-7 text-gray-600 mb-2" />
+        <p className="text-sm text-gray-500">Click a skill to preview</p>
       </div>
     );
   }
@@ -147,29 +147,29 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, el
   const canLearn = !learned && prereqMet && levelOk && skillPoints >= skill.cost;
 
   return (
-    <div className="border rounded-xl bg-black/30 p-3 space-y-2" style={{ borderColor: `${elemColor}55` }}>
-      <div className="flex flex-col items-center text-center gap-1.5">
-        <div className="w-[56px] h-[56px] rounded-lg flex items-center justify-center"
+    <div className="border rounded-xl bg-black/30 p-4 space-y-2.5" style={{ borderColor: `${elemColor}55` }}>
+      <div className="flex flex-col items-center text-center gap-2">
+        <div className="w-[64px] h-[64px] rounded-lg flex items-center justify-center"
           style={{ border: `3px solid ${elemColor}`, background: `${elemColor}15`, boxShadow: `0 0 14px ${elemColor}44` }}>
-          <span className="text-2xl">{elemCfg.icon}</span>
+          <span className="text-3xl">{elemCfg.icon}</span>
         </div>
-        <h3 className="font-bold text-sm">{skill.name}</h3>
-        <p className="text-[10px] text-muted-foreground">
+        <h3 className="font-bold text-base">{skill.name}</h3>
+        <p className="text-xs text-muted-foreground">
           <span className={SKILL_TIERS[skill.tier]?.color}>T{skill.tier}</span> · {ELEMENT_CONFIG[skill.element]?.label || "Physical"}
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-1 text-[11px]">
-        <div className="bg-white/5 rounded px-2 py-1 text-center">
+      <div className="grid grid-cols-2 gap-1.5 text-sm">
+        <div className="bg-white/5 rounded px-2 py-1.5 text-center">
           {skill.damage > 0 ? <span className="text-orange-400 font-bold">{Math.round(skill.damage * 100)}%</span> : <span className="text-blue-300 font-bold">Utility</span>}
         </div>
-        <div className="bg-white/5 rounded px-2 py-1 text-center"><span className="text-blue-400 font-bold">{skill.mp} MP</span></div>
-        <div className="bg-white/5 rounded px-2 py-1 text-center"><span className="text-gray-400">{skill.cooldown}T CD</span></div>
-        <div className="bg-white/5 rounded px-2 py-1 text-center"><span className="text-amber-400">{skill.cost} SP</span></div>
+        <div className="bg-white/5 rounded px-2 py-1.5 text-center"><span className="text-blue-400 font-bold">{skill.mp} MP</span></div>
+        <div className="bg-white/5 rounded px-2 py-1.5 text-center"><span className="text-gray-400">{skill.cooldown}T CD</span></div>
+        <div className="bg-white/5 rounded px-2 py-1.5 text-center"><span className="text-amber-400">{skill.cost} SP</span></div>
       </div>
 
       {effectInfo && (
-        <div className="text-[10px] px-2 py-1.5 rounded bg-white/5 border border-white/10 text-gray-200">
+        <div className="text-xs px-2.5 py-2 rounded bg-white/5 border border-white/10 text-gray-200">
           {skill.effect.type === "shield" && `🛡️ ${skill.effect.value}% max HP shield ${skill.effect.duration}T`}
           {skill.effect.type === "dot" && `🔥 ${skill.effect.value}% dmg/turn ${skill.effect.duration}T`}
           {skill.effect.type === "stun" && `⚡ Stun ${skill.effect.duration}T`}
@@ -178,26 +178,26 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, el
         </div>
       )}
 
-      <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3">{skill.description}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{skill.description}</p>
 
       {skill.requires && (() => {
         const prereq = skills.find(s => s.id === skill.requires);
         const met = learnedSkills.includes(skill.requires);
-        return <p className="text-[10px]">Requires: <span className={`font-bold ${met ? "text-emerald-400" : "text-red-400"}`}>{prereq?.name || skill.requires}</span></p>;
+        return <p className="text-xs">Requires: <span className={`font-bold ${met ? "text-emerald-400" : "text-red-400"}`}>{prereq?.name || skill.requires}</span></p>;
       })()}
 
       {learned ? (
-        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] w-full justify-center">Learned</Badge>
+        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs w-full justify-center py-1">Learned</Badge>
       ) : canLearn ? (
-        <Button size="sm" className="w-full h-8 text-xs gap-1 bg-violet-600 hover:bg-violet-500 text-white font-bold" onClick={() => onLearn(skill)} disabled={isPending}>
-          <Zap className="w-3.5 h-3.5" /> Learn — {skill.cost} SP
+        <Button size="sm" className="w-full h-9 text-sm gap-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold" onClick={() => onLearn(skill)} disabled={isPending}>
+          <Zap className="w-4 h-4" /> Learn — {skill.cost} SP
         </Button>
       ) : !levelOk ? (
-        <p className="text-[10px] text-red-400 text-center">Requires Lv.{skill.levelReq}</p>
+        <p className="text-xs text-red-400 text-center font-bold">Requires Lv.{skill.levelReq}</p>
       ) : !prereqMet ? (
-        <p className="text-[10px] text-red-400 text-center">Prerequisite not met</p>
+        <p className="text-xs text-red-400 text-center font-bold">Prerequisite not met</p>
       ) : skillPoints < skill.cost ? (
-        <p className="text-[10px] text-red-400 text-center">Need {skill.cost - skillPoints} more SP</p>
+        <p className="text-xs text-red-400 text-center font-bold">Need {skill.cost - skillPoints} more SP</p>
       ) : null}
     </div>
   );
@@ -211,28 +211,28 @@ function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
   if (allSynergies.length === 0) return null;
 
   return (
-    <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-2.5 space-y-2">
-      <h3 className="font-orbitron font-bold text-xs text-amber-400 flex items-center gap-1.5">
-        <Sparkles className="w-3.5 h-3.5" /> Synergies
-        <span className="text-[10px] text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
+    <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-3 space-y-2.5">
+      <h3 className="font-orbitron font-bold text-sm text-amber-400 flex items-center gap-2">
+        <Sparkles className="w-4 h-4" /> Synergies
+        <span className="text-xs text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
       </h3>
-      <div className="space-y-1.5 max-h-[55vh] overflow-y-auto scrollbar-hide">
+      <div className="space-y-2 max-h-[55vh] overflow-y-auto scrollbar-hide">
         {allSynergies.map(syn => {
           const isActive = activeSynergies.some(a => a.id === syn.id);
           const progress = syn.requires.filter(id => learnedSet.has(id)).length;
           return (
-            <div key={syn.id} className={`p-2 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className="text-sm">{syn.icon}</span>
-                <span className={`text-[10px] font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
-                {isActive ? <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> : <span className="text-[9px] text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
+            <div key={syn.id} className={`p-2.5 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">{syn.icon}</span>
+                <span className={`text-xs font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
+                {isActive ? <CheckCircle2 className="w-4 h-4 text-amber-400" /> : <span className="text-[10px] text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
               </div>
-              <p className={`text-[9px] leading-tight ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
-              <div className="flex gap-0.5 flex-wrap mt-1">
+              <p className={`text-[11px] leading-relaxed ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
+              <div className="flex gap-1 flex-wrap mt-1.5">
                 {syn.requires.map(id => {
                   const sk = skills.find(s => s.id === id);
                   const has = learnedSet.has(id);
-                  return <span key={id} className={`text-[8px] px-1 py-0.5 rounded ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
+                  return <span key={id} className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
                 })}
               </div>
             </div>
@@ -358,21 +358,55 @@ export default function SkillTree({ character, onCharacterUpdate }) {
       </AnimatePresence>
 
       {/* ═══ 3-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr_180px] gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_200px] gap-2">
 
-        {/* LEFT: Skill Preview */}
+        {/* LEFT: Skill Preview + Element Stacks */}
         <div className="hidden lg:block">
-          <div className="sticky top-3">
+          <div className="sticky top-3 space-y-3">
             <SkillPreview skill={selectedSkill} skills={skills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} elemStats={elemStats} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
+
+            {/* Element Stacks (left panel) */}
+            {(() => {
+              const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
+              const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
+              const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
+              const allElements = Object.keys(ELEMENT_STACK_BONUSES);
+              return (
+                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-3 space-y-2">
+                  <h3 className="font-orbitron font-bold text-xs text-violet-400 flex items-center gap-2">
+                    <Flame className="w-3.5 h-3.5" /> Element Stacks
+                  </h3>
+                  <div className="space-y-1.5">
+                    {allElements.map(element => {
+                      const tiers = ELEMENT_STACK_BONUSES[element];
+                      const activeStack = activeStacks.find(s => s.element === element);
+                      const activeTier = activeStack?.tier || 0;
+                      return (
+                        <div key={element} className={`rounded-lg p-2 ${activeTier > 0 ? "bg-white/5 border border-white/10" : "bg-black/20 border border-gray-800/50 opacity-40"}`}>
+                          <p className={`text-[11px] font-bold mb-0.5 ${ELEM_COLORS[element]}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
+                          {[2, 3, 4].map(t => {
+                            const bonus = tiers[t];
+                            if (!bonus) return null;
+                            const isActive = activeTier >= t;
+                            const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
+                            return <p key={t} className={`text-[10px] ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
         {/* CENTER: Element Filter + Skill Tree Grid */}
         <div className="space-y-2 min-w-0">
           {/* Element pills */}
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
             <button onClick={() => setActiveElement(null)}
-              className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap border-2 ${!activeElement ? "border-white/30 bg-white/10 text-white" : "border-transparent bg-white/5 text-gray-500"}`}>
+              className={`px-3 py-1.5 rounded-full text-sm font-bold whitespace-nowrap border-2 ${!activeElement ? "border-white/30 bg-white/10 text-white" : "border-transparent bg-white/5 text-gray-500"}`}>
               All
             </button>
             {availableElements.map(elem => {
@@ -382,9 +416,9 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               const color = ELEM_BORDER[elem] || "#666";
               return (
                 <button key={elem} onClick={() => setActiveElement(isActive ? null : elem)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold whitespace-nowrap"
                   style={{ border: `2px solid ${isActive ? color : "transparent"}`, background: isActive ? `${color}22` : "rgba(255,255,255,0.03)", color: isActive ? color : "#777" }}>
-                  <span>{cfg.icon}</span>
+                  <span className="text-base">{cfg.icon}</span>
                   <span className="hidden sm:inline">{cfg.label}</span>
                   <span style={{ opacity: 0.5 }}>{c.learned}/{c.total}</span>
                 </button>
@@ -414,15 +448,15 @@ export default function SkillTree({ character, onCharacterUpdate }) {
                   )}
 
                   {/* Tier label */}
-                  <div className="flex items-center gap-2 mb-2 mt-1">
-                    <span className={`text-[10px] font-orbitron font-bold px-1.5 py-0.5 rounded ${meta.color}`}>T{tier}</span>
-                    <span className={`text-xs font-bold ${tierUnlocked ? "text-gray-300" : "text-gray-600"}`}>{meta.label}</span>
-                    {!tierUnlocked && <Lock className="w-3 h-3 text-gray-600" />}
-                    <span className={`text-[10px] font-bold ml-auto ${tierLearned === filtered.length && filtered.length > 0 ? "text-emerald-400" : "text-gray-600"}`}>{tierLearned}/{filtered.length}</span>
+                  <div className="flex items-center gap-2 mb-3 mt-2">
+                    <span className={`text-xs font-orbitron font-bold px-2 py-0.5 rounded ${meta.color}`}>T{tier}</span>
+                    <span className={`text-sm font-bold ${tierUnlocked ? "text-gray-200" : "text-gray-600"}`}>{meta.label}</span>
+                    {!tierUnlocked && <Lock className="w-3.5 h-3.5 text-gray-600" />}
+                    <span className={`text-xs font-bold ml-auto ${tierLearned === filtered.length && filtered.length > 0 ? "text-emerald-400" : "text-gray-600"}`}>{tierLearned}/{filtered.length}</span>
                   </div>
 
                   {/* Skill nodes grid */}
-                  <div className="flex flex-wrap justify-center gap-3 mb-2">
+                  <div className="flex flex-wrap justify-center gap-4 mb-3">
                     {filtered.map(skill => {
                       const isLearned = learnedSkills.includes(skill.id);
                       const prereqMet = !skill.requires || learnedSkills.includes(skill.requires);
@@ -459,39 +493,41 @@ export default function SkillTree({ character, onCharacterUpdate }) {
         </div>
       </div>
 
-      {/* ELEMENT STACKS */}
-      {(() => {
-        const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
-        const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
-        const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
-        const allElements = Object.keys(ELEMENT_STACK_BONUSES);
-        return (
-          <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-3 space-y-2">
-            <h3 className="font-orbitron font-bold text-xs text-violet-400 flex items-center gap-2">
-              <Flame className="w-3.5 h-3.5" /> Element Stacks
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-1.5">
-              {allElements.map(element => {
-                const tiers = ELEMENT_STACK_BONUSES[element];
-                const activeStack = activeStacks.find(s => s.element === element);
-                const activeTier = activeStack?.tier || 0;
-                return (
-                  <div key={element} className={`rounded-lg p-2 ${activeTier > 0 ? "bg-white/5 border border-white/10" : "bg-black/20 border border-gray-800/50 opacity-40"}`}>
-                    <p className={`text-[10px] font-bold mb-0.5 ${ELEM_COLORS[element]}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
-                    {[2, 3, 4].map(t => {
-                      const bonus = tiers[t];
-                      if (!bonus) return null;
-                      const isActive = activeTier >= t;
-                      const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
-                      return <p key={t} className={`text-[9px] ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
-                    })}
-                  </div>
-                );
-              })}
+      {/* ELEMENT STACKS (mobile only — on desktop it's in left panel) */}
+      <div className="lg:hidden">
+        {(() => {
+          const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
+          const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
+          const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
+          const allElements = Object.keys(ELEMENT_STACK_BONUSES);
+          return (
+            <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-3 space-y-2">
+              <h3 className="font-orbitron font-bold text-xs text-violet-400 flex items-center gap-2">
+                <Flame className="w-3.5 h-3.5" /> Element Stacks
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                {allElements.map(element => {
+                  const tiers = ELEMENT_STACK_BONUSES[element];
+                  const activeStack = activeStacks.find(s => s.element === element);
+                  const activeTier = activeStack?.tier || 0;
+                  return (
+                    <div key={element} className={`rounded-lg p-2 ${activeTier > 0 ? "bg-white/5 border border-white/10" : "bg-black/20 border border-gray-800/50 opacity-40"}`}>
+                      <p className={`text-[11px] font-bold mb-0.5 ${ELEM_COLORS[element]}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
+                      {[2, 3, 4].map(t => {
+                        const bonus = tiers[t];
+                        if (!bonus) return null;
+                        const isActive = activeTier >= t;
+                        const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
+                        return <p key={t} className={`text-[10px] ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
+      </div>
     </div>
   );
 }
