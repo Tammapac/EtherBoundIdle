@@ -25,7 +25,7 @@ const EFFECT_LABELS = {
 };
 
 /* ─── Single Skill Node (square icon tile) ─── */
-function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, onClick, nodeRef }) {
+function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, onClick, onHover, nodeRef }) {
   const elemCfg = skill.element ? ELEMENT_CONFIG[skill.element] : { icon: "⚔️", label: "Physical" };
   const elemColor = ELEM_BORDER[skill.element] || ELEM_BORDER.physical;
   const effectInfo = skill.effect ? EFFECT_LABELS[skill.effect.type] : null;
@@ -40,7 +40,8 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, o
     : "none";
 
   return (
-    <div className="flex flex-col items-center gap-1.5" style={{ width: 88 }} ref={nodeRef}>
+    <div className="flex flex-col items-center gap-1.5" style={{ width: 88 }} ref={nodeRef}
+      onMouseEnter={() => onHover?.(skill.id)} onMouseLeave={() => onHover?.(null)}>
       {/* The square node */}
       <div
         onClick={onClick}
@@ -102,8 +103,25 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, o
   );
 }
 
+/* ─── Build prerequisite chain (DFS up the tree, like prototype) ─── */
+function getPrereqChain(skillId, skills) {
+  const chain = new Set();
+  const pairs = [];
+  function dfs(id) {
+    if (chain.has(id)) return;
+    chain.add(id);
+    const skill = skills.find(s => s.id === id);
+    if (skill?.requires) {
+      pairs.push([skill.requires, id]);
+      dfs(skill.requires);
+    }
+  }
+  dfs(skillId);
+  return { chain, pairs };
+}
+
 /* ─── SVG Connection Lines Overlay ─── */
-function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, activeElement }) {
+function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, selectedSkillId, hoveredSkillId }) {
   const [lines, setLines] = useState([]);
 
   const calcLines = useCallback(() => {
@@ -111,46 +129,42 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
     const containerRect = containerRef.current.getBoundingClientRect();
     const newLines = [];
 
-    for (const skill of skills) {
-      if (!skill.requires) continue;
-      const parentSkill = skills.find(s => s.id === skill.requires);
-      if (!parentSkill) continue;
+    // Get the active skill (hovered takes priority over selected)
+    const activeId = hoveredSkillId || selectedSkillId;
+    if (!activeId) { setLines([]); return; }
 
-      // Filter: only show connections when BOTH nodes are visible in current filter
-      if (activeElement) {
-        if ((skill.element || "none") !== activeElement) continue;
-        if ((parentSkill.element || "none") !== activeElement) continue;
-      }
+    // DFS up the prerequisite chain
+    const { pairs } = getPrereqChain(activeId, skills);
+    if (pairs.length === 0) { setLines([]); return; }
 
-      const fromEl = nodeRefs.current[skill.requires];
-      const toEl = nodeRefs.current[skill.id];
+    for (const [parentId, childId] of pairs) {
+      const fromEl = nodeRefs.current[parentId];
+      const toEl = nodeRefs.current[childId];
       if (!fromEl || !toEl) continue;
-
-      // Check both nodes are actually in the DOM (not stale refs from previous filter)
       if (!fromEl.isConnected || !toEl.isConnected) continue;
 
       const fromRect = fromEl.getBoundingClientRect();
       const toRect = toEl.getBoundingClientRect();
-
-      // Skip if either node has zero size (hidden)
       if (fromRect.width === 0 || toRect.width === 0) continue;
 
-      // Center of the 72px icon square (icon sits at top of container)
-      const iconSize = 72;
+      // Center of icon square (72px)
+      const iconH = 72;
       const x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
-      const y1 = fromRect.top + iconSize / 2 - containerRect.top;
+      const y1 = fromRect.top + iconH / 2 - containerRect.top;
       const x2 = toRect.left + toRect.width / 2 - containerRect.left;
-      const y2 = toRect.top + iconSize / 2 - containerRect.top;
+      const y2 = toRect.top + iconH / 2 - containerRect.top;
 
-      const parentLearned = learnedSkills.includes(skill.requires);
-      const childLearned = learnedSkills.includes(skill.id);
+      const childSkill = skills.find(s => s.id === childId);
+      const parentLearned = learnedSkills.includes(parentId);
+      const childLearned = learnedSkills.includes(childId);
       const bothLearned = parentLearned && childLearned;
-      const elemColor = ELEM_BORDER[skill.element] || "#555";
+      const elemColor = ELEM_BORDER[childSkill?.element] || "#555";
+      const isHover = !!hoveredSkillId && !selectedSkillId;
 
-      newLines.push({ x1, y1, x2, y2, bothLearned, parentLearned, elemColor, id: `${skill.requires}-${skill.id}` });
+      newLines.push({ x1, y1, x2, y2, bothLearned, parentLearned, elemColor, isHover, id: `${parentId}-${childId}` });
     }
     setLines(newLines);
-  }, [skills, learnedSkills, nodeRefs, containerRef, activeElement]);
+  }, [skills, learnedSkills, nodeRefs, containerRef, selectedSkillId, hoveredSkillId]);
 
   useEffect(() => {
     calcLines();
@@ -159,31 +173,27 @@ function ConnectionLines({ skills, learnedSkills, nodeRefs, containerRef, active
     return () => observer.disconnect();
   }, [calcLines]);
 
-  useEffect(() => { calcLines(); }, [learnedSkills, activeElement, calcLines]);
-
   if (lines.length === 0) return null;
 
   return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
       {lines.map(line => {
-        const color = line.bothLearned ? line.elemColor : line.parentLearned ? `${line.elemColor}88` : "#64748b";
+        // Color: learned = element color, partially = faded, locked = gray
+        const color = line.bothLearned ? line.elemColor
+          : line.parentLearned ? `${line.elemColor}aa`
+          : line.isHover ? "#38bdf8" : "#64748b";
         const width = 4;
-        const glow = line.bothLearned ? line.elemColor : "none";
 
-        // 3-segment path (matches prototype drawLines):
-        // 1. Vertical down from parent center to midY
-        // 2. Horizontal across at midY
-        // 3. Vertical down from midY to child center
+        // 3-segment path: down from parent, across at midY, down to child
         const midY = line.y1 + (line.y2 - line.y1) / 2;
         const path = `M${line.x1},${line.y1} L${line.x1},${midY} L${line.x2},${midY} L${line.x2},${line.y2}`;
 
         return (
           <g key={line.id}>
-            {line.bothLearned && (
-              <path d={path} fill="none" stroke={glow} strokeWidth={10} strokeOpacity={0.2} />
-            )}
-            <path d={path} fill="none" stroke={color} strokeWidth={width}
-              strokeDasharray={line.parentLearned ? "none" : "6 4"} />
+            {/* Glow layer */}
+            <path d={path} fill="none" stroke={color} strokeWidth={10} strokeOpacity={0.15} />
+            {/* Main line */}
+            <path d={path} fill="none" stroke={color} strokeWidth={width} />
           </g>
         );
       })}
@@ -313,6 +323,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   const queryClient = useQueryClient();
   const [activeElement, setActiveElement] = useState(null);
   const [selectedSkill, setSelectedSkill] = useState(null);
+  const [hoveredSkillId, setHoveredSkillId] = useState(null);
   const [showPreviewMobile, setShowPreviewMobile] = useState(false);
   const [showSynergyMobile, setShowSynergyMobile] = useState(false);
   const treeContainerRef = useRef(null);
@@ -494,13 +505,14 @@ export default function SkillTree({ character, onCharacterUpdate }) {
 
           {/* ── SKILL TREE: Tier rows with nodes and connecting lines ── */}
           <div className="border border-border rounded-xl bg-[#0d0d14] p-3 relative" ref={treeContainerRef}>
-            {/* SVG connection lines */}
+            {/* SVG connection lines — only shown for selected/hovered skill chain */}
             <ConnectionLines
               skills={skills}
               learnedSkills={learnedSkills}
               nodeRefs={nodeRefs}
               containerRef={treeContainerRef}
-              activeElement={activeElement}
+              selectedSkillId={selectedSkill?.id}
+              hoveredSkillId={hoveredSkillId}
             />
             {[1, 2, 3, 4, 5, 6].map((tier, tierIdx) => {
               const meta = SKILL_TIERS[tier];
@@ -540,6 +552,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
                           isSelected={isSelected}
                           isEquipped={equippedSkills.includes(skill.id)}
                           onClick={() => setSelectedSkill(isSelected ? null : skill)}
+                          onHover={setHoveredSkillId}
                           nodeRef={(el) => { if (el) nodeRefs.current[skill.id] = el; }}
                         />
                       );
