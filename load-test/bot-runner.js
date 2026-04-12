@@ -34,8 +34,9 @@ function getArg(name, fallback) {
 
 const SERVER_URL = getArg("url", process.env.SERVER_URL || "http://localhost:3000");
 const BOT_COUNT = parseInt(getArg("bots", "10"), 10);
-const RAMP = getArg("ramp", false);
-const RAMP_DELAY_MS = parseInt(getArg("ramp-delay", "500"), 10);
+// Auto-ramp when > 20 bots to avoid hitting auth rate limits
+const RAMP = getArg("ramp", BOT_COUNT > 20 ? true : false);
+const RAMP_DELAY_MS = parseInt(getArg("ramp-delay", BOT_COUNT > 50 ? "1000" : "500"), 10);
 const FIGHT_INTERVAL_MS = parseInt(getArg("fight-interval", "5000"), 10);
 const IDLE_CLAIM_INTERVAL_MS = parseInt(getArg("idle-interval", "60000"), 10);
 const CHAT_INTERVAL_MS = parseInt(getArg("chat-interval", "30000"), 10);
