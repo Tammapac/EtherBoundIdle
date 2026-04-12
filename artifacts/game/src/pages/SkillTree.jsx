@@ -25,6 +25,9 @@ const EFFECT_LABELS = {
 };
 
 const NODE_SIZE = 72;
+const HALF = NODE_SIZE / 2;
+const LINE_WIDTH = 4;
+const CUT = 10; // how far lines stop from node center
 const H_GAP = 16;
 const V_GAP = 120;
 const PADDING = 24;
@@ -86,18 +89,15 @@ function computeLayout(filteredSkills) {
 ====================== */
 function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, isInPath, onClick, onHover, onLeave }) {
   const elemCfg = skill.element ? ELEMENT_CONFIG[skill.element] : { icon: "⚔️", label: "Physical" };
-  const elemColor = ELEM_BORDER[skill.element] || ELEM_BORDER.physical;
 
-  const borderColor = isInPath ? "#38bdf8"
-    : isSelected ? elemColor
-    : learned ? elemColor
+  // Color priority: hover path > learned > can learn > locked (matches prototype exactly)
+  const color = isInPath ? "#38bdf8"
+    : learned ? "#facc15"
     : canLearn ? "#a78bfa"
     : "#475569";
 
-  const bgColor = learned ? `${elemColor}20` : "#1e293b";
-  const shadow = isInPath ? `0 0 12px #38bdf8`
-    : isSelected ? `0 0 14px ${elemColor}66`
-    : learned ? `0 0 10px ${elemColor}44`
+  const glow = learned ? "0 0 15px #facc1555"
+    : isInPath ? "0 0 12px #38bdf855"
     : "none";
 
   return (
@@ -108,18 +108,16 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
       style={{
         width: NODE_SIZE,
         height: NODE_SIZE,
-        border: `3px solid ${borderColor}`,
-        background: bgColor,
-        boxShadow: shadow,
+        border: `3px solid ${color}`,
+        background: "#1e293b",
+        boxShadow: glow,
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
         position: "relative",
-        borderRadius: 8,
-        transition: "all 0.2s",
-        transform: isSelected ? "scale(1.08)" : undefined,
+        zIndex: 3,
+        color: "white",
       }}
     >
       <span style={{ fontSize: 28, userSelect: "none" }}>{elemCfg.icon}</span>
@@ -175,18 +173,22 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
 ====================== */
 function ConnectionLines({ positions, connections, learnedSkills, hoverPath }) {
   return (
-    <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+    <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 0 }}>
       {connections.map(([a, b]) => {
         const from = positions[a];
         const to = positions[b];
         if (!from || !to) return null;
 
-        const x1 = from.x + NODE_SIZE / 2;
-        const y1 = from.y + NODE_SIZE / 2;
-        const x2 = to.x + NODE_SIZE / 2;
-        const y2 = to.y + NODE_SIZE / 2;
+        const x1 = from.x + HALF;
+        const y1 = from.y + HALF;
+        const x2 = to.x + HALF;
+        const y2 = to.y + HALF;
 
         const midY = y1 + (y2 - y1) / 2;
+
+        // CUT OFF near nodes (lines stop 10px from center)
+        const y1c = y1 + CUT;
+        const y2c = y2 - CUT;
 
         const parentLearned = learnedSkills.includes(a);
         const childLearned = learnedSkills.includes(b);
@@ -194,17 +196,20 @@ function ConnectionLines({ positions, connections, learnedSkills, hoverPath }) {
 
         const color = isHover ? "#38bdf8"
           : parentLearned && childLearned ? "#facc15"
-          : parentLearned ? "#facc1588"
           : "#475569";
 
-        const path = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+        const glow = isHover || (parentLearned && childLearned);
+
+        const path = `M ${x1} ${y1c} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2c}`;
 
         return (
           <g key={a + b}>
-            {(isHover || (parentLearned && childLearned)) && (
-              <path d={path} fill="none" stroke={color} strokeWidth={10} strokeOpacity={0.15} />
+            {glow && (
+              <path d={path} stroke={color} strokeWidth={10} opacity={0.15} fill="none" />
             )}
-            <path d={path} fill="none" stroke={color} strokeWidth={4} />
+            <path d={path} stroke={color} strokeWidth={LINE_WIDTH} fill="none" />
+            {/* Junction circle at bend point */}
+            <circle cx={x2} cy={midY} r={4} fill={color} opacity={0.9} />
           </g>
         );
       })}
