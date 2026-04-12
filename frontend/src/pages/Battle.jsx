@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import WelcomeBackModal from "@/components/game/WelcomeBackModal";
 import {
   Swords, Skull, Sparkles, Heart,
-  Shield, Zap,
-  ShieldCheck, Crown, Footprints, CircleDot, Gem, FlaskConical, Package, Play, Pause
+  Shield, Zap, ArrowUp,
+  ShieldCheck, Crown, Footprints, CircleDot, Gem, FlaskConical, Package, Play, Pause, Star
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { getItemSprite } from "@/lib/itemIcons";
 
 const LOOT_TYPE_ICONS = {
   weapon: Swords, armor: ShieldCheck, helmet: Crown,
@@ -27,6 +29,9 @@ import { useFloatingNumbers } from "@/components/game/FloatingNumbers";
 import { REGIONS, ENEMIES, SKILLS, CLASSES, calculateExpToLevel, generateLoot, RARITY_CONFIG } from "@/lib/gameData";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import { rollDamage, calculateDamageTaken, calculateFinalStats } from "@/lib/statSystem";
+import { collectEquippedProcs, ProcEngine, SET_PROC_EFFECTS } from "@/lib/procSystem";
+import { collectSetProcEffects } from "@/lib/setSystem";
+import { getElementalMultiplier, getEnemyElementInfo, ELEMENT_DISPLAY } from "@/lib/elementalSystem";
 import hybridPersistence from "@/lib/hybridPersistence";
 import { idleEngine } from "@/lib/idleEngine";
 
@@ -37,6 +42,7 @@ const HP_REGEN_PER_TURN = 0.03; // 3%
 const MP_REGEN_PER_TURN = 0.05; // 5%
 
 export default function Battle({ character, onCharacterUpdate }) {
+  const navigate = useNavigate();
   useEffect(() => {
     idleEngine.pauseFight();
     return () => { idleEngine.resumeFight(); };
@@ -51,6 +57,9 @@ export default function Battle({ character, onCharacterUpdate }) {
   const [battleLog, setBattleLog] = useState([]);
   // Turn-based cooldowns (in turns remaining)
   const [cooldowns, setCooldowns] = useState({});
+  const [activeBuffs, setActiveBuffs] = useState([]); // [{id, name, effects, turnsLeft, icon}]
+  const [shieldHp, setShieldHp] = useState(0);
+  const [lastElement, setLastElement] = useState(null); // for element combo tracking
   const [lootDrop, setLootDrop] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [combatPhase, setCombatPhase] = useState("idle"); // idle | player_turn | enemy_turn | enemy_dead | player_dead
@@ -71,8 +80,22 @@ export default function Battle({ character, onCharacterUpdate }) {
   // Auto-attack timer (5s)
   const [autoAttackCountdown, setAutoAttackCountdown] = useState(null);
   const autoAttackTimerRef = useRef(null);
+  const attackSpeedAccRef = useRef(0);
+  const [attackSpeedBonusHits, setAttackSpeedBonusHits] = useState(0);
+  const procEngineRef = useRef(null);
   const offlineProcessedRef = useRef(false);
+  const sharedEnemyClaimedRef = useRef(false);
+  const enemyDeadRef = useRef(false);
+  const sharedEnemyLoadedAtRef = useRef(0); // cooldown: when last shared enemy was loaded
+  const lastBattleBroadcastRef = useRef(0);
+  const lastPresenceUpdateRef = useRef(0);
+  const pendingDamageRef = useRef(0);
+  const lastDamageReportRef = useRef(0);
+  const lastSpawnReportRef = useRef(0);
+  const lastClaimReportRef = useRef(0);
+  const spawnScheduledRef = useRef(false);
 
+  const [lastPetInfo, setLastPetInfo] = useState(null);
   const queryClient = useQueryClient();
   const region = REGIONS[character?.current_region || "verdant_forest"];
   const charClass = CLASSES[character?.class || "warrior"];
@@ -87,16 +110,83 @@ export default function Battle({ character, onCharacterUpdate }) {
     .filter(Boolean)
     .slice(0, 6);
 
-  // Party bonus: +5% EXP and gold per additional member ONLY IF SAME MAP
-  const sameMapMembers = partyData?.members?.filter(m => m.character_id === character.id || m.current_zone === character.current_region) || [];
+  // Party bonus: +5% EXP and gold per additional member in same zone
+  // Fetch member zones from presence data (party members array doesn't have current_zone)
+  const [memberZones, setMemberZones] = useState({});
+  const partyMemberIds = partyData?.members?.map(m => m.character_id).sort().join(",") || "";
+  useEffect(() => {
+    if (!partyData?.members?.length) return;
+    const fetchZones = async () => {
+      try {
+        const memberIds = partyData.members.map(m => m.character_id);
+        const res = await base44.functions.invoke("getPublicProfiles", { characterIds: memberIds });
+        const zones = {};
+        for (const p of (res?.profiles || [])) {
+          zones[p.id] = p.current_region;
+        }
+        setMemberZones(zones);
+      } catch {}
+    };
+    fetchZones();
+    const interval = setInterval(fetchZones, 15000);
+    return () => clearInterval(interval);
+  }, [partyMemberIds]);
+
+  const sameMapMembers = partyData?.members?.filter(m =>
+    m.character_id === character.id || memberZones[m.character_id] === character.current_region
+  ) || [];
   const partySize = sameMapMembers.length || 1;
   const partyBonus = Math.max(0, partySize - 1) * 0.05;
+  const isLeader = partyData?.leader_id === character.id;
+  const isSharedBattle = partyData && partySize >= 2 && partyData.status !== 'disbanded';
 
   const { data: allItems = [] } = useQuery({
     queryKey: ["items", character?.id],
     queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
     enabled: !!character?.id,
   });
+
+  // Fetch guild data for combat bonuses (damage, exp, gold)
+  const { data: guildData } = useQuery({
+    queryKey: ["guildCombat", character?.guild_id],
+    queryFn: async () => {
+      if (!character?.guild_id) return null;
+      const guilds = await base44.entities.Guild.filter({ id: character.guild_id });
+      return guilds?.[0] || null;
+    },
+    enabled: !!character?.guild_id,
+    staleTime: 60000,
+  });
+  const guildBuffs = guildData?.buffs && typeof guildData.buffs === 'object' ? guildData.buffs : {};
+  const guildDmgMult = guildBuffs.damage_bonus ? 1 + (guildBuffs.damage_bonus / 100) : 1;
+
+  // Initialize ProcEngine when equipped items change
+  const equippedItems = allItems.filter(i => i.equipped);
+
+  // Compute actual max HP/MP including equipment bonuses
+  const equippedItemsKey = equippedItems.map(i => i.id).sort().join(",");
+  const { derived: battleDerived } = React.useMemo(
+    () => calculateFinalStats(character, equippedItems),
+    [character?.id, character?.level, character?.strength, character?.dexterity,
+     character?.intelligence, character?.vitality, character?.luck,
+     character?.max_hp, character?.max_mp, equippedItemsKey]
+  );
+  const actualMaxHp = battleDerived.maxHp || character.max_hp || 100;
+  const actualMaxMp = battleDerived.maxMp || character.max_mp || 50;
+  const actualMaxHpRef = useRef(actualMaxHp);
+  const actualMaxMpRef = useRef(actualMaxMp);
+  actualMaxHpRef.current = actualMaxHp;
+  actualMaxMpRef.current = actualMaxMp;
+  useEffect(() => {
+    if (equippedItems.length === 0) return;
+    const itemProcs = collectEquippedProcs(equippedItems);
+    const setProcIds = collectSetProcEffects(equippedItems);
+    const setProcs = setProcIds.map(({ procId, source }) => {
+      const def = SET_PROC_EFFECTS[procId];
+      return def ? { ...def, source } : null;
+    }).filter(Boolean);
+    procEngineRef.current = new ProcEngine(itemProcs, setProcs);
+  }, [allItems.length, equippedItems.length]);
 
   const potionStacks = allItems
     .filter(i => i.type === "consumable" && i.name.toLowerCase().includes("health"))
@@ -122,11 +212,12 @@ export default function Battle({ character, onCharacterUpdate }) {
     mutationFn: async (stack) => {
       const idToUse = stack.ids[0];
       const healAmount = stack.stats?.hp_bonus || 50;
-      const newHp = Math.min(character.max_hp, playerHp + healAmount);
+      const newHp = Math.min(actualMaxHp, playerHp + healAmount);
       await base44.entities.Item.delete(idToUse);
       setPlayerHp(newHp);
       addLog(`🧪 Used ${stack.name}! Restored ${healAmount} HP.`);
       queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems", character.id] });
     },
   });
 
@@ -134,6 +225,7 @@ export default function Battle({ character, onCharacterUpdate }) {
 
   const spawnEnemy = useCallback(() => {
     if (!region) return;
+    spawnScheduledRef.current = false;
     const eliteRoll = Math.random();
     let key;
     let isEliteSpawn = false;
@@ -152,43 +244,135 @@ export default function Battle({ character, onCharacterUpdate }) {
     }
     const enemyData = ENEMIES[key];
     if (!enemyData) return;
-    const lvlScale = 1 + (character.level - 1) * 0.1;
+    // Random enemy level within region range (never exceeds zone max)
+    const regionMin = region?.levelRange?.[0] || 1;
+    const regionMax = region?.levelRange?.[1] || 10;
+    const enemyLevel = Math.max(1, regionMin + Math.floor(Math.random() * (regionMax - regionMin + 1)));
+    // Elites already have high base stats, so use reduced level scaling (0.03 per level vs 0.1)
+    const lvlScale = isEliteSpawn
+      ? 1 + (enemyLevel - 1) * 0.03
+      : 1 + (enemyLevel - 1) * 0.1;
     const hpMult = isEmpowered ? 3 : 1;
     const dmgMult = isEmpowered ? 1.5 : 1;
     const hp = Math.floor(enemyData.baseHp * lvlScale * hpMult);
+    // Scale rewards slightly based on enemy level relative to player
+    const levelDiff = enemyLevel - character.level;
+    const rewardScale = Math.max(0.5, 1 + levelDiff * 0.05);
     const spawnData = {
       ...enemyData,
       key,
+      level: enemyLevel,
       maxHp: hp,
       dmg: Math.floor(enemyData.baseDmg * lvlScale * dmgMult),
+      defense: Math.floor((enemyData.defense || 0) * lvlScale),
       isElite: enemyData.isElite || false,
       isEmpowered,
       name: isEmpowered ? `⚡ ${enemyData.name}` : enemyData.name,
-      expReward: isEmpowered ? enemyData.expReward * 3 : enemyData.expReward,
-      goldReward: isEmpowered ? enemyData.goldReward * 3 : enemyData.goldReward,
+      expReward: Math.floor((isEmpowered ? enemyData.expReward * 3 : enemyData.expReward) * rewardScale),
+      goldReward: Math.floor((isEmpowered ? enemyData.goldReward * 3 : enemyData.goldReward) * rewardScale),
     };
+    // In shared battle mode, only leader spawns and pushes to server
+    if (isSharedBattle && !isLeader) {
+      // Non-leaders wait for shared enemy from polling
+      return;
+    }
+
     setEnemy(spawnData);
     setEnemyHp(hp);
     setLootDrop(null);
     setCombatPhase("player_turn");
     setIsPlayerTurn(true);
+    attackSpeedAccRef.current = 0;
+    setAttackSpeedBonusHits(0);
+    sharedEnemyClaimedRef.current = false;
+    enemyDeadRef.current = false;
+    if (procEngineRef.current) procEngineRef.current.reset();
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
-  }, [region, character?.level]);
+
+    // Push shared enemy to server for party members (throttled: every 1.5s)
+    if (isSharedBattle && isLeader && partyData?.id) {
+      const now = Date.now();
+      if (now - lastSpawnReportRef.current > 1500) {
+        lastSpawnReportRef.current = now;
+        base44.functions.invoke("partyBattleAction", {
+          action: "spawn_enemy",
+          partyId: partyData.id,
+          characterId: character.id,
+          enemyData: { ...spawnData, spawned_at: new Date().toISOString() },
+        }).catch(() => {});
+      }
+    }
+  }, [region, character?.level, isSharedBattle, isLeader, partyData?.id]);
 
   // ── ENEMY TURN ────────────────────────────────────────────────────────────
   const doEnemyTurn = useCallback((currentPlayerHp, currentEnemyData) => {
     if (!currentEnemyData) return;
+    // Guard: abort if enemy already dead (e.g. killed by party member via polling)
+    if (enemyDeadRef.current) {
+      // Reset phase so combat doesn't get stuck in "enemy_turn"
+      setCombatPhase(prev => prev === "enemy_turn" ? "enemy_dead" : prev);
+      return;
+    }
     const equipped = allItems.filter(i => i.equipped);
     const { derived: d } = calculateFinalStats(character, equipped);
     const rawEnemyDmg = Math.floor(currentEnemyData.dmg * (0.8 + Math.random() * 0.4));
     const { finalDamage: actualDmg, evaded, blocked } = calculateDamageTaken(rawEnemyDmg, d, currentEnemyData.level || 1, character.level);
 
-    const newPlayerHp = Math.max(0, currentPlayerHp - actualDmg);
+    let safeDmg = Number.isFinite(actualDmg) ? actualDmg : 0;
+    const safeHp = Number.isFinite(currentPlayerHp) ? currentPlayerHp : actualMaxHp || 100;
+
+    // Defensive procs (reflect, absorb, counter)
+    let reflectDmg = 0;
+    if (procEngineRef.current && !evaded) {
+      const { finalDamage: modDmg, results: defResults } = procEngineRef.current.onDamageTaken(safeDmg, 0);
+      safeDmg = modDmg;
+      for (const dr of defResults) {
+        if (dr.type === "reflect") {
+          reflectDmg += dr.damage;
+          addLog(`${dr.icon} ${dr.name}! Reflected ${dr.damage} damage!`);
+          spawnEnemyNum(dr.damage, "proc");
+        } else if (dr.type === "absorb") {
+          addLog(`${dr.icon} ${dr.name}! Absorbed ${dr.absorbed} damage!`);
+        } else if (dr.type === "counter") {
+          reflectDmg += dr.damage;
+          addLog(`${dr.icon} ${dr.name}! Counter-attacked for ${dr.damage}!`);
+          spawnEnemyNum(dr.damage, "proc");
+        }
+      }
+    }
+
+    // Apply reflect damage to enemy
+    if (reflectDmg > 0 && currentEnemyData) {
+      setEnemyHp(prev => {
+        const newHp = Math.max(0, prev - reflectDmg);
+        if (newHp <= 0) {
+          // Enemy killed by reflect — schedule respawn
+          enemyDeadRef.current = true;
+          spawnScheduledRef.current = true;
+          addLog(`💥 ${currentEnemyData.name} was killed by reflected damage!`);
+          setCombatPhase("enemy_dead");
+          setTimeout(() => spawnEnemy(), 2000);
+        }
+        return newHp;
+      });
+    }
+
+    // Shield absorbs damage first
+    let dmgToHp = safeDmg;
+    let shieldAbsorbed = 0;
+    if (shieldHp > 0 && !evaded) {
+      shieldAbsorbed = Math.min(shieldHp, safeDmg);
+      dmgToHp = safeDmg - shieldAbsorbed;
+      setShieldHp(prev => Math.max(0, prev - shieldAbsorbed));
+    }
+
+    const newPlayerHp = Math.max(0, safeHp - dmgToHp);
     setPlayerHp(newPlayerHp);
 
     const prefix = evaded ? "🌀 Evaded! " : blocked ? "🛡️ Blocked! " : "";
-    addLog(`${prefix}${currentEnemyData.name} attacks for ${actualDmg} damage!`);
+    const shieldInfo = shieldAbsorbed > 0 ? ` (🛡️ Shield absorbed ${shieldAbsorbed})` : "";
+    addLog(`${prefix}${currentEnemyData.name} attacks for ${safeDmg} damage!${shieldInfo}`);
 
     // Enemy nudges, player shakes on hit
     setEnemyAttackNudge(true);
@@ -201,10 +385,10 @@ export default function Battle({ character, onCharacterUpdate }) {
     // Floating numbers on player side
     if (!evaded) spawnPlayerNum(actualDmg, "damage");
 
-    // Regen at end of enemy turn
-    const mpRegen = Math.floor(character.max_mp * MP_REGEN_PER_TURN);
+    // Regen at end of enemy turn — use actual stat values, with percentage fallback for low-level chars
+    const mpRegen = Math.max(Math.ceil(d.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
     setPlayerMp(prev => {
-      const next = Math.min(character.max_mp, prev + mpRegen);
+      const next = Math.min(actualMaxMp, prev + mpRegen);
       if (mpRegen > 0) spawnPlayerNum(mpRegen, "mp_regen");
       return next;
     });
@@ -213,6 +397,13 @@ export default function Battle({ character, onCharacterUpdate }) {
       const next = {};
       for (const [k, v] of Object.entries(prev)) { if (v > 0) next[k] = v - 1; }
       return next;
+    });
+    // Tick down active buffs
+    setActiveBuffs(prev => {
+      const updated = prev.map(b => ({ ...b, turnsLeft: b.turnsLeft - 1 }));
+      const expired = updated.filter(b => b.turnsLeft <= 0);
+      if (expired.length > 0) expired.forEach(b => addLog(`⏳ ${b.name} expired.`));
+      return updated.filter(b => b.turnsLeft > 0);
     });
 
     if (newPlayerHp <= 0) {
@@ -225,8 +416,11 @@ export default function Battle({ character, onCharacterUpdate }) {
       saveMutation.mutate({ exp: newExp, gold: newGold });
       onCharacterUpdate({ ...character, exp: newExp, gold: newGold });
       setTimeout(() => {
-        setPlayerHp(character.max_hp);
-        setPlayerMp(character.max_mp);
+        setPlayerHp(actualMaxHp);
+        setPlayerMp(actualMaxMp);
+        setShieldHp(0);
+        setActiveBuffs([]);
+        setLastElement(null);
         spawnEnemy();
       }, 2000);
     } else {
@@ -236,7 +430,8 @@ export default function Battle({ character, onCharacterUpdate }) {
   }, [allItems, character, spawnEnemy]);
 
   // ── PLAYER ATTACK ─────────────────────────────────────────────────────────
-  const doPlayerAttack = useCallback((skill = null) => {
+  const doPlayerAttackRef = useRef(null);
+  const doPlayerAttack = useCallback(async (skill = null) => {
     if (combatPhase !== "player_turn" || !enemy || enemyHp <= 0) return;
     if (skill && (cooldowns[skill.id] > 0 || playerMp < skill.mp)) return;
 
@@ -252,22 +447,182 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     const equipped = allItems.filter(i => i.equipped);
     const { total, derived } = calculateFinalStats(character, equipped);
-    const { damage, isCrit } = rollDamage(total, character.class, skill || undefined, character);
 
-    let finalDmg = damage;
-    if (skill) {
-      if (skill.damage > 0) finalDmg = Math.floor(damage * (skill.damage || 1.5));
-      setPlayerMp(prev => prev - skill.mp);
-      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
+    // ── Apply active buff bonuses to stats ──
+    let buffedTotal = { ...total };
+    for (const b of activeBuffs) {
+      if (b.effects.atk_pct) buffedTotal.damage = (buffedTotal.damage || 0) + Math.floor(total.damage * b.effects.atk_pct / 100);
+      if (b.effects.crit_pct) buffedTotal.luck = (buffedTotal.luck || 0) + b.effects.crit_pct;
+      if (b.effects.def_pct) buffedTotal.defense = (buffedTotal.defense || 0) + Math.floor(total.defense * b.effects.def_pct / 100);
+      if (b.effects.atk_speed) buffedTotal.dexterity = (buffedTotal.dexterity || 0) + b.effects.atk_speed;
     }
 
+    // ── Handle support skills (heal, shield, mana) — these don't attack ──
+    if (skill && (skill.special === "heal" || skill.special === "group_heal")) {
+      setPlayerMp(prev => prev - skill.mp);
+      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
+      const healAmt = Math.floor(actualMaxHp * (skill.healPct || 0.2));
+      const newHp = Math.min(actualMaxHp, playerHp + healAmt);
+      setPlayerHp(newHp);
+      spawnPlayerNum(healAmt, "heal");
+      addLog(`💚 ${skill.name} → Healed ${healAmt} HP!`);
+      if (skill.buffEffect) {
+        const newBuff = { id: skill.id, name: skill.name, effects: skill.buffEffect, turnsLeft: skill.buffDuration || 3, icon: "✨" };
+        setActiveBuffs(prev => [...prev.filter(b => b.id !== skill.id), newBuff]);
+        const buffDesc = Object.entries(skill.buffEffect).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
+        addLog(`✨ ${skill.name} → ${buffDesc} for ${skill.buffDuration || 3} turns!`);
+      }
+      setLastAttackIsSkill(true);
+      setLastSkillId(skill.id);
+      setTimeout(() => doEnemyTurn(newHp, enemy), 1500);
+      return;
+    }
+    if (skill && skill.special === "shield") {
+      setPlayerMp(prev => prev - skill.mp);
+      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
+      const shieldAmt = Math.floor(actualMaxHp * (skill.shieldPct || 0.25));
+      setShieldHp(prev => prev + shieldAmt);
+      spawnPlayerNum(shieldAmt, "shield");
+      addLog(`🛡️ ${skill.name} → Shield +${shieldAmt} HP!`);
+      setLastAttackIsSkill(true);
+      setLastSkillId(skill.id);
+      setTimeout(() => doEnemyTurn(playerHp, enemy), 1500);
+      return;
+    }
+    if (skill && skill.special === "mana") {
+      setPlayerMp(prev => prev - skill.mp);
+      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
+      const manaAmt = Math.floor(actualMaxMp * (skill.manaPct || 0.2));
+      setPlayerMp(prev => Math.min(actualMaxMp, prev + manaAmt));
+      spawnPlayerNum(manaAmt, "mp_regen");
+      addLog(`💙 ${skill.name} → Restored ${manaAmt} MP!`);
+      setLastAttackIsSkill(true);
+      setLastSkillId(skill.id);
+      setTimeout(() => doEnemyTurn(playerHp, enemy), 1500);
+      return;
+    }
+    // ── Activate buff skills ──
+    if (skill && skill.buffEffect) {
+      setPlayerMp(prev => prev - skill.mp);
+      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
+      const newBuff = {
+        id: skill.id, name: skill.name, effects: skill.buffEffect,
+        turnsLeft: skill.buffDuration || 3,
+        icon: skill.element ? (ELEMENT_CONFIG[skill.element]?.icon || "✨") : "⚔️",
+      };
+      setActiveBuffs(prev => [...prev.filter(b => b.id !== skill.id), newBuff]);
+      const buffDesc = Object.entries(skill.buffEffect).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
+      addLog(`✨ ${skill.name} → ${buffDesc} for ${skill.buffDuration || 3} turns!`);
+      if (skill.damage <= 0) {
+        setLastAttackIsSkill(true);
+        setLastSkillId(skill.id);
+        setTimeout(() => doEnemyTurn(playerHp, enemy), 1500);
+        return;
+      }
+    }
+
+    const { damage, isCrit } = rollDamage(buffedTotal, character.class, skill || undefined, character);
+
+    let finalDmg = Math.floor(damage * guildDmgMult);
+    if (skill) {
+      if (skill.damage > 0) finalDmg = Math.floor(damage * (skill.damage || 1.5) * guildDmgMult);
+      if (!skill.buffEffect) { // already deducted for buff skills above
+        setPlayerMp(prev => prev - skill.mp);
+        setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
+      }
+    }
+
+    // ── Element combo bonus: +25% if same element as last skill ──
+    let comboBonus = false;
+    if (skill?.element && skill.element !== "physical" && skill.element === lastElement) {
+      finalDmg = Math.floor(finalDmg * 1.25);
+      comboBonus = true;
+    }
+    if (skill?.element) setLastElement(skill.element);
+
+    // ── Stat scaling bonus ──
+    if (skill?.statScale && total[skill.statScale]) {
+      const scaleMult = 1 + (total[skill.statScale] * 0.002);
+      finalDmg = Math.floor(finalDmg * scaleMult);
+    }
+
+    // Elemental weakness/resistance multiplier
+    const attackElement = skill?.element || "physical";
+    if (enemy?.key && attackElement !== "physical") {
+      const elemMult = getElementalMultiplier(attackElement, enemy.key);
+      if (elemMult !== 1.0) {
+        finalDmg = Math.floor(finalDmg * elemMult);
+        if (elemMult > 1) addLog(`${ELEMENT_DISPLAY[attackElement]?.icon || ""} Weakness! ${attackElement} deals extra damage!`);
+        else addLog(`${ELEMENT_DISPLAY[attackElement]?.icon || ""} Resisted! ${attackElement} deals reduced damage.`);
+      }
+    }
+
+    // Proc effects
+    let totalProcDmg = 0;
+    let procHeal = 0;
+    if (procEngineRef.current && enemy) {
+      const procResults = procEngineRef.current.onPlayerAttack(finalDmg, isCrit, enemy.maxHp, total, character.class);
+      for (const pr of procResults) {
+        if (pr.type === "damage") {
+          totalProcDmg += pr.damage;
+          addLog(`${pr.icon} ${pr.name}! +${pr.damage} ${pr.element || ""} damage`);
+          spawnEnemyNum(pr.damage, "proc");
+        } else if (pr.type === "dot") {
+          addLog(`${pr.icon} ${pr.name}! ${pr.dmgPerTurn}/turn for ${pr.duration} turns`);
+        } else if (pr.type === "lifesteal_burst") {
+          totalProcDmg += pr.damage;
+          procHeal += pr.heal;
+          addLog(`${pr.icon} ${pr.name}! ${pr.damage} dmg + healed ${pr.heal}`);
+          spawnEnemyNum(pr.damage, "proc");
+          spawnPlayerNum(pr.heal, "heal");
+        } else if (pr.type === "extra_hits") {
+          setAttackSpeedBonusHits(prev => prev + (pr.extraHits || 2));
+          addLog(`${pr.icon} ${pr.name}! ${pr.extraHits} bonus attacks!`);
+        }
+      }
+      // Tick DoTs
+      const dotDmg = procEngineRef.current.tickDoTs();
+      if (dotDmg > 0) {
+        totalProcDmg += dotDmg;
+        addLog(`☠️ Poison tick: ${dotDmg} damage`);
+        spawnEnemyNum(dotDmg, "dot");
+      }
+    }
+
+    const totalDamageDealt = finalDmg + totalProcDmg;
+
     // Lifesteal
-    const lifestealAmount = Math.max(0, Math.round(finalDmg * (derived.lifesteal / 100)));
-    const regenHp = Math.floor(character.max_hp * HP_REGEN_PER_TURN);
-    const newPlayerHp = Math.min(character.max_hp, playerHp + lifestealAmount + regenHp);
+    const lifestealAmount = Math.max(0, Math.round(finalDmg * (derived.lifesteal / 100))) + procHeal;
+    const regenHp = Math.max(Math.ceil(derived.hpRegen || 0), Math.floor(actualMaxHp * HP_REGEN_PER_TURN));
+    const newPlayerHp = Math.min(actualMaxHp, playerHp + lifestealAmount + regenHp);
     setPlayerHp(newPlayerHp);
 
-    const newEnemyHp = Math.max(0, enemyHp - finalDmg);
+    // MP regen per player turn (so it works even when one-shotting enemies)
+    const mpRegenPerTurn = Math.max(Math.ceil(derived.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
+    setPlayerMp(prev => Math.min(actualMaxMp, prev + mpRegenPerTurn));
+
+    // In shared battle, report every hit so server can track turns
+    let newEnemyHp;
+    let serverKilled = false;
+    if (isSharedBattle && partyData?.id) {
+      try {
+        const dmgRes = await base44.functions.invoke("partyBattleAction", {
+          action: "report_damage",
+          partyId: partyData.id,
+          characterId: character.id,
+          characterName: character.name,
+          damage: totalDamageDealt,
+          skillName: skill?.name || "Basic Attack",
+          isCrit,
+        });
+        newEnemyHp = dmgRes?.currentHp ?? Math.max(0, enemyHp - totalDamageDealt);
+        serverKilled = dmgRes?.killed || false;
+      } catch {
+        newEnemyHp = Math.max(0, enemyHp - totalDamageDealt);
+      }
+    } else {
+      newEnemyHp = Math.max(0, enemyHp - totalDamageDealt);
+    }
     setEnemyHp(newEnemyHp);
 
     setLastDamage(finalDmg);
@@ -289,7 +644,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     spawnEnemyNum(finalDmg, isCrit ? "crit" : "damage");
     if (lifestealAmount > 0) spawnPlayerNum(lifestealAmount, "heal");
     if (regenHp > 0) spawnPlayerNum(regenHp, "heal");
-    if (skill?.mp) spawnPlayerNum(skill.mp, "mp_use");
+    if (skill?.mp && !skill.buffEffect) spawnPlayerNum(skill.mp, "mp_use");
 
     // Pickpocket: steal gold
     let pickpocketGold = 0;
@@ -300,51 +655,141 @@ export default function Battle({ character, onCharacterUpdate }) {
       addLog(`💰 Pickpocket! Stole ${pickpocketGold} gold from the enemy!`);
     }
 
+    const comboLabel = comboBonus ? " 🔗COMBO!" : "";
     const skillLabel = skill ? `⚡ ${skill.name}` : "⚔️ Attack";
-    addLog(`${isCrit ? "💥 CRIT! " : ""}${skillLabel} → ${finalDmg} dmg${lifestealAmount > 0 ? ` (❤️+${lifestealAmount})` : ""}${regenHp > 0 ? ` | HP +${regenHp}` : ""}`);
+    addLog(`${isCrit ? "💥 CRIT! " : ""}${skillLabel} → ${finalDmg} dmg${comboLabel}${lifestealAmount > 0 ? ` (❤️+${lifestealAmount})` : ""}${regenHp > 0 ? ` | HP +${regenHp}` : ""}`);
 
-    // Broadcast party attack to party members
+    // Broadcast party attack to party members (throttled: once per 30s to reduce egress)
     if (partyData?.id) {
-      base44.entities.PartyActivity.create({
-        party_id: partyData.id,
-        character_id: character.id,
-        character_name: character.name,
-        activity_type: "enter_zone",
-        payload: { 
-          battle_action: true,
-          skill_name: skill?.name || "Basic Attack",
-          damage: finalDmg,
-          is_crit: isCrit,
-          enemy_name: enemy?.name,
-          zone: character.current_region,
-          zone_name: `${character.name} attacked ${enemy?.name} for ${finalDmg}${isCrit ? " (CRIT)" : ""}!`
-        },
-        expires_at: new Date(Date.now() + 15000).toISOString(),
-      }).catch(() => {});
-      
-      // Update presence to show in combat
-      base44.entities.Presence.filter({ character_id: character.id }).then(presence => {
-        if (presence[0]) {
-          base44.entities.Presence.update(presence[0].id, { status: "in_combat", current_zone: character.current_region });
-        }
-      }).catch(() => {});
+      const now = Date.now();
+      if (now - lastBattleBroadcastRef.current > 30000) {
+        lastBattleBroadcastRef.current = now;
+        base44.entities.PartyActivity.create({
+          party_id: partyData.id,
+          character_id: character.id,
+          character_name: character.name,
+          activity_type: "enter_zone",
+          payload: {
+            battle_action: true,
+            skill_name: skill?.name || "Basic Attack",
+            damage: finalDmg,
+            is_crit: isCrit,
+            enemy_name: enemy?.name,
+            zone: character.current_region,
+            zone_name: `${character.name} attacked ${enemy?.name} for ${finalDmg}${isCrit ? " (CRIT)" : ""}!`
+          },
+          expires_at: new Date(Date.now() + 15000).toISOString(),
+        }).catch(() => {});
+      }
+
+      // Update presence to show in combat (throttled: once per 120s)
+      if (now - lastPresenceUpdateRef.current > 120000) {
+        lastPresenceUpdateRef.current = now;
+        base44.entities.Presence.filter({ character_id: character.id }).then(presence => {
+          if (presence[0]) {
+            base44.entities.Presence.update(presence[0].id, { status: "in_combat", current_zone: character.current_region });
+          }
+        }).catch(() => {});
+      }
     }
 
     if (newEnemyHp <= 0) {
+      attackSpeedAccRef.current = 0;
+      setAttackSpeedBonusHits(0);
       handleEnemyDefeat();
       return;
     }
 
-    // Enemy acts after short delay
-    setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1500);
-  }, [combatPhase, enemy, enemyHp, playerHp, playerMp, allItems, character, cooldowns, doEnemyTurn]);
+    // Attack speed: turns-based system
+    // 1.0x = 1 attack/turn, 1.8x = extra attack accumulates (every ~1.25 turns get bonus),
+    // 3.0x = 3 attacks per turn
+    const atkSpeed = derived.attackSpeed || 1;
+    // Check for bonus hits already queued from previous attack
+    if (attackSpeedBonusHits > 0) {
+      const remaining = attackSpeedBonusHits - 1;
+      setAttackSpeedBonusHits(remaining);
+      addLog("⚡ Quick strike!");
+      if (remaining > 0) {
+        setTimeout(() => {
+          setCombatPhase("player_turn");
+          setIsPlayerTurn(true);
+        }, 500);
+      } else {
+        // In shared battle, wait for socket to tell us who gets attacked
+        if (isSharedBattle) {
+          setCombatPhase("waiting_turn");
+        } else {
+          setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1000);
+        }
+      }
+      return;
+    }
+    const extraHits = Math.floor(atkSpeed) - 1;
+    const fractional = atkSpeed - Math.floor(atkSpeed);
+    attackSpeedAccRef.current += fractional;
+    let bonusHits = extraHits;
+    if (attackSpeedAccRef.current >= 1) {
+      bonusHits += Math.floor(attackSpeedAccRef.current);
+      attackSpeedAccRef.current -= Math.floor(attackSpeedAccRef.current);
+    }
+    if (bonusHits > 0) {
+      addLog(`⚡ ${bonusHits > 1 ? `${bonusHits}x ` : ""}Quick strike!`);
+      setAttackSpeedBonusHits(bonusHits - 1);
+      if (bonusHits - 1 > 0) {
+        setTimeout(() => {
+          setCombatPhase("player_turn");
+          setIsPlayerTurn(true);
+        }, 500);
+      } else {
+        if (isSharedBattle) {
+          setCombatPhase("waiting_turn");
+        } else {
+          setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1000);
+        }
+      }
+      return;
+    }
+
+    // In shared battle, server decides who enemy attacks via socket
+    if (isSharedBattle) {
+      setCombatPhase("waiting_turn");
+    } else {
+      setTimeout(() => doEnemyTurn(newPlayerHp, enemy), 1500);
+    }
+  }, [combatPhase, enemy, enemyHp, playerHp, playerMp, allItems, character, cooldowns, doEnemyTurn, isSharedBattle]);
+  doPlayerAttackRef.current = doPlayerAttack;
 
   const handleEnemyDefeat = useCallback(async () => {
     if (!enemy || !character) return;
+    enemyDeadRef.current = true;
     setCombatPhase("enemy_dead");
 
+    // Trigger on_kill procs (gold_rush, exp_surge, soul_reap)
+    if (procEngineRef.current) {
+      const killResults = procEngineRef.current.onEnemyKill();
+      for (const r of killResults) {
+        if (r.type === "bonus_gold") addLog(`💰 ${r.name}: +${r.value} bonus gold!`);
+        else if (r.type === "bonus_exp") addLog(`📚 ${r.name}: +${r.value} bonus EXP!`);
+        else if (r.type === "heal") addLog(`💚 ${r.name}: healed ${r.value} HP!`);
+      }
+    }
+
+    // In shared battle, claim reward (throttled: every 15s)
+    if (isSharedBattle && partyData?.id) {
+      sharedEnemyClaimedRef.current = true;
+      const now = Date.now();
+      if (now - lastClaimReportRef.current > 15000) {
+        lastClaimReportRef.current = now;
+        base44.functions.invoke("partyBattleAction", {
+          action: "claim_reward",
+          partyId: partyData.id,
+          characterId: character.id,
+        }).catch(() => {});
+      }
+    }
+
     try {
-      const response = await base44.functions.invoke('fight', {
+      const result = await base44.functions.invoke('fight', {
         characterId: character.id,
         enemyKey: enemy.key,
         regionKey: character.current_region,
@@ -352,18 +797,16 @@ export default function Battle({ character, onCharacterUpdate }) {
         isBoss: enemy.isBoss || false,
         isEmpowered: enemy.isEmpowered || false,
         partySize: partySize,
-        _fallbackCharacter: character,
       });
 
-      const result = response?.data;
-      if (!result?.success) {
-        console.error('[handleEnemyDefeat] Fight failed:', result);
-        addLog(`⚠️ Error processing rewards: ${result?.error || 'unknown'}`);
-        setTimeout(() => spawnEnemy(), 2500);
-        return;
+      const { rewards, delta, levelsGained, loot, droppedRune, partyBonuses, petInfo, petSkillResult } = result;
+      if (petInfo) setLastPetInfo(petInfo);
+      if (petSkillResult) {
+        const petIcon = petInfo?.species ? ({"Wolf":"🐺","Phoenix":"🔥","Dragon":"🐉","Turtle":"🐢","Cat":"🐱","Owl":"🦉","Slime":"🫧","Fairy":"🧚","Serpent":"🐍","Golem":"🪨"}[petInfo.species] || "🐾") : "🐾";
+        if (petSkillResult.type === "heal") addLog(`${petIcon} ${petSkillResult.message}`);
+        else if (petSkillResult.type === "shield") addLog(`${petIcon} ${petSkillResult.message}`);
+        else if (petSkillResult.type === "extra_attack") addLog(`${petIcon} ${petSkillResult.message}`);
       }
-
-      const { rewards, character: updatedChar, levelsGained, loot, partyBonuses } = result;
 
       if (levelsGained?.length > 0) {
         levelsGained.forEach(lv => addLog(`🎉 LEVEL UP! You are now level ${lv}!`));
@@ -375,14 +818,28 @@ export default function Battle({ character, onCharacterUpdate }) {
         const lootEmoji = loot.rarity === "shiny" ? "🌟" : loot.rarity === "mythic" ? "💎" : loot.rarity === "legendary" ? "🏆" : "✨";
         addLog(`${isRareDrop ? `${lootEmoji}${lootEmoji} ` : ""}${lootEmoji} ${isRareDrop ? "[" + loot.rarity.toUpperCase() + "] " : ""}${loot.name}${isRareDrop ? " DROP!" : ` (${loot.rarity})`}`);
         queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems", character.id] });
       }
 
-      addLog(`⚔️ Defeated ${enemy.name}! +${rewards.exp} EXP +${rewards.gold} Gold`);
-      if (partyBonuses) {
-        addLog(`👥 Party bonus: +${partyBonuses.expPct}% EXP, +${partyBonuses.goldPct}% Gold`);
+      if (droppedRune) {
+        const runeEmoji = droppedRune.rarity === "mythic" ? "💎" : droppedRune.rarity === "legendary" ? "🏆" : droppedRune.rarity === "epic" ? "💜" : "🔮";
+        addLog(`${runeEmoji} Rune Drop: ${droppedRune.name} (${droppedRune.rarity}) — ${droppedRune.mainStat || droppedRune.main_stat} +${droppedRune.mainValue || droppedRune.main_value}`);
+        queryClient.invalidateQueries({ queryKey: ["runes", character.id] });
       }
 
-      onCharacterUpdate(updatedChar);
+      if (partyBonuses && (partyBonuses.expPct > 0 || partyBonuses.goldPct > 0)) {
+        const baseExp = Math.round(rewards.exp / (1 + partyBonuses.expPct / 100));
+        const baseGold = Math.round(rewards.gold / (1 + partyBonuses.goldPct / 100));
+        const bonusExp = rewards.exp - baseExp;
+        const bonusGold = rewards.gold - baseGold;
+        addLog(`⚔️ Defeated ${enemy.name}! +${rewards.exp} EXP (+${bonusExp} party) +${rewards.gold} Gold (+${bonusGold} party)`);
+      } else {
+        addLog(`⚔️ Defeated ${enemy.name}! +${rewards.exp} EXP +${rewards.gold} Gold`);
+      }
+
+      if (delta) {
+        onCharacterUpdate({ ...character, ...delta });
+      }
 
       queryClient.invalidateQueries({ queryKey: ["quests", character.id] });
     } catch (err) {
@@ -390,32 +847,65 @@ export default function Battle({ character, onCharacterUpdate }) {
       addLog(`⚠️ Error: ${err.message || 'Unknown error'}`);
     }
 
-    setTimeout(() => spawnEnemy(), 2500);
-  }, [enemy, character, partySize, queryClient, spawnEnemy]);
+    // In shared battle, only leader spawns next enemy; non-leaders wait for polling
+    if (isSharedBattle && !isLeader) {
+      setEnemy(null);
+      setEnemyHp(0);
+      setCombatPhase("idle");
+      sharedEnemyLoadedAtRef.current = Date.now(); // cooldown before next enemy
+      addLog("⏳ Enemy spawning...");
+    } else {
+      spawnScheduledRef.current = true;
+      setTimeout(() => spawnEnemy(), 3500);
+    }
+  }, [enemy, character, partySize, queryClient, spawnEnemy, isSharedBattle, isLeader, partyData?.id]);
 
-  // ── AUTO-ATTACK TIMER (5s in player turn) ────────────────────────────────
+  // ── AUTO-ATTACK TIMER (5s in player turn, timestamp-based for tab-out resilience) ──
+  const autoAttackStartRef = useRef(null);
   useEffect(() => {
     if (combatPhase !== "player_turn" || !enemy || enemyHp <= 0) {
       if (autoAttackTimerRef.current) { clearInterval(autoAttackTimerRef.current); autoAttackTimerRef.current = null; }
       setAutoAttackCountdown(null);
+      autoAttackStartRef.current = null;
       return;
     }
 
+    autoAttackStartRef.current = Date.now();
     setAutoAttackCountdown(5);
     autoAttackTimerRef.current = setInterval(() => {
-      setAutoAttackCountdown(prev => {
-        if (prev === null) return null;
-        if (prev <= 1) {
-          clearInterval(autoAttackTimerRef.current);
-          autoAttackTimerRef.current = null;
-          doPlayerAttack(null); // auto basic attack
-          return null;
-        }
-        return prev - 1;
-      });
+      if (!autoAttackStartRef.current) return;
+      const elapsed = Math.floor((Date.now() - autoAttackStartRef.current) / 1000);
+      const remaining = Math.max(0, 5 - elapsed);
+      if (remaining <= 0) {
+        clearInterval(autoAttackTimerRef.current);
+        autoAttackTimerRef.current = null;
+        autoAttackStartRef.current = null;
+        setAutoAttackCountdown(null);
+        doPlayerAttackRef.current?.(null); // auto basic attack via ref (avoids stale closure)
+      } else {
+        setAutoAttackCountdown(remaining);
+      }
     }, 1000);
 
-    return () => { if (autoAttackTimerRef.current) clearInterval(autoAttackTimerRef.current); };
+    // Also handle tab visibility change — catch up immediately
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !autoAttackStartRef.current) return;
+      const elapsed = Math.floor((Date.now() - autoAttackStartRef.current) / 1000);
+      if (elapsed >= 5) {
+        if (autoAttackTimerRef.current) { clearInterval(autoAttackTimerRef.current); autoAttackTimerRef.current = null; }
+        autoAttackStartRef.current = null;
+        setAutoAttackCountdown(null);
+        doPlayerAttackRef.current?.(null);
+      } else {
+        setAutoAttackCountdown(Math.max(0, 5 - elapsed));
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      if (autoAttackTimerRef.current) clearInterval(autoAttackTimerRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [combatPhase, enemy?.key, enemyHp]);
 
   // ── IDLE AUTO-BATTLE: pick random usable skill or basic attack ───────────
@@ -445,17 +935,20 @@ export default function Battle({ character, onCharacterUpdate }) {
           characterId: character.id,
           action: 'sync_progression',
         });
-        if (response.data?.success) {
-          const { exp_gained, gems_gained, offline_minutes, resources_gained } = response.data.results;
-          // Apply offline rewards
-          if (offline_minutes > 0) {
-            const newExp = (character.exp || 0) + exp_gained;
-            const newGems = (character.gems || 0) + gems_gained;
-            onCharacterUpdate({ exp: newExp, gems: newGems });
-            if (offline_minutes > 5) {
-              addLog(`🌟 Offline for ${offline_minutes}m: +${exp_gained} EXP, +${gems_gained} Gems`);
-            }
+        const results = response?.results || response || {};
+        const { exp_gained = 0, gold_gained = 0, gems_gained = 0, offline_minutes = 0 } = results;
+        if (results.character) {
+          onCharacterUpdate(results.character);
+          if (exp_gained > 0 || gold_gained > 0) {
+            addLog(`🌟 Synced: +${exp_gained} EXP, +${gold_gained} Gold`);
           }
+        } else if (exp_gained > 0 || gems_gained > 0 || gold_gained > 0) {
+          const updates = {};
+          if (exp_gained) updates.exp = (character.exp || 0) + exp_gained;
+          if (gold_gained) updates.gold = (character.gold || 0) + gold_gained;
+          if (gems_gained) updates.gems = (character.gems || 0) + gems_gained;
+          onCharacterUpdate({ ...character, ...updates });
+          addLog(`🌟 Synced progression: +${exp_gained} EXP, +${gold_gained} Gold`);
         }
       } catch {}
     };
@@ -465,7 +958,28 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     // Sync every 60 seconds
     const interval = setInterval(syncProgression, 60000);
-    return () => clearInterval(interval);
+
+    // Also refresh character data on tab focus to get latest stats
+    const onFocus = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const chars = await base44.entities.Character.filter({ id: character.id });
+        if (chars[0]) onCharacterUpdate(chars[0]);
+      } catch {}
+      // Also invalidate items query so equipment changes are picked up
+      queryClient.invalidateQueries({ queryKey: ["items", character.id] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems", character.id] });
+      // Reset HP/MP to full on tab return — combat state is stale while tabbed out
+      // Use refs to get current max values (avoids stale closure from mount-only effect)
+      setPlayerHp(actualMaxHpRef.current);
+      setPlayerMp(actualMaxMpRef.current);
+    };
+    document.addEventListener("visibilitychange", onFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [character?.id]);
 
   // Spawn first enemy or restore combat state
@@ -479,13 +993,21 @@ export default function Battle({ character, onCharacterUpdate }) {
         if (localCombat?.combatState) {
           const cs = localCombat.combatState;
           const enemyData = ENEMIES[cs.enemy_key];
-          if (enemyData) {
-            setEnemy({ ...enemyData, key: cs.enemy_key, maxHp: cs.enemy_max_hp });
+          if (enemyData && cs.enemy_hp > 0 && (cs.phase === 'player_turn' || cs.phase === 'enemy_turn')) {
+            setEnemy({
+              ...enemyData, key: cs.enemy_key, maxHp: cs.enemy_max_hp,
+              level: cs.enemy_level || 1,
+              dmg: cs.enemy_dmg || enemyData.baseDmg || 10,
+              defense: cs.enemy_defense || enemyData.defense || 0,
+              isElite: cs.enemy_is_elite || enemyData.isElite || false,
+              isEmpowered: cs.enemy_is_empowered || false,
+            });
             setEnemyHp(cs.enemy_hp);
-            setPlayerHp(cs.player_hp);
-            setPlayerMp(cs.player_mp);
-            setCombatPhase(cs.phase || 'player_turn');
-            setIsPlayerTurn(cs.phase === 'player_turn');
+            setPlayerHp(cs.player_hp > 0 ? cs.player_hp : actualMaxHp);
+            setPlayerMp(cs.player_mp >= 0 ? cs.player_mp : actualMaxMp);
+            setCombatPhase('player_turn');
+            setIsPlayerTurn(true);
+            enemyDeadRef.current = false;
             addLog('⚔️ Combat resumed (local cache)!');
             return;
           }
@@ -498,13 +1020,21 @@ export default function Battle({ character, onCharacterUpdate }) {
         if (session?.combat_active && session.combat_state) {
           const cs = session.combat_state;
           const enemyData = ENEMIES[cs.enemy_key];
-          if (enemyData) {
-            setEnemy({ ...enemyData, key: cs.enemy_key, maxHp: cs.enemy_max_hp });
+          if (enemyData && cs.enemy_hp > 0 && (cs.phase === 'player_turn' || cs.phase === 'enemy_turn')) {
+            setEnemy({
+              ...enemyData, key: cs.enemy_key, maxHp: cs.enemy_max_hp,
+              level: cs.enemy_level || 1,
+              dmg: cs.enemy_dmg || enemyData.baseDmg || 10,
+              defense: cs.enemy_defense || enemyData.defense || 0,
+              isElite: cs.enemy_is_elite || enemyData.isElite || false,
+              isEmpowered: cs.enemy_is_empowered || false,
+            });
             setEnemyHp(cs.enemy_hp);
-            setPlayerHp(cs.player_hp);
-            setPlayerMp(cs.player_mp);
-            setCombatPhase(cs.phase || 'player_turn');
-            setIsPlayerTurn(cs.phase === 'player_turn');
+            setPlayerHp(cs.player_hp > 0 ? cs.player_hp : actualMaxHp);
+            setPlayerMp(cs.player_mp >= 0 ? cs.player_mp : actualMaxMp);
+            setCombatPhase('player_turn');
+            setIsPlayerTurn(true);
+            enemyDeadRef.current = false;
             addLog('⚔️ Combat resumed from server!');
             return;
           }
@@ -520,6 +1050,21 @@ export default function Battle({ character, onCharacterUpdate }) {
       restoreCombat();
     }
   }, [character?.id, enemy]);
+
+  // ── ZONE CHANGE: spawn new enemy when player travels to different zone ──
+  const prevRegionRef = useRef(character?.current_region);
+  useEffect(() => {
+    const prevRegion = prevRegionRef.current;
+    prevRegionRef.current = character?.current_region;
+    if (prevRegion && prevRegion !== character?.current_region) {
+      addLog(`🗺️ Traveled to ${REGIONS[character.current_region]?.name || character.current_region}!`);
+      setEnemy(null);
+      setEnemyHp(0);
+      setLootDrop(null);
+      setCombatPhase("idle");
+      setTimeout(() => spawnEnemy(), 500);
+    }
+  }, [character?.current_region, spawnEnemy]);
 
   // Initialize and update Presence with combat status
   useEffect(() => {
@@ -550,52 +1095,273 @@ export default function Battle({ character, onCharacterUpdate }) {
     updatePresence();
   }, [character?.id, character?.level, character.current_region, isIdle, combatPhase]);
 
-  // Sync from props
+  // Sync HP/MP from props — only use max values (DB hp/mp field is stale)
+  // During combat, playerHp is managed entirely by React state
+  // Use actualMaxHp/actualMaxMp which include equipment bonuses
   useEffect(() => {
-    setPlayerHp(character?.hp || character?.max_hp || 100);
-    setPlayerMp(character?.mp || character?.max_mp || 50);
-  }, [character?.max_hp, character?.max_mp]);
+    if (combatPhase === "idle" || combatPhase === "player_turn") {
+      setPlayerHp(prev => {
+        if (!Number.isFinite(prev) || prev <= 0 || prev > actualMaxHp) return actualMaxHp;
+        return prev;
+      });
+    }
+    setPlayerMp(prev => {
+      if (!Number.isFinite(prev) || prev > actualMaxMp) return actualMaxMp;
+      return prev;
+    });
+  }, [actualMaxHp, actualMaxMp]);
 
-  // Load party data
+  // Load party data via dedicated GET endpoint (same as PartyPanel)
   useEffect(() => {
     if (!character?.id) return;
     const load = async () => {
       try {
-        const led = await base44.entities.Party.filter({ leader_id: character.id });
-        const active = led.find(p => p.status !== 'disbanded');
-        if (active) { setPartyData(active); return; }
-        const all = await base44.entities.Party.list('-updated_date', 50);
-        const found = all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id));
-        setPartyData(found || null);
+        const res = await fetch(`/api/functions/getMyParty?characterId=${encodeURIComponent(character.id)}`, {
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        const json = await res.json();
+        const party = (json.success !== false) ? (json.data ?? json ?? null) : null;
+        setPartyData(party);
       } catch {}
     };
     load();
-    const interval = setInterval(load, 20000);
+    const interval = setInterval(load, 10000);
     return () => clearInterval(interval);
   }, [character?.id]);
 
-  // Offline progress catch-up on login
+  // ── SHARED PARTY BATTLE: poll shared enemy state ────────────────────────
   useEffect(() => {
-    if (!character?.id || offlineProcessedRef.current) return;
+    if (!isSharedBattle || !partyData?.id) return;
+    const poll = async () => {
+      try {
+        const raw = await fetch(`/api/functions/getSharedEnemy?partyId=${encodeURIComponent(partyData.id)}`, {
+          credentials: "include",
+        });
+        const json = await raw.json();
+        const res = json.data ?? json;
+        const se = res?.shared_enemy;
+        if (!se) return;
+
+        const now = Date.now();
+        const cooldownMs = 1500; // 1.5s cooldown between enemy transitions
+        const isOnCooldown = now - sharedEnemyLoadedAtRef.current < cooldownMs;
+
+        // Sync shared enemy HP to local state (same enemy, just HP update)
+        if (se.currentHp !== undefined && enemy?.key === se.key && enemy?.spawned_at === se.spawned_at) {
+          setEnemyHp(se.currentHp);
+          return; // Same enemy — just sync HP, don't process further
+        }
+
+        // If enemy was killed by another player, claim reward (once)
+        const killedEnemy = (se.killed_by ? se : null) || res?.last_killed_enemy;
+        if (killedEnemy?.killed_by && !sharedEnemyClaimedRef.current) {
+          const alreadyClaimed = (killedEnemy.claimed_by || []).includes(character.id);
+          if (!alreadyClaimed) {
+            sharedEnemyClaimedRef.current = true;
+            setEnemyHp(0);
+            if (killedEnemy.killed_by !== character.id) {
+              addLog(`👥 ${killedEnemy.killed_by_name || "Party member"} defeated ${killedEnemy.name || "the enemy"}!`);
+            }
+            handleEnemyDefeat();
+            sharedEnemyLoadedAtRef.current = now; // start cooldown after defeat
+            return; // Don't immediately load next enemy — wait for cooldown
+          }
+        }
+
+        // Load a NEW shared enemy (different from current)
+        if (se.key && se.currentHp > 0 && (!enemy || enemy.key !== se.key || enemy.spawned_at !== se.spawned_at)) {
+          // Don't swap enemies during active combat turns (player attacking or enemy attacking)
+          if (enemy && (combatPhase === "player_turn" || combatPhase === "enemy_turn")) {
+            return;
+          }
+          // Respect cooldown between enemy loads
+          if (isOnCooldown) return;
+
+          sharedEnemyLoadedAtRef.current = now;
+          const spawnData = {
+            ...se,
+            maxHp: se.maxHp,
+            dmg: se.dmg,
+            defense: se.defense || 0,
+            spawned_at: se.spawned_at,
+          };
+          setEnemy(spawnData);
+          setEnemyHp(se.currentHp);
+          setLootDrop(null);
+          setPlayerHp(actualMaxHp);
+          setPlayerMp(actualMaxMp);
+          setCombatPhase("player_turn");
+          setIsPlayerTurn(true);
+          sharedEnemyClaimedRef.current = false;
+          enemyDeadRef.current = false;
+          attackSpeedAccRef.current = 0;
+          setAttackSpeedBonusHits(0);
+          if (procEngineRef.current) procEngineRef.current.reset();
+          addLog(`⚔️ Party battle: ${se.name} appeared!`);
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 5000); // Fallback poll — socket pushes are primary
+    return () => clearInterval(interval);
+  }, [isSharedBattle, partyData?.id, character?.id, enemy?.key, enemy?.spawned_at, combatPhase, handleEnemyDefeat]);
+
+  // ── SOCKET: instant shared enemy spawn from leader ────────────────────
+  useEffect(() => {
+    if (!isSharedBattle || isLeader) return;
+    const onSpawn = (e) => {
+      const se = e.detail;
+      if (!se?.key || !se.currentHp) return;
+      sharedEnemyLoadedAtRef.current = Date.now();
+      const spawnData = {
+        ...se,
+        maxHp: se.maxHp,
+        dmg: se.dmg,
+        defense: se.defense || 0,
+        spawned_at: se.spawned_at,
+      };
+      setEnemy(spawnData);
+      setEnemyHp(se.currentHp);
+      setLootDrop(null);
+      setPlayerHp(actualMaxHp);
+      setPlayerMp(actualMaxMp);
+      setCombatPhase("player_turn");
+      setIsPlayerTurn(true);
+      sharedEnemyClaimedRef.current = false;
+      enemyDeadRef.current = false;
+      attackSpeedAccRef.current = 0;
+      setAttackSpeedBonusHits(0);
+      if (procEngineRef.current) procEngineRef.current.reset();
+      addLog(`⚔️ Party battle: ${se.name} appeared!`);
+    };
+    window.addEventListener("party-enemy-spawn", onSpawn);
+    return () => window.removeEventListener("party-enemy-spawn", onSpawn);
+  }, [isSharedBattle, isLeader, actualMaxHp, actualMaxMp]);
+
+  // ── SOCKET: HP sync + per-turn enemy attack targeting ────────────────
+  useEffect(() => {
+    if (!isSharedBattle || !character?.id) return;
+    const onHp = (e) => {
+      const data = e.detail;
+      if (!data) return;
+      // Sync enemy HP from server
+      if (data.currentHp !== undefined) setEnemyHp(data.currentHp);
+
+      // Show other party members' attacks in log
+      if (data.attacker && data.attacker !== character.id && data.damage > 0) {
+        const label = data.skill_name || "Attack";
+        addLog(`👥 ${data.attacker_name || "Ally"}: ${data.is_crit ? "💥 CRIT! " : ""}${label} → ${data.damage} dmg`);
+      }
+
+      // If enemy was killed
+      if (data.killed) {
+        if (!sharedEnemyClaimedRef.current) {
+          sharedEnemyClaimedRef.current = true;
+          enemyDeadRef.current = true;
+          setEnemyHp(0);
+          if (data.killed_by !== character.id) {
+            addLog(`👥 ${data.killed_by_name || "Party member"} defeated the enemy!`);
+          }
+          handleEnemyDefeat();
+        }
+        return;
+      }
+
+      // Per-turn enemy attack: server says which player gets attacked
+      if (data.attack_target === character.id) {
+        // This player is the target — enemy attacks us
+        setTimeout(() => doEnemyTurn(playerHp, enemy), 800);
+      } else {
+        // Not our turn to be attacked — go straight back to player turn
+        setCombatPhase("player_turn");
+        setIsPlayerTurn(true);
+      }
+    };
+    window.addEventListener("party-enemy-hp", onHp);
+    return () => window.removeEventListener("party-enemy-hp", onHp);
+  }, [isSharedBattle, character?.id, playerHp, enemy, doEnemyTurn, handleEnemyDefeat]);
+
+  // ── FALLBACK: if waiting_turn socket event doesn't arrive, resume after 3s ──
+  useEffect(() => {
+    if (combatPhase !== "waiting_turn") return;
+    const fallback = setTimeout(() => {
+      setCombatPhase("player_turn");
+      setIsPlayerTurn(true);
+    }, 3000);
+    return () => clearTimeout(fallback);
+  }, [combatPhase]);
+
+  // ── COMBAT RECOVERY: ensure player always has an enemy to fight ──
+  // Handles: shared→solo transition, zone changes, stuck states, stale cache
+  useEffect(() => {
+    if (!character?.id || !region) return;
+    // If no enemy and not in shared battle mode, spawn one after a short delay
+    if (!enemy && !isSharedBattle && (combatPhase === "idle" || combatPhase === "enemy_dead")) {
+      // Skip if a spawn is already scheduled (e.g. from handleEnemyDefeat)
+      if (spawnScheduledRef.current) return;
+      const timer = setTimeout(() => {
+        if (spawnScheduledRef.current) return;
+        enemyDeadRef.current = false;
+        spawnEnemy();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+    // Recovery: enemy_dead phase with enemy present (stale cache restore or missed spawn)
+    if (combatPhase === "enemy_dead" && !isSharedBattle) {
+      if (spawnScheduledRef.current) return;
+      const timer = setTimeout(() => {
+        if (spawnScheduledRef.current) return;
+        enemyDeadRef.current = false;
+        spawnEnemy();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+    // Safety: if stuck in enemy_turn for too long (e.g. doEnemyTurn aborted), recover
+    if (combatPhase === "enemy_turn") {
+      const stuckTimer = setTimeout(() => {
+        setCombatPhase(prev => {
+          if (prev === "enemy_turn") {
+            enemyDeadRef.current = false;
+            setIsPlayerTurn(true);
+            return "player_turn";
+          }
+          return prev;
+        });
+      }, 5000);
+      return () => clearTimeout(stuckTimer);
+    }
+  }, [character?.id, enemy, isSharedBattle, combatPhase, region, spawnEnemy]);
+
+  // Offline progress catch-up — only on first load per browser session (not on tab switch)
+  useEffect(() => {
+    const sessionKey = `offline_processed_${character?.id}`;
+    if (!character?.id || offlineProcessedRef.current || sessionStorage.getItem(sessionKey)) return;
     offlineProcessedRef.current = true;
+    sessionStorage.setItem(sessionKey, "1");
     const run = async () => {
       try {
         const response = await base44.functions.invoke('catchUpOfflineProgress', { characterId: character.id });
-        if (response.data?.success && response.data.hours_offline > 0) {
-          const results = response.data.results;
-          let totalGems = 0;
-          if (results.gemLab) {
-            totalGems = results.gemLab.gems_gained || 0;
-          }
+        if (response?.success && response.hours_offline > 0) {
+          const results = response.results || {};
+          // Gem lab gains stay in pending_gems (claimed via Gem Lab UI), not added to balance
+          const gemLabPending = results.gemLab?.gems_gained || 0;
+          const goldGained = results.gold || 0;
+          const expGained = results.exp || 0;
           setWelcomeBackRewards({
-            gold: 0,
-            gems: totalGems,
+            gold: goldGained,
+            gemLabPending,
             lifeSkills: results.lifeSkills,
           });
-          setWelcomeBackHours(parseFloat(response.data.hours_offline));
+          setWelcomeBackHours(parseFloat(response.hours_offline));
           setShowWelcomeBack(true);
-          if (totalGems > 0) {
-            onCharacterUpdate({ gems: (character.gems || 0) + totalGems });
+          // Update client cache with offline rewards so save tick doesn't overwrite
+          const updates = {};
+          if (goldGained > 0) updates.gold = (character.gold || 0) + goldGained;
+          if (expGained > 0) updates.exp = (character.exp || 0) + expGained;
+          // Don't add gem lab gems to balance — they go to pending and must be claimed
+          if (Object.keys(updates).length > 0) {
+            onCharacterUpdate(updates);
           }
         }
       } catch (error) {
@@ -624,6 +1390,11 @@ export default function Battle({ character, onCharacterUpdate }) {
         enemy_key: enemy.key,
         enemy_hp: enemyHp,
         enemy_max_hp: enemy.maxHp,
+        enemy_level: enemy.level,
+        enemy_dmg: enemy.dmg,
+        enemy_defense: enemy.defense,
+        enemy_is_elite: enemy.isElite,
+        enemy_is_empowered: enemy.isEmpowered,
         player_hp: playerHp,
         player_mp: playerMp,
         phase: combatPhase,
@@ -727,7 +1498,7 @@ export default function Battle({ character, onCharacterUpdate }) {
           {playerNumNode}
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
+              <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
             <div>
               <p className="font-bold">{character.name}</p>
@@ -735,14 +1506,70 @@ export default function Battle({ character, onCharacterUpdate }) {
             </div>
           </div>
           <div className="space-y-2">
-            <HealthBar current={playerHp} max={character.max_hp} color="bg-red-500" label="HP" />
-            <HealthBar current={playerMp} max={character.max_mp} color="bg-blue-500" label="MP" />
+            <HealthBar current={playerHp} max={actualMaxHp} color="bg-red-500" label="HP" />
+            {shieldHp > 0 && <HealthBar current={shieldHp} max={actualMaxHp} color="bg-cyan-500" label="Shield" />}
+            <HealthBar current={playerMp} max={actualMaxMp} color="bg-blue-500" label="MP" />
             <HealthBar current={character.exp} max={character.exp_to_next} color="bg-primary" label="EXP" />
           </div>
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
-            <span>+{Math.floor(character.max_hp * HP_REGEN_PER_TURN)} HP/turn</span>
-            <span>+{Math.floor(character.max_mp * MP_REGEN_PER_TURN)} MP/turn</span>
+            {(() => {
+              const { derived: rd } = calculateFinalStats(character, equippedItems);
+              const hpR = Math.max(Math.ceil(rd.hpRegen || 0), Math.floor(actualMaxHp * HP_REGEN_PER_TURN));
+              const mpR = Math.max(Math.ceil(rd.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
+              return (
+                <>
+                  <span>+{hpR} HP/turn</span>
+                  <span>+{mpR} MP/turn</span>
+                </>
+              );
+            })()}
           </div>
+          {activeBuffs.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {activeBuffs.map(b => (
+                <span key={b.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  {b.icon} {b.name} ({b.turnsLeft}T)
+                </span>
+              ))}
+            </div>
+          )}
+          {/* Pet Companion Display */}
+          {lastPetInfo && (() => {
+            const PET_SPECIES_ICONS = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
+            const PET_EVO_SUFFIX = ["", "⭐", "👑"];
+            const RARITY_PET_COLORS = { common:"text-gray-400", uncommon:"text-green-400", rare:"text-blue-400", epic:"text-purple-400", legendary:"text-amber-400", mythic:"text-red-400" };
+            const SKILL_LABELS = { heal: "Heal", shield: "Shield", extra_attack: "Extra Atk" };
+            const icon = PET_SPECIES_ICONS[lastPetInfo.species] || "🐾";
+            const evoSuffix = PET_EVO_SUFFIX[lastPetInfo.evolution || 0] || "";
+            const rarityColor = RARITY_PET_COLORS[lastPetInfo.rarity] || "text-gray-400";
+            const xpPct = Math.min(100, ((lastPetInfo.xp || 0) / 500) * 100);
+            const traitNames = (lastPetInfo.traits || []).map(t => typeof t === 'object' ? `${t.name}: ${t.desc}` : t).join('\n');
+            return (
+              <div
+                className="mt-2 bg-muted/20 border border-border/50 rounded-lg px-2.5 py-2 cursor-help"
+                title={traitNames ? `Traits:\n${traitNames}` : 'No traits'}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-lg leading-none">{icon}{evoSuffix}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className={`text-[10px] font-semibold leading-none truncate ${rarityColor}`}>
+                        {lastPetInfo.name || lastPetInfo.species}
+                      </p>
+                      <span className="text-[9px] text-muted-foreground ml-1">Lv.{lastPetInfo.level}</span>
+                    </div>
+                    <p className="text-[8px] text-muted-foreground leading-none mt-0.5">
+                      {SKILL_LABELS[lastPetInfo.skillType] || lastPetInfo.skillType || "companion"} · {lastPetInfo.rarity}
+                    </p>
+                    {/* XP Bar */}
+                    <div className="h-1 bg-gray-700 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-cyan-500/60 rounded-full transition-all" style={{ width: `${xpPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </motion.div>
 
         {/* VS */}
@@ -780,8 +1607,28 @@ export default function Battle({ character, onCharacterUpdate }) {
                   <p className="font-bold">{enemy.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {enemy.isBoss && <Badge variant="destructive" className="mr-1 text-xs">BOSS</Badge>}
-                    DMG: {enemy.dmg}
+                    {enemy.isEmpowered && <Badge className="mr-1 text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Empowered</Badge>}
+                    Lv.{enemy.level || "?"} · DMG: {enemy.dmg}
                   </p>
+                  {/* Elemental Info */}
+                  {enemy.key && (() => {
+                    const elemInfo = getEnemyElementInfo(enemy.key);
+                    if (!elemInfo.weakness.length && !elemInfo.resistance.length) return null;
+                    return (
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {elemInfo.weakness.map(e => (
+                          <span key={`w-${e}`} className={`text-[10px] px-1.5 py-0.5 rounded ${ELEMENT_DISPLAY[e]?.bg || ""} ${ELEMENT_DISPLAY[e]?.color || ""}`}>
+                            {ELEMENT_DISPLAY[e]?.icon} Weak
+                          </span>
+                        ))}
+                        {elemInfo.resistance.map(e => (
+                          <span key={`r-${e}`} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-400">
+                            {ELEMENT_DISPLAY[e]?.icon} Resist
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               <HealthBar current={enemyHp} max={enemy.maxHp} color="bg-destructive" label="HP" />
@@ -811,7 +1658,11 @@ export default function Battle({ character, onCharacterUpdate }) {
             const noMp = playerMp < skill.mp;
             const disabled = !isMyTurn || onCd || noMp || !enemy || enemyHp <= 0;
             const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
-            const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
+            const buffColor = skill.special === "heal" || skill.special === "group_heal" ? "border-green-500/50 text-green-400"
+              : skill.special === "shield" ? "border-cyan-500/50 text-cyan-400"
+              : skill.special === "mana" ? "border-indigo-500/50 text-indigo-400"
+              : skill.buffEffect ? "border-amber-500/50 text-amber-400"
+              : skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
               : skill.buff === "attack" ? "border-orange-500/50 text-orange-400"
               : skill.special === "pickpocket" ? "border-yellow-500/50 text-yellow-400"
               : elem ? `border-current/30 ${elem.color}`
@@ -825,7 +1676,7 @@ export default function Battle({ character, onCharacterUpdate }) {
                 title={`${skill.description}\n${skill.mp}MP · CD: ${skill.cooldown}T${elemBonus > 0 ? `\n+${elemBonus}% ${elem?.label} bonus` : ""}`}
                 className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
               >
-                <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>
+                <span className="text-sm leading-none">{skill.special === "heal" || skill.special === "group_heal" ? "💚" : skill.special === "shield" ? "🛡️" : skill.special === "mana" ? "💙" : skill.buffEffect ? "✨" : elem?.icon || <Zap className="w-3 h-3 inline" />}</span>
                 <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
                 <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
                 {onCd && (
@@ -848,7 +1699,7 @@ export default function Battle({ character, onCharacterUpdate }) {
             <button
               key={stack.name}
               onClick={() => usePotionMutation.mutate(stack)}
-              disabled={usePotionMutation.isPending || playerHp >= character.max_hp}
+              disabled={usePotionMutation.isPending || playerHp >= actualMaxHp}
               className="relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-green-500/40 bg-green-500/5 hover:bg-green-500/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] text-green-400"
             >
               <Heart className="w-3 h-3" />
@@ -860,7 +1711,7 @@ export default function Battle({ character, onCharacterUpdate }) {
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground mt-1.5 px-0.5">
-          🛡 = Defense buff &nbsp;⚔ = Attack buff &nbsp;· Hover for details &nbsp;· CD in turns (T)
+          💚 Heal &nbsp;🛡️ Shield &nbsp;💙 Mana &nbsp;✨ Buff &nbsp;🔗 Element Combo &nbsp;· Hover for details &nbsp;· CD in turns (T)
         </p>
       </div>
 
@@ -873,7 +1724,9 @@ export default function Battle({ character, onCharacterUpdate }) {
             exit={{ opacity: 0, y: 10 }}
             className={`bg-card border rounded-xl p-3 flex items-center gap-3 ${RARITY_CONFIG[lootDrop.rarity]?.border}`}
           >
-            {(() => { const Icon = LOOT_TYPE_ICONS[lootDrop.type] || Sparkles; return <Icon className={`w-5 h-5 ${RARITY_CONFIG[lootDrop.rarity]?.color}`} />; })()}
+            {getItemSprite(lootDrop) ? (
+              <img src={getItemSprite(lootDrop)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
+            ) : (() => { const Icon = LOOT_TYPE_ICONS[lootDrop.type] || Sparkles; return <Icon className={`w-10 h-10 ${RARITY_CONFIG[lootDrop.rarity]?.color}`} />; })()}
             <div>
               <p className={`font-semibold text-sm ${RARITY_CONFIG[lootDrop.rarity]?.color}`}>{lootDrop.name}</p>
               <p className="text-xs text-muted-foreground capitalize">{lootDrop.rarity} · {lootDrop.type}</p>
