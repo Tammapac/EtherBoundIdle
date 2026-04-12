@@ -296,9 +296,9 @@ function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
 
   return (
     <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-4 space-y-3">
-      <h3 className="font-orbitron font-bold text-sm text-amber-400 flex items-center gap-2">
+      <h3 className="font-orbitron font-bold text-base text-amber-400 flex items-center gap-2">
         <Sparkles className="w-4 h-4" /> Synergies
-        <span className="text-xs text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
+        <span className="text-sm text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
       </h3>
       <div className="space-y-2.5 max-h-[70vh] overflow-y-auto scrollbar-hide">
         {allSynergies.map(syn => {
@@ -308,15 +308,15 @@ function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
             <div key={syn.id} className={`p-3 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-lg">{syn.icon}</span>
-                <span className={`text-sm font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
+                <span className={`text-base font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
                 {isActive ? <CheckCircle2 className="w-4 h-4 text-amber-400" /> : <span className="text-xs text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
               </div>
-              <p className={`text-xs leading-relaxed ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
+              <p className={`text-sm leading-relaxed ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
               <div className="flex gap-1.5 flex-wrap mt-2">
                 {syn.requires.map(id => {
                   const sk = skills.find(s => s.id === id);
                   const has = learnedSet.has(id);
-                  return <span key={id} className={`text-[10px] px-2 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
+                  return <span key={id} className={`text-xs px-2 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
                 })}
               </div>
             </div>
@@ -401,7 +401,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
   }
 
   return (
-    <div className="p-2 md:p-3 max-w-7xl mx-auto space-y-2">
+    <div className="p-2 md:p-3 mx-auto space-y-2" style={{ maxWidth: "100%" }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -447,12 +447,20 @@ export default function SkillTree({ character, onCharacterUpdate }) {
         )}
       </AnimatePresence>
 
-      {/* ═══ 3-COLUMN LAYOUT ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-2">
+      {/* ═══ MAIN LAYOUT — panels float independently, skill tree takes full width ═══ */}
+      <div className="relative">
 
-        {/* LEFT: Skill Preview + Element Stacks */}
-        <div className="hidden lg:block">
-          <div className="sticky top-3 space-y-3">
+        {/* LEFT PANEL: Skill Preview + Element Stacks (floating, not in grid) */}
+        <div className="hidden lg:block" style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: 380,
+          zIndex: 10,
+          maxHeight: "calc(100vh - 200px)",
+          overflowY: "auto",
+        }}>
+          <div className="space-y-3 pr-2">
             <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
 
             {/* Element Stacks */}
@@ -462,8 +470,8 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
               const allElements = Object.keys(ELEMENT_STACK_BONUSES);
               return (
-                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5">
-                  <h3 className="font-orbitron font-bold text-sm text-violet-400 flex items-center gap-2">
+                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5" style={{ background: "rgba(5,5,15,0.95)", backdropFilter: "blur(8px)" }}>
+                  <h3 className="font-orbitron font-bold text-base text-violet-400 flex items-center gap-2">
                     <Flame className="w-4 h-4" /> Element Stacks
                   </h3>
                   <div className="space-y-2">
@@ -479,7 +487,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
                             if (!bonus) return null;
                             const isActive = activeTier >= t;
                             const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
-                            return <p key={t} className={`text-xs ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
+                            return <p key={t} className={`text-sm ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
                           })}
                         </div>
                       );
@@ -491,8 +499,25 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           </div>
         </div>
 
-        {/* CENTER: Element Filter + Skill Tree */}
-        <div className="space-y-2 min-w-0">
+        {/* RIGHT PANEL: Synergies (floating, not in grid) */}
+        <div className="hidden lg:block" style={{
+          position: "absolute",
+          right: 0,
+          top: 0,
+          width: 380,
+          zIndex: 10,
+          maxHeight: "calc(100vh - 200px)",
+          overflowY: "auto",
+        }}>
+          <div className="pl-2">
+            <div style={{ background: "rgba(5,5,15,0.95)", backdropFilter: "blur(8px)", borderRadius: 12 }}>
+              <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
+            </div>
+          </div>
+        </div>
+
+        {/* CENTER: Element Filter + Skill Tree (full width, not constrained by panels) */}
+        <div className="space-y-2">
           {/* Element pills */}
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
             <button onClick={() => setActiveElement(null)}
@@ -609,13 +634,6 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               })}
             </div>
             </div>
-          </div>
-        </div>
-
-        {/* RIGHT: Synergies */}
-        <div className="hidden lg:block">
-          <div className="sticky top-3">
-            <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
           </div>
         </div>
       </div>
