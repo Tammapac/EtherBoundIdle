@@ -28,7 +28,7 @@ const NODE_SIZE = 72;
 const HALF = NODE_SIZE / 2;
 const LINE_WIDTH = 4;
 const CUT = 10; // how far lines stop from node center
-const H_GAP = 16;
+const H_GAP = 36;
 const V_GAP = 120;
 const PADDING = 24;
 
