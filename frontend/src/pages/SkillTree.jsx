@@ -62,7 +62,7 @@ function computeLayout(filteredSkills) {
     const tierSkills = tiers[tier];
     const count = tierSkills.length;
     const totalW = count * NODE_SIZE + (count - 1) * H_GAP;
-    const startX = (containerW + 200 - totalW) / 2;
+    const startX = (containerW - totalW) / 2;
 
     tierSkills.forEach((skill, i) => {
       positions[skill.id] = {
@@ -295,28 +295,28 @@ function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
   if (allSynergies.length === 0) return null;
 
   return (
-    <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-4 space-y-3">
-      <h3 className="font-orbitron font-bold text-base text-amber-400 flex items-center gap-2">
+    <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-3 space-y-2">
+      <h3 className="font-orbitron font-bold text-sm text-amber-400 flex items-center gap-2">
         <Sparkles className="w-4 h-4" /> Synergies
-        <span className="text-sm text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
+        <span className="text-xs text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
       </h3>
-      <div className="space-y-2.5 max-h-[70vh] overflow-y-auto scrollbar-hide">
+      <div className="grid grid-cols-2 gap-1.5 max-h-[70vh] overflow-y-auto scrollbar-hide">
         {allSynergies.map(syn => {
           const isActive = activeSynergies.some(a => a.id === syn.id);
           const progress = syn.requires.filter(id => learnedSet.has(id)).length;
           return (
-            <div key={syn.id} className={`p-3 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-lg">{syn.icon}</span>
-                <span className={`text-base font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
-                {isActive ? <CheckCircle2 className="w-4 h-4 text-amber-400" /> : <span className="text-xs text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
+            <div key={syn.id} className={`p-2 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-sm">{syn.icon}</span>
+                <span className={`text-xs font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
+                {isActive ? <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> : <span className="text-[10px] text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
               </div>
-              <p className={`text-sm leading-relaxed ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
-              <div className="flex gap-1.5 flex-wrap mt-2">
+              <p className={`text-[11px] leading-snug ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
+              <div className="flex gap-1 flex-wrap mt-1">
                 {syn.requires.map(id => {
                   const sk = skills.find(s => s.id === id);
                   const has = learnedSet.has(id);
-                  return <span key={id} className={`text-xs px-2 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
+                  return <span key={id} className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
                 })}
               </div>
             </div>
@@ -447,13 +447,52 @@ export default function SkillTree({ character, onCharacterUpdate }) {
         )}
       </AnimatePresence>
 
-      {/* ═══ DESKTOP LAYOUT: Skill Preview + Tree | Synergies, then Element Stacks below ═══ */}
-      <div className="hidden lg:flex gap-2 items-start">
+      {/* ═══ 3-COLUMN GRID (matching screenshot layout) ═══ */}
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr_340px] gap-2">
 
-        {/* LEFT AREA: Skill Preview + Element Filter + Skill Tree */}
-        <div style={{ flex: 1, minWidth: 0 }} className="space-y-2">
-          {/* Skill Preview (compact) */}
-          <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
+        {/* LEFT: Skill Preview + Element Stacks */}
+        <div className="hidden lg:block">
+          <div className="sticky top-3 space-y-3">
+            <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
+
+            {/* Element Stacks */}
+            {(() => {
+              const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
+              const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
+              const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
+              const allElements = Object.keys(ELEMENT_STACK_BONUSES);
+              return (
+                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5">
+                  <h3 className="font-orbitron font-bold text-base text-violet-400 flex items-center gap-2">
+                    <Flame className="w-4 h-4" /> Element Stacks
+                  </h3>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {allElements.map(element => {
+                      const tiers = ELEMENT_STACK_BONUSES[element];
+                      const activeStack = activeStacks.find(s => s.element === element);
+                      const activeTier = activeStack?.tier || 0;
+                      return (
+                        <div key={element} className={`rounded-lg p-2 ${activeTier > 0 ? "bg-white/5 border border-white/10" : "bg-black/20 border border-gray-800/50 opacity-40"}`}>
+                          <p className={`text-xs font-bold mb-0.5 ${ELEM_COLORS[element]}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
+                          {[2, 3, 4].map(t => {
+                            const bonus = tiers[t];
+                            if (!bonus) return null;
+                            const isActive = activeTier >= t;
+                            const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
+                            return <p key={t} className={`text-[11px] ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* CENTER: Element Filter + Skill Tree */}
+        <div className="space-y-2 min-w-0">
           {/* Element pills */}
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
             <button onClick={() => setActiveElement(null)}
@@ -496,11 +535,11 @@ export default function SkillTree({ character, onCharacterUpdate }) {
             )}
           </div>
 
-          {/* ═══ SKILL TREE (prototype layout, +200px wider) ═══ */}
+          {/* ═══ SKILL TREE (prototype layout) ═══ */}
           <div className="border border-border rounded-xl bg-[#0d0d14] overflow-auto">
             <div style={{
               position: "relative",
-              width: (containerW + 200) * zoom,
+              width: containerW * zoom,
               height: containerH * zoom,
               margin: "0 auto",
             }}>
@@ -508,7 +547,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               transform: `scale(${zoom})`,
               transformOrigin: "top left",
               position: "relative",
-              width: containerW + 200,
+              width: containerW,
               height: containerH,
             }}>
               {/* Connection lines (behind nodes) */}
@@ -573,98 +612,15 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           </div>
         </div>
 
-        {/* RIGHT: Synergies (700x900) */}
-        <div style={{ width: 700, height: 900, flexShrink: 0, overflowY: "auto" }} className="scrollbar-hide">
-          <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
-        </div>
-      </div>
-
-      {/* ELEMENT STACKS (800x400, below the tree row) */}
-      <div className="hidden lg:block">
-        {(() => {
-          const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
-          const ELEM_EMOJIS = { fire: "🔥", ice: "❄️", lightning: "⚡", poison: "☠️", blood: "🩸", sand: "🌪️" };
-          const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
-          const allElements = Object.keys(ELEMENT_STACK_BONUSES);
-          return (
-            <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5" style={{ width: 800, height: 400, overflowY: "auto" }}>
-              <h3 className="font-orbitron font-bold text-base text-violet-400 flex items-center gap-2">
-                <Flame className="w-4 h-4" /> Element Stacks
-              </h3>
-              <div className="grid grid-cols-3 gap-2">
-                {allElements.map(element => {
-                  const tiers = ELEMENT_STACK_BONUSES[element];
-                  const activeStack = activeStacks.find(s => s.element === element);
-                  const activeTier = activeStack?.tier || 0;
-                  return (
-                    <div key={element} className={`rounded-lg p-2.5 ${activeTier > 0 ? "bg-white/5 border border-white/10" : "bg-black/20 border border-gray-800/50 opacity-40"}`}>
-                      <p className={`text-sm font-bold mb-1 ${ELEM_COLORS[element]}`}>{ELEM_EMOJIS[element]} {element.charAt(0).toUpperCase() + element.slice(1)}</p>
-                      {[2, 3, 4].map(t => {
-                        const bonus = tiers[t];
-                        if (!bonus) return null;
-                        const isActive = activeTier >= t;
-                        const bonusStr = Object.entries(bonus).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
-                        return <p key={t} className={`text-sm ${isActive ? ELEM_COLORS[element] : "text-gray-600"}`}>{isActive ? "✓" : "○"} {t}x: {bonusStr}</p>;
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* MOBILE: Skill Tree */}
-      <div className="lg:hidden space-y-2">
-        {/* Element pills */}
-        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
-          <button onClick={() => setActiveElement(null)}
-            className={`px-3 py-1.5 rounded-full text-sm font-bold whitespace-nowrap border-2 ${!activeElement ? "border-white/30 bg-white/10 text-white" : "border-transparent bg-white/5 text-gray-500"}`}>All</button>
-          {availableElements.map(elem => {
-            const cfg = ELEMENT_CONFIG[elem] || { icon: "⚔️", label: elem };
-            const c = elemCounts[elem] || { total: 0, learned: 0 };
-            const isActive = activeElement === elem;
-            const color = ELEM_BORDER[elem] || "#666";
-            return (
-              <button key={elem} onClick={() => setActiveElement(isActive ? null : elem)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold whitespace-nowrap"
-                style={{ border: `2px solid ${isActive ? color : "transparent"}`, background: isActive ? `${color}22` : "rgba(255,255,255,0.03)", color: isActive ? color : "#777" }}>
-                <span className="text-base">{cfg.icon}</span><span className="hidden sm:inline">{cfg.label}</span><span style={{ opacity: 0.5 }}>{c.learned}/{c.total}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="border border-border rounded-xl bg-[#0d0d14] overflow-auto">
-          <div style={{ position: "relative", width: containerW * zoom, height: containerH * zoom, margin: "0 auto" }}>
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left", position: "relative", width: containerW, height: containerH }}>
-              <ConnectionLines positions={positions} connections={connections} learnedSkills={learnedSkills} hoverPath={hoverPath} />
-              {filteredSkills.map(skill => {
-                const pos = positions[skill.id]; if (!pos) return null;
-                const isLearned = learnedSkills.includes(skill.id);
-                const prereqMet = canUnlock(skill); const levelOk = charLevel >= skill.levelReq;
-                const canLearnThis = !isLearned && prereqMet && levelOk && skillPoints >= skill.cost;
-                const isLocked = !prereqMet || !levelOk; const isSelected = selectedSkill?.id === skill.id;
-                return (
-                  <div key={skill.id} style={{ position: "absolute", left: pos.x, top: pos.y, zIndex: 2 }}>
-                    <SkillNode skill={skill} learned={isLearned} canLearn={canLearnThis} locked={isLocked}
-                      isSelected={isSelected} isEquipped={equippedSkills.includes(skill.id)} isInPath={hoverPath.has(skill.id)}
-                      onClick={() => setSelectedSkill(isSelected ? null : skill)}
-                      onHover={() => setHoveredSkillId(skill.id)} onLeave={() => setHoveredSkillId(null)} />
-                    <p style={{ fontSize: 10, textAlign: "center", fontWeight: "bold", marginTop: 4, width: NODE_SIZE,
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      color: isLearned ? "#e5e7eb" : isLocked ? "#4b5563" : "#9ca3af" }}>{skill.name}</p>
-                  </div>
-                );
-              })}
-            </div>
+        {/* RIGHT: Synergies */}
+        <div className="hidden lg:block">
+          <div className="sticky top-3">
+            <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
           </div>
         </div>
-        <SkillPreview skill={selectedSkill} skills={allSkills} learnedSkills={learnedSkills} skillPoints={skillPoints} charLevel={charLevel} onLearn={(s) => learnMutation.mutate(s)} isPending={learnMutation.isPending} />
-        <SynergyPanel charClass={charClass} skills={allSkills} learnedSkills={learnedSkills} equippedSkills={equippedSkills} />
       </div>
 
-      {/* MOBILE: Element Stacks */}
+      {/* ELEMENT STACKS (mobile only) */}
       <div className="lg:hidden">
         {(() => {
           const { activeStacks } = getElementStackBonuses(charClass, equippedSkills);
