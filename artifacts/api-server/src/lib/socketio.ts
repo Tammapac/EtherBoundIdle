@@ -29,8 +29,21 @@ export async function initSocketIO(httpServer: HttpServer): Promise<SocketIOServ
       const { default: Redis } = await import("ioredis" as any);
       const pubClient = new Redis(process.env.REDIS_URL);
       const subClient = pubClient.duplicate();
+      // Wait for both Redis clients to connect before attaching adapter
+      await Promise.all([
+        new Promise<void>((resolve, reject) => {
+          if ((pubClient as any).status === "ready") return resolve();
+          pubClient.once("ready", resolve);
+          pubClient.once("error", (err: Error) => reject(err));
+        }),
+        new Promise<void>((resolve, reject) => {
+          if ((subClient as any).status === "ready") return resolve();
+          subClient.once("ready", resolve);
+          subClient.once("error", (err: Error) => reject(err));
+        }),
+      ]);
       io.adapter(createAdapter(pubClient, subClient));
-      logger.info("Socket.IO Redis adapter attached (multi-process ready)");
+      logger.info("Socket.IO Redis adapter attached — pub/sub connected to %s", process.env.REDIS_URL.replace(/\/\/.*@/, "//***@"));
     } catch (e: any) {
       logger.warn({ err: e.message }, "Socket.IO Redis adapter not available — single-process only");
     }
