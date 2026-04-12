@@ -448,7 +448,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
       </AnimatePresence>
 
       {/* ═══ 3-COLUMN GRID (matching screenshot layout) ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr_240px] gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr_380px] gap-2">
 
         {/* LEFT: Skill Preview + Element Stacks */}
         <div className="hidden lg:block">
