@@ -121,7 +121,10 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         color: "white",
       }}
     >
-      <span style={{ fontSize: 28, userSelect: "none" }}>{elemCfg.icon}</span>
+      {skill.id.startsWith("m_") ? (
+        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 40, height: 40, imageRendering: "pixelated", userSelect: "none" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+      ) : null}
+      <span style={{ fontSize: 28, userSelect: "none", display: skill.id.startsWith("m_") ? "none" : "" }}>{elemCfg.icon}</span>
 
       {/* Lock overlay */}
       {locked && !learned && (
@@ -233,7 +236,10 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
       <div className="flex flex-col items-center text-center gap-2">
         <div className="w-[64px] h-[64px] rounded-lg flex items-center justify-center"
           style={{ border: `3px solid ${elemColor}`, background: `${elemColor}15`, boxShadow: `0 0 14px ${elemColor}44` }}>
-          <span className="text-3xl">{elemCfg.icon}</span>
+          {skill.id.startsWith("m_") ? (
+            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 48, height: 48, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+          ) : null}
+          <span className="text-3xl" style={{ display: skill.id.startsWith("m_") ? "none" : "" }}>{elemCfg.icon}</span>
         </div>
         <h3 className="font-bold text-base">{skill.name}</h3>
         <p className="text-xs text-muted-foreground">
