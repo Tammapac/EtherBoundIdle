@@ -122,7 +122,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
       }}
     >
       {skill.id.startsWith("m_") ? (
-        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 40, height: 40, imageRendering: "pixelated", userSelect: "none" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", userSelect: "none" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
       ) : null}
       <span style={{ fontSize: 28, userSelect: "none", display: skill.id.startsWith("m_") ? "none" : "" }}>{elemCfg.icon}</span>
 
@@ -237,7 +237,7 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
         <div className="w-[64px] h-[64px] rounded-lg flex items-center justify-center"
           style={{ border: `3px solid ${elemColor}`, background: `${elemColor}15`, boxShadow: `0 0 14px ${elemColor}44` }}>
           {skill.id.startsWith("m_") ? (
-            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 48, height: 48, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
           ) : null}
           <span className="text-3xl" style={{ display: skill.id.startsWith("m_") ? "none" : "" }}>{elemCfg.icon}</span>
         </div>
