@@ -76,7 +76,7 @@ export default function ChatWindow({ character, channel = "global", guildId = nu
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-80 h-96 bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed bottom-4 right-4 z-40 w-80 h-96 bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden rpg-frame">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/50">
         <span className="text-sm font-semibold capitalize">{channel} Chat</span>
         <button onClick={() => setIsOpen(false)} className="text-muted-foreground hover:text-foreground text-xs">

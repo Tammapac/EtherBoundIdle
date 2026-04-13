@@ -117,7 +117,7 @@ export default function Profile({ character, onCharacterUpdate }) {
       </h2>
 
       {/* Character Card */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5 rpg-frame">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-16 h-16 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center">
             <Shield className="w-8 h-8 text-primary" />
