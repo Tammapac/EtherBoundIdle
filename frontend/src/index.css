@@ -116,3 +116,19 @@
 .glow-gold {
   box-shadow: 0 0 15px hsl(45 100% 55% / 0.3), 0 0 30px hsl(45 100% 55% / 0.1);
 }
+
+/* RPG Container Frames */
+.rpg-frame {
+  border-image: url('/sprites/ui/frame_medium_square.png') 16 10 12 10 fill / 16px 10px 12px 10px / 0;
+  image-rendering: pixelated;
+  border-style: solid;
+  border-radius: 0 !important;
+}
+
+/* Apply frames to all card containers */
+.bg-card[class*="border"][class*="rounded"] {
+  border-image: url('/sprites/ui/frame_medium_square.png') 16 10 12 10 fill / 16px 10px 12px 10px / 0;
+  image-rendering: pixelated;
+  border-style: solid;
+  border-radius: 0 !important;
+}
