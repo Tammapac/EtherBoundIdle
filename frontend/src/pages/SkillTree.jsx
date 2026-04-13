@@ -603,7 +603,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
           {/* ═══ SKILL TREE (prototype layout) ═══ */}
           <div
             ref={treeContainerRef}
-            className="border border-border rounded-xl bg-[#0d0d14] overflow-auto"
+            className="border border-border rounded-xl bg-[#0d0d14] overflow-auto rpg-frame"
             style={{ cursor: "grab" }}
             onMouseDown={onDragStart}
             onMouseMove={onDragMove}
