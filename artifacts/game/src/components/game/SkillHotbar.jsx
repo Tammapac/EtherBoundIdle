@@ -47,7 +47,7 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
     .filter(Boolean);
 
   return (
-    <div className="bg-card border border-primary/30 rounded-xl p-4 space-y-3">
+    <div className="bg-card border border-primary/30 rounded-xl p-4 space-y-3 rpg-frame">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4 text-primary" />

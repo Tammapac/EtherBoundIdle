@@ -1379,7 +1379,7 @@ export default function Battle({ character, onCharacterUpdate }) {
                 ? { x: [0, 18, 0], transition: { duration: 0.25, ease: "easeOut" } }
                 : { x: 0 }
           }
-          className="bg-card border border-border rounded-xl p-4 relative overflow-visible"
+          className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
         >
           {playerNumNode}
           <div className="flex items-center gap-3 mb-3">
@@ -1462,7 +1462,7 @@ export default function Battle({ character, onCharacterUpdate }) {
                 ? { x: [0, -18, 0], transition: { duration: 0.25, ease: "easeOut" } }
                 : { x: 0, rotate: 0 }
           }
-          className="bg-card border border-border rounded-xl p-4 relative overflow-visible"
+          className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
         >
           {enemyNumNode}
           <AttackVisual
@@ -1516,7 +1516,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       </div>
 
       {/* Skills Bar — compact grid */}
-      <div className="bg-card border border-border rounded-xl p-2">
+      <div className="bg-card border border-border rounded-xl p-2 rpg-frame">
         <div className="flex flex-wrap gap-1.5">
           {/* Basic attack */}
           <button
@@ -1608,7 +1608,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       </AnimatePresence>
 
       {/* Battle Log */}
-      <div className="bg-card border border-border rounded-xl p-3">
+      <div className="bg-card border border-border rounded-xl p-3 rpg-frame">
         <h3 className="text-xs font-semibold text-muted-foreground mb-2">BATTLE LOG</h3>
         <div className="space-y-0.5 max-h-48 overflow-y-auto">
           {battleLog.map((log, i) => {

@@ -62,7 +62,7 @@ export default function PartyActivityDisplay({ partyMembers, currentZone }) {
   if (!partyMembers?.length) return null;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+    <div className="bg-card border border-border rounded-xl p-3 space-y-2 rpg-frame">
       <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
         <Users className="w-3.5 h-3.5 text-primary" /> PARTY ACTIVITY
         {partyMembers.filter(m => {
