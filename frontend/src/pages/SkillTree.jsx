@@ -122,7 +122,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         justifyContent: "center",
         cursor: "pointer",
         position: "relative",
-        zIndex: 3,
+        zIndex: 1,
         color: "white",
         overflow: "visible",
       }}
@@ -131,7 +131,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
       <div style={{
         position: "absolute",
         inset: -10,
-        borderImage: `url('${frameImg}') 16 fill / 16px`,
+        borderImage: `url('${frameImg}') 16 / 16px`,
         borderStyle: "solid",
         imageRendering: "pixelated",
         pointerEvents: "none",
@@ -258,13 +258,13 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
           style={{ position: "relative", background: learned ? "#1e293b" : "#080b11", overflow: "visible" }}>
           <div style={{
             position: "absolute", inset: -10,
-            borderImage: `url('/sprites/ui/${learned ? "skill_frame_learned" : "skill_frame_unlearned"}.png') 16 fill / 16px`,
+            borderImage: `url('/sprites/ui/${learned ? "skill_frame_learned" : "skill_frame_unlearned"}.png') 16 / 16px`,
             borderStyle: "solid", imageRendering: "pixelated", pointerEvents: "none", zIndex: 1,
           }} />
           {(() => { const sf = skill.id.startsWith("m_") ? "mage" : skill.id.startsWith("w_") ? "warrior" : skill.id.startsWith("ro_") ? "rogue" : skill.id.startsWith("r_") ? "ranger" : null; return sf ? (
             <img src={`/sprites/skills/${sf}/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", position: "relative", zIndex: 2 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
           ) : null; })()}
-          <span className="text-3xl" style={{ display: (skill.id.startsWith("m_") || skill.id.startsWith("w_") || skill.id.startsWith("r_")) ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
+          <span className="text-3xl" style={{ display: (skill.id.startsWith("m_") || skill.id.startsWith("w_") || skill.id.startsWith("ro_") || skill.id.startsWith("r_")) ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
         </div>
         <h3 className="font-bold text-base">{skill.name}</h3>
         <p className="text-xs text-muted-foreground">
