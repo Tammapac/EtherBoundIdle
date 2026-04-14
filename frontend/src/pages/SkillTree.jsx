@@ -112,11 +112,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
       style={{
         width: NODE_SIZE,
         height: NODE_SIZE,
-        borderImage: `url('${frameImg}') 10 fill / 10px / 10px`,
-        borderStyle: "solid",
-        imageRendering: "pixelated",
-        boxSizing: "content-box",
-        background: "transparent",
+        background: learned ? "#1e293b" : "#080b11",
         opacity: learned ? 1 : 0.6,
         boxShadow: glow,
         display: "flex",
@@ -126,19 +122,32 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         position: "relative",
         zIndex: 3,
         color: "white",
+        overflow: "visible",
       }}
     >
       {skill.id.startsWith("m_") ? (
-        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", userSelect: "none" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", userSelect: "none", position: "relative", zIndex: 1 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
       ) : null}
-      <span style={{ fontSize: 28, userSelect: "none", display: skill.id.startsWith("m_") ? "none" : "" }}>{elemCfg.icon}</span>
+      <span style={{ fontSize: 28, userSelect: "none", display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 1 }}>{elemCfg.icon}</span>
+
+      {/* Frame overlay — renders ON TOP of the skill icon */}
+      <div style={{
+        position: "absolute",
+        inset: -10,
+        borderImage: `url('${frameImg}') 10 / 10px`,
+        borderStyle: "solid",
+        imageRendering: "pixelated",
+        pointerEvents: "none",
+        zIndex: 5,
+      }} />
 
       {/* Lock overlay */}
       {locked && !learned && (
         <div style={{
           position: "absolute", inset: 0, borderRadius: 6,
           background: "rgba(0,0,0,0.6)",
-          display: "flex", alignItems: "center", justifyContent: "center"
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 6,
         }}>
           <Lock style={{ width: 20, height: 20, color: "#6b7280" }} />
         </div>
@@ -150,7 +159,8 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
           position: "absolute", top: -6, right: -6,
           width: 18, height: 18, borderRadius: "50%",
           background: "#8b5cf6", display: "flex", alignItems: "center", justifyContent: "center",
-          animation: "pulse 2s infinite"
+          animation: "pulse 2s infinite",
+          zIndex: 7,
         }}>
           <Star style={{ width: 11, height: 11, color: "white" }} />
         </div>
@@ -161,7 +171,8 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         <div style={{
           position: "absolute", bottom: -6, left: "50%", transform: "translateX(-50%)",
           padding: "1px 6px", borderRadius: 4,
-          background: "rgba(139,92,246,0.8)", fontSize: 8, fontWeight: "bold", color: "white"
+          background: "rgba(139,92,246,0.8)", fontSize: 8, fontWeight: "bold", color: "white",
+          zIndex: 7,
         }}>EQ</div>
       )}
     </div>
@@ -241,12 +252,17 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
   return (
     <div className="border rounded-xl bg-black/30 p-4 space-y-2.5" style={{ borderColor: `${elemColor}55` }}>
       <div className="flex flex-col items-center text-center gap-2">
-        <div className="w-[64px] h-[64px] rounded-lg flex items-center justify-center"
-          style={{ border: `3px solid ${elemColor}`, background: `${elemColor}15`, boxShadow: `0 0 14px ${elemColor}44` }}>
+        <div className="w-[72px] h-[72px] flex items-center justify-center"
+          style={{ position: "relative", background: learned ? "#1e293b" : "#080b11", overflow: "visible" }}>
           {skill.id.startsWith("m_") ? (
-            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", position: "relative", zIndex: 1 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
           ) : null}
-          <span className="text-3xl" style={{ display: skill.id.startsWith("m_") ? "none" : "" }}>{elemCfg.icon}</span>
+          <span className="text-3xl" style={{ display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 1 }}>{elemCfg.icon}</span>
+          <div style={{
+            position: "absolute", inset: -10,
+            borderImage: `url('/sprites/ui/${learned ? "skill_frame_learned" : "skill_frame_unlearned"}.png') 10 / 10px`,
+            borderStyle: "solid", imageRendering: "pixelated", pointerEvents: "none", zIndex: 5,
+          }} />
         </div>
         <h3 className="font-bold text-base">{skill.name}</h3>
         <p className="text-xs text-muted-foreground">
