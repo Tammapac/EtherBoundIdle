@@ -125,12 +125,7 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         overflow: "visible",
       }}
     >
-      {skill.id.startsWith("m_") ? (
-        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", userSelect: "none", position: "relative", zIndex: 1 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
-      ) : null}
-      <span style={{ fontSize: 28, userSelect: "none", display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 1 }}>{elemCfg.icon}</span>
-
-      {/* Frame overlay — renders ON TOP of the skill icon */}
+      {/* Frame — behind the skill icon */}
       <div style={{
         position: "absolute",
         inset: -10,
@@ -138,8 +133,13 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         borderStyle: "solid",
         imageRendering: "pixelated",
         pointerEvents: "none",
-        zIndex: 5,
+        zIndex: 1,
       }} />
+
+      {skill.id.startsWith("m_") ? (
+        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", userSelect: "none", position: "relative", zIndex: 2 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+      ) : null}
+      <span style={{ fontSize: 28, userSelect: "none", display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
 
       {/* Lock overlay */}
       {locked && !learned && (
@@ -254,15 +254,15 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
       <div className="flex flex-col items-center text-center gap-2">
         <div className="w-[72px] h-[72px] flex items-center justify-center"
           style={{ position: "relative", background: learned ? "#1e293b" : "#080b11", overflow: "visible" }}>
-          {skill.id.startsWith("m_") ? (
-            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", position: "relative", zIndex: 1 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
-          ) : null}
-          <span className="text-3xl" style={{ display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 1 }}>{elemCfg.icon}</span>
           <div style={{
             position: "absolute", inset: -10,
             borderImage: `url('/sprites/ui/${learned ? "skill_frame_learned" : "skill_frame_unlearned"}.png') 10 / 10px`,
-            borderStyle: "solid", imageRendering: "pixelated", pointerEvents: "none", zIndex: 5,
+            borderStyle: "solid", imageRendering: "pixelated", pointerEvents: "none", zIndex: 1,
           }} />
+          {skill.id.startsWith("m_") ? (
+            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", position: "relative", zIndex: 2 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+          ) : null}
+          <span className="text-3xl" style={{ display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
         </div>
         <h3 className="font-bold text-base">{skill.name}</h3>
         <p className="text-xs text-muted-foreground">
