@@ -8,6 +8,32 @@ import { base44 } from "@/api/base44Client";
 
 const MAX_HOTBAR = 6;
 
+function getSpriteFolder(skillId) {
+  if (!skillId) return null;
+  if (skillId.startsWith("m_")) return "mage";
+  if (skillId.startsWith("w_")) return "warrior";
+  if (skillId.startsWith("ro_")) return "rogue";
+  if (skillId.startsWith("r_")) return "ranger";
+  return null;
+}
+
+function SkillSprite({ skill, size = 32, className = "" }) {
+  const folder = getSpriteFolder(skill?.id);
+  if (!folder) {
+    const elem = skill?.element ? ELEMENT_CONFIG[skill.element] : null;
+    return <span className={`leading-none ${className}`}>{elem?.icon || "⚔️"}</span>;
+  }
+  return (
+    <img
+      src={`/sprites/skills/${folder}/${skill.id}.png`}
+      alt={skill.name}
+      style={{ width: size, height: size, imageRendering: "pixelated" }}
+      className={className}
+      onError={e => { e.target.style.display = "none"; }}
+    />
+  );
+}
+
 /**
  * SkillHotbar - shown in SkillTree page. Lets user drag/assign up to 6 skills.
  * Props: character, onCharacterUpdate
@@ -88,7 +114,7 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
                   : "border-border/50 bg-muted/20 text-muted-foreground/40"
               }`}
             >
-              <span className="text-base leading-none">{skill ? (elem?.icon || "⚔️") : (i + 1)}</span>
+              {skill ? <SkillSprite skill={skill} size={32} /> : <span className="text-base leading-none text-muted-foreground/40">{i + 1}</span>}
               {skill && <span className="text-[8px] text-center leading-none truncate max-w-[44px] px-0.5">{skill.name.split(" ")[0]}</span>}
             </div>
           );
@@ -116,7 +142,7 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
                         : "border-border hover:border-primary/40 hover:bg-muted/40"
                   }`}
                 >
-                  <span className="text-lg leading-none">{elem?.icon || "⚔️"}</span>
+                  <SkillSprite skill={skill} size={28} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold truncate">{skill.name}</p>
                     <p className="text-[10px] text-muted-foreground">{skill.mp}MP · {skill.cooldown}T CD</p>
@@ -139,6 +165,7 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
             return (
               <div key={skill.id} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span className="w-4 h-4 rounded bg-muted flex items-center justify-center text-[9px] font-bold text-primary flex-shrink-0">{i + 1}</span>
+                <SkillSprite skill={skill} size={20} className="flex-shrink-0" />
                 <span className="font-medium text-foreground truncate">{skill.name}</span>
                 <span className="text-blue-400 flex-shrink-0">{skill.mp}MP</span>
                 <span className="flex-shrink-0">{skill.cooldown}T CD</span>

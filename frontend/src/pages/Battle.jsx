@@ -28,6 +28,15 @@ import PartyActivityDisplay from "@/components/game/PartyActivityDisplay";
 import { useFloatingNumbers } from "@/components/game/FloatingNumbers";
 import { REGIONS, ENEMIES, SKILLS, CLASSES, calculateExpToLevel, generateLoot, RARITY_CONFIG } from "@/lib/gameData";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
+
+function getSkillSpriteFolder(skillId) {
+  if (!skillId) return null;
+  if (skillId.startsWith("m_")) return "mage";
+  if (skillId.startsWith("w_")) return "warrior";
+  if (skillId.startsWith("ro_")) return "rogue";
+  if (skillId.startsWith("r_")) return "ranger";
+  return null;
+}
 import { rollDamage, calculateDamageTaken, calculateFinalStats } from "@/lib/statSystem";
 import { collectEquippedProcs, ProcEngine, SET_PROC_EFFECTS } from "@/lib/procSystem";
 import { collectSetProcEffects } from "@/lib/setSystem";
@@ -57,9 +66,6 @@ export default function Battle({ character, onCharacterUpdate }) {
   const [battleLog, setBattleLog] = useState([]);
   // Turn-based cooldowns (in turns remaining)
   const [cooldowns, setCooldowns] = useState({});
-  const [activeBuffs, setActiveBuffs] = useState([]); // [{id, name, effects, turnsLeft, icon}]
-  const [shieldHp, setShieldHp] = useState(0);
-  const [lastElement, setLastElement] = useState(null); // for element combo tracking
   const [lootDrop, setLootDrop] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [combatPhase, setCombatPhase] = useState("idle"); // idle | player_turn | enemy_turn | enemy_dead | player_dead
@@ -358,21 +364,11 @@ export default function Battle({ character, onCharacterUpdate }) {
       });
     }
 
-    // Shield absorbs damage first
-    let dmgToHp = safeDmg;
-    let shieldAbsorbed = 0;
-    if (shieldHp > 0 && !evaded) {
-      shieldAbsorbed = Math.min(shieldHp, safeDmg);
-      dmgToHp = safeDmg - shieldAbsorbed;
-      setShieldHp(prev => Math.max(0, prev - shieldAbsorbed));
-    }
-
-    const newPlayerHp = Math.max(0, safeHp - dmgToHp);
+    const newPlayerHp = Math.max(0, safeHp - safeDmg);
     setPlayerHp(newPlayerHp);
 
     const prefix = evaded ? "🌀 Evaded! " : blocked ? "🛡️ Blocked! " : "";
-    const shieldInfo = shieldAbsorbed > 0 ? ` (🛡️ Shield absorbed ${shieldAbsorbed})` : "";
-    addLog(`${prefix}${currentEnemyData.name} attacks for ${safeDmg} damage!${shieldInfo}`);
+    addLog(`${prefix}${currentEnemyData.name} attacks for ${safeDmg} damage!`);
 
     // Enemy nudges, player shakes on hit
     setEnemyAttackNudge(true);
@@ -398,13 +394,6 @@ export default function Battle({ character, onCharacterUpdate }) {
       for (const [k, v] of Object.entries(prev)) { if (v > 0) next[k] = v - 1; }
       return next;
     });
-    // Tick down active buffs
-    setActiveBuffs(prev => {
-      const updated = prev.map(b => ({ ...b, turnsLeft: b.turnsLeft - 1 }));
-      const expired = updated.filter(b => b.turnsLeft <= 0);
-      if (expired.length > 0) expired.forEach(b => addLog(`⏳ ${b.name} expired.`));
-      return updated.filter(b => b.turnsLeft > 0);
-    });
 
     if (newPlayerHp <= 0) {
       const xpLost = Math.floor((character.exp || 0) * 0.10);
@@ -418,9 +407,6 @@ export default function Battle({ character, onCharacterUpdate }) {
       setTimeout(() => {
         setPlayerHp(actualMaxHp);
         setPlayerMp(actualMaxMp);
-        setShieldHp(0);
-        setActiveBuffs([]);
-        setLastElement(null);
         spawnEnemy();
       }, 2000);
     } else {
@@ -447,103 +433,13 @@ export default function Battle({ character, onCharacterUpdate }) {
 
     const equipped = allItems.filter(i => i.equipped);
     const { total, derived } = calculateFinalStats(character, equipped);
-
-    // ── Apply active buff bonuses to stats ──
-    let buffedTotal = { ...total };
-    for (const b of activeBuffs) {
-      if (b.effects.atk_pct) buffedTotal.damage = (buffedTotal.damage || 0) + Math.floor(total.damage * b.effects.atk_pct / 100);
-      if (b.effects.crit_pct) buffedTotal.luck = (buffedTotal.luck || 0) + b.effects.crit_pct;
-      if (b.effects.def_pct) buffedTotal.defense = (buffedTotal.defense || 0) + Math.floor(total.defense * b.effects.def_pct / 100);
-      if (b.effects.atk_speed) buffedTotal.dexterity = (buffedTotal.dexterity || 0) + b.effects.atk_speed;
-    }
-
-    // ── Handle support skills (heal, shield, mana) — these don't attack ──
-    if (skill && (skill.special === "heal" || skill.special === "group_heal")) {
-      setPlayerMp(prev => prev - skill.mp);
-      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
-      const healAmt = Math.floor(actualMaxHp * (skill.healPct || 0.2));
-      const newHp = Math.min(actualMaxHp, playerHp + healAmt);
-      setPlayerHp(newHp);
-      spawnPlayerNum(healAmt, "heal");
-      addLog(`💚 ${skill.name} → Healed ${healAmt} HP!`);
-      if (skill.buffEffect) {
-        const newBuff = { id: skill.id, name: skill.name, effects: skill.buffEffect, turnsLeft: skill.buffDuration || 3, icon: "✨" };
-        setActiveBuffs(prev => [...prev.filter(b => b.id !== skill.id), newBuff]);
-        const buffDesc = Object.entries(skill.buffEffect).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
-        addLog(`✨ ${skill.name} → ${buffDesc} for ${skill.buffDuration || 3} turns!`);
-      }
-      setLastAttackIsSkill(true);
-      setLastSkillId(skill.id);
-      setTimeout(() => doEnemyTurn(newHp, enemy), 1500);
-      return;
-    }
-    if (skill && skill.special === "shield") {
-      setPlayerMp(prev => prev - skill.mp);
-      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
-      const shieldAmt = Math.floor(actualMaxHp * (skill.shieldPct || 0.25));
-      setShieldHp(prev => prev + shieldAmt);
-      spawnPlayerNum(shieldAmt, "shield");
-      addLog(`🛡️ ${skill.name} → Shield +${shieldAmt} HP!`);
-      setLastAttackIsSkill(true);
-      setLastSkillId(skill.id);
-      setTimeout(() => doEnemyTurn(playerHp, enemy), 1500);
-      return;
-    }
-    if (skill && skill.special === "mana") {
-      setPlayerMp(prev => prev - skill.mp);
-      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
-      const manaAmt = Math.floor(actualMaxMp * (skill.manaPct || 0.2));
-      setPlayerMp(prev => Math.min(actualMaxMp, prev + manaAmt));
-      spawnPlayerNum(manaAmt, "mp_regen");
-      addLog(`💙 ${skill.name} → Restored ${manaAmt} MP!`);
-      setLastAttackIsSkill(true);
-      setLastSkillId(skill.id);
-      setTimeout(() => doEnemyTurn(playerHp, enemy), 1500);
-      return;
-    }
-    // ── Activate buff skills ──
-    if (skill && skill.buffEffect) {
-      setPlayerMp(prev => prev - skill.mp);
-      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
-      const newBuff = {
-        id: skill.id, name: skill.name, effects: skill.buffEffect,
-        turnsLeft: skill.buffDuration || 3,
-        icon: skill.element ? (ELEMENT_CONFIG[skill.element]?.icon || "✨") : "⚔️",
-      };
-      setActiveBuffs(prev => [...prev.filter(b => b.id !== skill.id), newBuff]);
-      const buffDesc = Object.entries(skill.buffEffect).map(([k, v]) => `+${v}% ${k.replace(/_/g, " ")}`).join(", ");
-      addLog(`✨ ${skill.name} → ${buffDesc} for ${skill.buffDuration || 3} turns!`);
-      if (skill.damage <= 0) {
-        setLastAttackIsSkill(true);
-        setLastSkillId(skill.id);
-        setTimeout(() => doEnemyTurn(playerHp, enemy), 1500);
-        return;
-      }
-    }
-
-    const { damage, isCrit } = rollDamage(buffedTotal, character.class, skill || undefined, character);
+    const { damage, isCrit } = rollDamage(total, character.class, skill || undefined, character);
 
     let finalDmg = Math.floor(damage * guildDmgMult);
     if (skill) {
       if (skill.damage > 0) finalDmg = Math.floor(damage * (skill.damage || 1.5) * guildDmgMult);
-      if (!skill.buffEffect) { // already deducted for buff skills above
-        setPlayerMp(prev => prev - skill.mp);
-        setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
-      }
-    }
-
-    // ── Element combo bonus: +25% if same element as last skill ──
-    let comboBonus = false;
-    if (skill?.element && skill.element !== "physical" && skill.element === lastElement) {
-      finalDmg = Math.floor(finalDmg * 1.25);
-      comboBonus = true;
-    }
-    if (skill?.element) setLastElement(skill.element);
-
-    // ── Stat scaling bonus ──
-    if (skill?.statScale && total[skill.statScale]) {
-      const scaleMult = 1 + (total[skill.statScale] * 0.002);
-      finalDmg = Math.floor(finalDmg * scaleMult);
+      setPlayerMp(prev => prev - skill.mp);
+      setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
     }
 
     // Elemental weakness/resistance multiplier
@@ -644,7 +540,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     spawnEnemyNum(finalDmg, isCrit ? "crit" : "damage");
     if (lifestealAmount > 0) spawnPlayerNum(lifestealAmount, "heal");
     if (regenHp > 0) spawnPlayerNum(regenHp, "heal");
-    if (skill?.mp && !skill.buffEffect) spawnPlayerNum(skill.mp, "mp_use");
+    if (skill?.mp) spawnPlayerNum(skill.mp, "mp_use");
 
     // Pickpocket: steal gold
     let pickpocketGold = 0;
@@ -655,9 +551,8 @@ export default function Battle({ character, onCharacterUpdate }) {
       addLog(`💰 Pickpocket! Stole ${pickpocketGold} gold from the enemy!`);
     }
 
-    const comboLabel = comboBonus ? " 🔗COMBO!" : "";
     const skillLabel = skill ? `⚡ ${skill.name}` : "⚔️ Attack";
-    addLog(`${isCrit ? "💥 CRIT! " : ""}${skillLabel} → ${finalDmg} dmg${comboLabel}${lifestealAmount > 0 ? ` (❤️+${lifestealAmount})` : ""}${regenHp > 0 ? ` | HP +${regenHp}` : ""}`);
+    addLog(`${isCrit ? "💥 CRIT! " : ""}${skillLabel} → ${finalDmg} dmg${lifestealAmount > 0 ? ` (❤️+${lifestealAmount})` : ""}${regenHp > 0 ? ` | HP +${regenHp}` : ""}`);
 
     // Broadcast party attack to party members (throttled: once per 30s to reduce egress)
     if (partyData?.id) {
@@ -1507,7 +1402,6 @@ export default function Battle({ character, onCharacterUpdate }) {
           </div>
           <div className="space-y-2">
             <HealthBar current={playerHp} max={actualMaxHp} color="bg-red-500" label="HP" />
-            {shieldHp > 0 && <HealthBar current={shieldHp} max={actualMaxHp} color="bg-cyan-500" label="Shield" />}
             <HealthBar current={playerMp} max={actualMaxMp} color="bg-blue-500" label="MP" />
             <HealthBar current={character.exp} max={character.exp_to_next} color="bg-primary" label="EXP" />
           </div>
@@ -1524,15 +1418,6 @@ export default function Battle({ character, onCharacterUpdate }) {
               );
             })()}
           </div>
-          {activeBuffs.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {activeBuffs.map(b => (
-                <span key={b.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                  {b.icon} {b.name} ({b.turnsLeft}T)
-                </span>
-              ))}
-            </div>
-          )}
           {/* Pet Companion Display */}
           {lastPetInfo && (() => {
             const PET_SPECIES_ICONS = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
@@ -1658,11 +1543,7 @@ export default function Battle({ character, onCharacterUpdate }) {
             const noMp = playerMp < skill.mp;
             const disabled = !isMyTurn || onCd || noMp || !enemy || enemyHp <= 0;
             const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
-            const buffColor = skill.special === "heal" || skill.special === "group_heal" ? "border-green-500/50 text-green-400"
-              : skill.special === "shield" ? "border-cyan-500/50 text-cyan-400"
-              : skill.special === "mana" ? "border-indigo-500/50 text-indigo-400"
-              : skill.buffEffect ? "border-amber-500/50 text-amber-400"
-              : skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
+            const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
               : skill.buff === "attack" ? "border-orange-500/50 text-orange-400"
               : skill.special === "pickpocket" ? "border-yellow-500/50 text-yellow-400"
               : elem ? `border-current/30 ${elem.color}`
@@ -1676,7 +1557,12 @@ export default function Battle({ character, onCharacterUpdate }) {
                 title={`${skill.description}\n${skill.mp}MP · CD: ${skill.cooldown}T${elemBonus > 0 ? `\n+${elemBonus}% ${elem?.label} bonus` : ""}`}
                 className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
               >
-                <span className="text-sm leading-none">{skill.special === "heal" || skill.special === "group_heal" ? "💚" : skill.special === "shield" ? "🛡️" : skill.special === "mana" ? "💙" : skill.buffEffect ? "✨" : elem?.icon || <Zap className="w-3 h-3 inline" />}</span>
+                {(() => {
+                  const folder = getSkillSpriteFolder(skill.id);
+                  return folder
+                    ? <img src={`/sprites/skills/${folder}/${skill.id}.png`} alt={skill.name} style={{ width: 24, height: 24, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
+                    : <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>;
+                })()}
                 <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
                 <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
                 {onCd && (
@@ -1711,7 +1597,7 @@ export default function Battle({ character, onCharacterUpdate }) {
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground mt-1.5 px-0.5">
-          💚 Heal &nbsp;🛡️ Shield &nbsp;💙 Mana &nbsp;✨ Buff &nbsp;🔗 Element Combo &nbsp;· Hover for details &nbsp;· CD in turns (T)
+          🛡 = Defense buff &nbsp;⚔ = Attack buff &nbsp;· Hover for details &nbsp;· CD in turns (T)
         </p>
       </div>
 

@@ -28,6 +28,15 @@ import PartyActivityDisplay from "@/components/game/PartyActivityDisplay";
 import { useFloatingNumbers } from "@/components/game/FloatingNumbers";
 import { REGIONS, ENEMIES, SKILLS, CLASSES, calculateExpToLevel, generateLoot, RARITY_CONFIG } from "@/lib/gameData";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
+
+function getSkillSpriteFolder(skillId) {
+  if (!skillId) return null;
+  if (skillId.startsWith("m_")) return "mage";
+  if (skillId.startsWith("w_")) return "warrior";
+  if (skillId.startsWith("ro_")) return "rogue";
+  if (skillId.startsWith("r_")) return "ranger";
+  return null;
+}
 import { rollDamage, calculateDamageTaken, calculateFinalStats } from "@/lib/statSystem";
 import { collectEquippedProcs, ProcEngine, SET_PROC_EFFECTS } from "@/lib/procSystem";
 import { collectSetProcEffects } from "@/lib/setSystem";
@@ -1548,7 +1557,12 @@ export default function Battle({ character, onCharacterUpdate }) {
                 title={`${skill.description}\n${skill.mp}MP · CD: ${skill.cooldown}T${elemBonus > 0 ? `\n+${elemBonus}% ${elem?.label} bonus` : ""}`}
                 className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
               >
-                <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>
+                {(() => {
+                  const folder = getSkillSpriteFolder(skill.id);
+                  return folder
+                    ? <img src={`/sprites/skills/${folder}/${skill.id}.png`} alt={skill.name} style={{ width: 24, height: 24, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
+                    : <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>;
+                })()}
                 <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
                 <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
                 {onCd && (
