@@ -100,6 +100,10 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
     : isInPath ? "0 0 12px #38bdf855"
     : "none";
 
+  const frameImg = learned
+    ? "/sprites/ui/skill_frame_learned.png"
+    : "/sprites/ui/skill_frame_unlearned.png";
+
   return (
     <div
       onClick={onClick}
@@ -108,8 +112,10 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
       style={{
         width: NODE_SIZE,
         height: NODE_SIZE,
-        border: `3px solid ${color}`,
-        background: learned ? "#1e293b" : "#080b11",
+        borderImage: `url('${frameImg}') 10 fill / 10px / 2px`,
+        borderStyle: "solid",
+        imageRendering: "pixelated",
+        background: "transparent",
         opacity: learned ? 1 : 0.6,
         boxShadow: glow,
         display: "flex",
