@@ -112,9 +112,10 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
       style={{
         width: NODE_SIZE,
         height: NODE_SIZE,
-        borderImage: `url('${frameImg}') 10 fill / 10px / 2px`,
+        borderImage: `url('${frameImg}') 10 fill / 10px / 10px`,
         borderStyle: "solid",
         imageRendering: "pixelated",
+        boxSizing: "content-box",
         background: "transparent",
         opacity: learned ? 1 : 0.6,
         boxShadow: glow,
