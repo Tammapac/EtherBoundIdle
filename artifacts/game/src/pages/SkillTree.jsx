@@ -552,7 +552,7 @@ export default function SkillTree({ character, onCharacterUpdate }) {
               const ELEM_COLORS = { fire: "text-orange-400", ice: "text-cyan-400", lightning: "text-yellow-300", poison: "text-green-400", blood: "text-red-400", sand: "text-amber-400" };
               const allElements = Object.keys(ELEMENT_STACK_BONUSES);
               return (
-                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5">
+                <div className="border border-violet-500/20 bg-violet-500/5 rounded-xl p-4 space-y-2.5" style={{ width: 420, marginLeft: -100 }}>
                   <h3 className="font-orbitron font-bold text-base text-violet-400 flex items-center gap-2">
                     <Flame className="w-4 h-4" /> Element Stacks
                   </h3>
