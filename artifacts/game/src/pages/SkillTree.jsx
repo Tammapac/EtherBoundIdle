@@ -136,10 +136,10 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
         zIndex: 1,
       }} />
 
-      {skill.id.startsWith("m_") ? (
-        <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", userSelect: "none", position: "relative", zIndex: 2 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+      {(skill.id.startsWith("m_") || skill.id.startsWith("w_")) ? (
+        <img src={`/sprites/skills/${skill.id.startsWith("m_") ? "mage" : "warrior"}/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", userSelect: "none", position: "relative", zIndex: 2 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
       ) : null}
-      <span style={{ fontSize: 28, userSelect: "none", display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
+      <span style={{ fontSize: 28, userSelect: "none", display: (skill.id.startsWith("m_") || skill.id.startsWith("w_")) ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
 
       {/* Lock overlay */}
       {locked && !learned && (
@@ -259,10 +259,10 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
             borderImage: `url('/sprites/ui/${learned ? "skill_frame_learned" : "skill_frame_unlearned"}.png') 16 fill / 16px`,
             borderStyle: "solid", imageRendering: "pixelated", pointerEvents: "none", zIndex: 1,
           }} />
-          {skill.id.startsWith("m_") ? (
-            <img src={`/sprites/skills/mage/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", position: "relative", zIndex: 2 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
+          {(skill.id.startsWith("m_") || skill.id.startsWith("w_")) ? (
+            <img src={`/sprites/skills/${skill.id.startsWith("m_") ? "mage" : "warrior"}/${skill.id}.png`} alt={skill.name} style={{ width: 69, height: 69, imageRendering: "pixelated", position: "relative", zIndex: 2 }} onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = ""; }} />
           ) : null}
-          <span className="text-3xl" style={{ display: skill.id.startsWith("m_") ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
+          <span className="text-3xl" style={{ display: (skill.id.startsWith("m_") || skill.id.startsWith("w_")) ? "none" : "", position: "relative", zIndex: 2 }}>{elemCfg.icon}</span>
         </div>
         <h3 className="font-bold text-base">{skill.name}</h3>
         <p className="text-xs text-muted-foreground">
