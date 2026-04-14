@@ -119,8 +119,9 @@
 
 /* RPG Container Frame — apply with .rpg-frame class on main panels only */
 .rpg-frame {
-  border-image: url('/sprites/ui/frame_main.png') 8 10 8 10 fill / 10px 12px 10px 12px / 0;
+  border-image: url('/sprites/ui/frame_main.png') 12 14 12 14 / 28px 30px 28px 30px / 4px;
   image-rendering: pixelated;
   border-style: solid;
   border-radius: 0 !important;
+  padding: 20px !important;
 }
