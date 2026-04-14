@@ -291,21 +291,54 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
         </div>
       </div>
 
+      {/* Skill Effects — attack skills show damage + element + effects */}
+      {skill.damage > 0 && (
+        <div className="text-xs px-2.5 py-2 rounded bg-orange-500/10 border border-orange-500/20 text-orange-300">
+          <span className="text-gray-500 text-[10px] block mb-0.5">Skill Effects</span>
+          <span className="mr-2">{Math.round(skill.damage * 100)}% {skill.element ? (ELEMENT_CONFIG[skill.element]?.label || skill.element) : "Physical"} damage</span>
+          {(() => {
+            const d = skill.description || "";
+            const fx = [];
+            if (/stun/i.test(d)) { const m = d.match(/stun[a-z]*\s*(?:for\s*)?(\d+)\s*turn/i); fx.push(m ? `Stun ${m[1]}T` : "Stun"); }
+            if (/freeze|frozen|encas/i.test(d)) { const m = d.match(/(?:freez|frozen|encas)[a-z]*\s*(?:for\s*)?(\d+)\s*turn/i); fx.push(m ? `Freeze ${m[1]}T` : "Freeze"); }
+            if (/slow/i.test(d)) { const m = d.match(/slow[a-z]*\s*(?:for\s*)?(\d+)\s*turn/i); fx.push(m ? `Slow ${m[1]}T` : "Slow"); }
+            if (/poison\s*(?:DoT|damage\s*over|over\s*time|for\s*\d)/i.test(d) || /dealing.*damage.*over.*(\d+)\s*turn/i.test(d)) { const m = d.match(/(?:over|for)\s*(\d+)\s*turn/i); fx.push(m ? `Poison DoT ${m[1]}T` : "Poison DoT"); }
+            if (/bleed|hemorrhag/i.test(d)) { const m = d.match(/bleed[a-z]*\s*(?:for\s*)?(\d+)\s*turn/i); fx.push(m ? `Bleed ${m[1]}T` : "Bleed"); }
+            if (/burn[a-z]*\s.*(\d+)%.*HP.*turn|flames?\s*linger/i.test(d)) { const m = d.match(/(\d+)%.*HP.*(?:each|per)\s*turn.*?(\d+)\s*turn/i); fx.push(m ? `Burn ${m[1]}% HP/${m[2]}T` : "Burn DoT"); }
+            if (/lifesteal|drain[a-z]*.*(?:life|hp|health|heal)/i.test(d)) { const m = d.match(/(?:drain|heal|lifesteal)[a-z]*\s*(?:for\s*)?(\d+)%/i); fx.push(m ? `Lifesteal ${m[1]}%` : "Lifesteal"); }
+            if (/evasion.*(\d+)%/i.test(d)) { const m = d.match(/(\d+)%\s*evasion/i); fx.push(m ? `+${m[1]}% Evasion` : "+Evasion"); }
+            if (/silence/i.test(d)) { const m = d.match(/silence[a-z]*\s*(?:for\s*)?(\d+)\s*turn/i); fx.push(m ? `Silence ${m[1]}T` : "Silence"); }
+            if (/ignor[a-z]*\s*(?:all\s*)?def/i.test(d)) { const m = d.match(/ignor[a-z]*\s*(\d+)%?\s*(?:of\s*)?(?:their\s*)?def/i); fx.push(m ? `Ignore ${m[1]}% DEF` : "Ignore DEF"); }
+            if (/dispel|strip.*buff/i.test(d)) fx.push("Dispel Buffs");
+            if (/double[sd]?\s*(?:if|when)|damage\s*doubles/i.test(d)) fx.push("Execute (2x if low HP)");
+            if (/heal.*reduc/i.test(d)) { const m = d.match(/(\d+)%.*heal/i); fx.push(m ? `-${m[1]}% Heal Reduction` : "Heal Reduction"); }
+            return fx.length > 0 ? fx.map((f, i) => <span key={i} className="block text-[11px] text-orange-200/80 mt-0.5">{f}</span>) : null;
+          })()}
+        </div>
+      )}
+
+      {/* Buff Effects — shown for all buff/support skills */}
       {skill.buffEffect && (
         <div className="text-xs px-2.5 py-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-300">
           <span className="text-gray-500 text-[10px] block mb-0.5">Buff Effects</span>
-          {Object.entries(skill.buffEffect).map(([k, v]) => (
-            <span key={k} className="mr-2">+{v}% {k === "atk_pct" ? "Attack" : k === "def_pct" ? "Defense" : k === "crit_pct" ? "Crit Chance" : k === "block_pct" ? "Block" : k === "atk_speed" ? "Speed" : k === "evasion" ? "Evasion" : k.replace(/_/g, " ")}</span>
-          ))}
+          {Object.entries(skill.buffEffect).map(([k, v]) => {
+            const LABELS = { atk_pct: "Attack", def_pct: "Defense", crit_pct: "Crit Chance", block_pct: "Block", atk_speed: "Speed", evasion: "Evasion", hp_regen: "HP Regen", hp_pct: "Max HP", all_stats: "All Stats", mana_absorb: "Mana Absorb", extra_turn: "Extra Turn", freeze: "Freeze", reflect: "Reflect DMG", shock_reflect: "Shock Reflect", hp_restore: "HP Restore", reflect_magic: "Reflect Magic", fire_dmg: "Fire DMG", all_dmg: "All DMG", blood_dmg: "Blood DMG", lifesteal: "Lifesteal", enemy_dmg_taken: "Enemy DMG Taken", stealth: "Stealth", next_dmg: "Next ATK Bonus", ignore_def: "Ignore DEF", stealth_dmg: "Stealth DMG Bonus", phase: "Phase Shift", accuracy: "Accuracy" };
+            const label = LABELS[k] || k.replace(/_/g, " ");
+            return <span key={k} className="mr-2">{v === 1 ? "" : `+${v}%`} {label}</span>;
+          })}
           <span className="text-gray-500 ml-1">for {skill.buffDuration || 3} turns</span>
         </div>
       )}
 
-      {skill.statScale && (
-        <div className="text-xs px-2.5 py-1.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-300">
-          Scales with: <span className="font-bold capitalize">{skill.statScale}</span>
-        </div>
-      )}
+      {/* Scales with — shown for ALL skills */}
+      {(() => {
+        const scale = skill.statScale || (skill.id.startsWith("w_") ? "strength" : skill.id.startsWith("m_") ? "intelligence" : skill.id.startsWith("r_") ? "dexterity" : skill.id.startsWith("ro_") ? "dexterity" : null);
+        return scale ? (
+          <div className="text-xs px-2.5 py-1.5 rounded bg-violet-500/10 border border-violet-500/20 text-violet-300">
+            Scales with: <span className="font-bold capitalize">{scale}</span>
+          </div>
+        ) : null;
+      })()}
 
       {effectInfo && (
         <div className="text-xs px-2.5 py-2 rounded bg-white/5 border border-white/10 text-gray-200">

@@ -153,6 +153,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_shield_block", name: "Shield Block", tier: 1, levelReq: 1, cost: 1,
       mp: 22, cooldown: 3, damage: 0, element: null, buff: "defense",
+      buffEffect: { def_pct: 25 }, buffDuration: 2,
       description: "You raise your shield and brace for impact, reducing all incoming damage by 25% for 2 turns. Your feet dig into the ground as you absorb blow after blow without flinching. The tougher you are, the more punishment your shield absorbs — a true wall of steel.",
       requires: null,
       synergy: "High VIT amplifies the damage reduction bonus.",
@@ -181,6 +182,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_war_cry", name: "War Cry", tier: 2, levelReq: 12, cost: 2,
       mp: 40, cooldown: 5, damage: 0, element: null, buff: "attack",
+      buffEffect: { atk_pct: 30 }, buffDuration: 3,
       description: "You let out a thundering war cry that echoes across the entire battlefield, boosting your attack power by 30% for 3 turns. Your voice carries the fury of a thousand warriors, sending fear into your enemies and courage into your allies. All your strikes hit significantly harder while the adrenaline lasts.",
       requires: null,
       synergy: "Stack with Flame Slash or Power Strike for burst turns.",
@@ -209,6 +211,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_taunt", name: "Taunt", tier: 3, levelReq: 28, cost: 3,
       mp: 45, cooldown: 5, damage: 0, element: null, buff: "defense",
+      buffEffect: { def_pct: 20 }, buffDuration: 2,
       description: "You roar a challenge so fierce that the enemy has no choice but to focus entirely on you. Your allies take 20% less damage for 2 turns as you draw all aggression toward yourself. Your resilience makes you an unmovable wall — the enemy hits you, but you don't fall.",
       requires: "w_war_cry",
       synergy: "Combine with Bulwark Stance for extreme tanking.",
@@ -231,6 +234,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_bulwark", name: "Bulwark Stance", tier: 4, levelReq: 45, cost: 4,
       mp: 85, cooldown: 5, damage: 0, element: null, buff: "defense",
+      buffEffect: { def_pct: 50, hp_regen: 10 }, buffDuration: 3,
       description: "You plant your feet and become an immovable fortress, your body radiating an aura of absolute defense. You gain 50% defense and regenerate 10% HP each turn for 3 turns. Nothing gets past your guard — every attack bounces off your iron resolve as you heal steadily.",
       requires: "w_taunt",
       synergy: "VIT amplifies both the defense bonus and regen amount.",
@@ -259,6 +263,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_titan_form", name: "Titan Form", tier: 5, levelReq: 70, cost: 5,
       mp: 140, cooldown: 6, damage: 0, element: null, buff: "attack",
+      buffEffect: { hp_pct: 100, all_stats: 60 }, buffDuration: 5,
       description: "Your body grows to titanic proportions as ancient power surges through every fiber of your being. Your HP doubles and all stats increase by 60% for 5 turns. The ground trembles beneath your massive footsteps — you are unstoppable, towering over the battlefield like a living colossus.",
       requires: "w_bulwark",
     },
@@ -272,6 +277,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_eternal_guard", name: "Eternal Guardian", tier: 5, levelReq: 80, cost: 5,
       mp: 130, cooldown: 6, damage: 3.5, element: "physical", buff: "defense",
+      buffEffect: { def_pct: 100 }, buffDuration: 2,
       description: "You become an immortal sentinel, shrugging off all damage for 2 turns as an ethereal shield surrounds your body. When struck, you retaliate with 350% damage — every attack against you becomes the enemy's undoing. You cannot be killed, and you punish every attempt.",
       requires: "w_juggernaut",
     },
@@ -286,6 +292,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_iron_skin", name: "Iron Skin", tier: 2, levelReq: 13, cost: 2,
       mp: 35, cooldown: 4, damage: 0, element: null, buff: "defense",
+      buffEffect: { def_pct: 35, block_pct: 15 }, buffDuration: 3,
       description: "Your skin hardens to the strength of iron, turning your body into living armor. Defense increases by 35% and block chance by 15% for 3 turns. Blades bounce off your body, arrows shatter on impact — you are more metal than flesh.",
       requires: "w_shield_block",
     },
@@ -307,6 +314,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_battle_shout", name: "Battle Shout", tier: 3, levelReq: 29, cost: 3,
       mp: 50, cooldown: 5, damage: 0, element: null, buff: "attack",
+      buffEffect: { atk_speed: 20, crit_pct: 15 }, buffDuration: 3,
       description: "You unleash a rallying battle shout that quickens your reflexes and sharpens your instincts. Your attack speed increases by 20% and critical hit chance by 15% for 3 turns. Every nerve fires faster, every swing finds its mark with deadly precision.",
       requires: "w_war_cry",
     },
@@ -346,6 +354,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_warlord_aura", name: "Warlord's Aura", tier: 6, levelReq: 92, cost: 6,
       mp: 180, cooldown: 7, damage: 0, element: null, buff: "attack",
+      buffEffect: { atk_pct: 80, crit_pct: 30, lifesteal: 20 }, buffDuration: 4,
       description: "An aura of absolute dominance radiates from your body, your mere presence bending the battlefield to your will. Your attack surges by 80%, crit chance by 30%, and you gain 20% lifesteal for 4 turns. You are war incarnate — every blow heals you, every strike devastates.",
       requires: "w_titan_form",
     },
@@ -368,6 +377,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_glacial_shield", name: "Glacial Shield", tier: 2, levelReq: 13, cost: 2,
       mp: 55, cooldown: 4, damage: 0, element: "ice", buff: "defense",
+      buffEffect: { def_pct: 35, reflect: 10 }, buffDuration: 2,
       description: "A barrier of solid, crystalline ice forms around you, boosting defense by 35% and reflecting 10% of all damage taken as ice damage for 2 turns. Attackers flinch as the cold bites their hands with every strike, punishing them for daring to attack you.",
       requires: "w_frost_cleave",
     },
@@ -453,6 +463,7 @@ export const CLASS_SKILLS = {
     {
       id: "w_storm_shield", name: "Storm Shield", tier: 2, levelReq: 12, cost: 2,
       mp: 50, cooldown: 4, damage: 0, element: "lightning", buff: "defense",
+      buffEffect: { def_pct: 30, shock_reflect: 1 }, buffDuration: 3,
       description: "A shield of crackling lightning forms around your body, arcing and sparking with violent energy. Your defense increases by 30% and any attacker is shocked by lightning damage for 3 turns. They learn quickly that touching you is a painful mistake.",
       requires: "w_static_charge",
     },
@@ -629,6 +640,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_frost_armor", name: "Frost Armor", tier: 1, levelReq: 1, cost: 1,
       mp: 28, cooldown: 3, damage: 0, element: "ice", buff: "defense",
+      buffEffect: { def_pct: 25 }, buffDuration: 3,
       description: "You cloak yourself in a shimmering layer of crystalline frost, gaining 25% defense for 3 turns. Ice crystals form a beautiful but deadly shell around your body, and attackers feel the biting cold pierce their hands when they strike you. A wise mage's first line of defense.",
       requires: null,
     },
@@ -658,6 +670,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_mana_shield", name: "Mana Shield", tier: 2, levelReq: 12, cost: 2,
       mp: 55, cooldown: 4, damage: 0, element: null, buff: "defense",
+      buffEffect: { mana_absorb: 1 }, buffDuration: 3,
       description: "You weave a barrier of pure mana around yourself, creating a shimmering blue dome that absorbs incoming damage using your magical reserves for 3 turns. As long as your mana holds, no physical or magical attack can reach your body.",
       requires: null,
       synergy: "High INT = more MP = longer shield uptime.",
@@ -694,6 +707,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_time_warp", name: "Time Warp", tier: 3, levelReq: 28, cost: 3,
       mp: 80, cooldown: 6, damage: 0, element: null, buff: "attack",
+      buffEffect: { extra_turn: 1, atk_speed: 30 }, buffDuration: 1,
       description: "You bend the fabric of time itself around your body, gaining an extra turn and boosting your speed dramatically. The world slows to a crawl around you while you move freely — enemies freeze mid-swing, projectiles hang motionless in the air. Time is yours to command.",
       requires: "m_mana_shield",
     },
@@ -734,6 +748,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_ice_prison", name: "Ice Prison", tier: 4, levelReq: 52, cost: 4,
       mp: 125, cooldown: 5, damage: 2.5, element: "ice", buff: "defense",
+      buffEffect: { freeze: 2 }, buffDuration: 2,
       description: "You encase the enemy in an inescapable prison of solid ice for 300% ice damage, the frozen walls closing in from every direction. They're trapped, frozen solid, unable to act for 2 turns — entombed in a glacial coffin of your creation.",
       requires: "m_black_hole",
       synergy: "ice_dmg builds turn this into both offense and defense.",
@@ -749,6 +764,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_genesis", name: "Genesis", tier: 5, levelReq: 75, cost: 5,
       mp: 160, cooldown: 6, damage: 0, element: null, buff: "defense",
+      buffEffect: { hp_restore: 30, atk_pct: 40 }, buffDuration: 3,
       description: "You channel the primordial force of creation itself for 600% damage, tapping into the power that birthed the universe. Divine light explodes from your body, restoring your HP and empowering all your abilities. For one shining moment, you wield the power of gods.",
       requires: "m_chrono_rift",
     },
@@ -764,6 +780,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_arcane_shield", name: "Arcane Shield", tier: 2, levelReq: 11, cost: 2,
       mp: 40, cooldown: 4, damage: 0, element: "arcane", buff: "defense",
+      buffEffect: { def_pct: 40, reflect_magic: 1 }, buffDuration: 3,
       description: "You conjure an intricate arcane barrier woven from pure magical energy, absorbing massive damage and reflecting magical attacks back at the caster for 3 turns. The shield shimmers with protective runes that grow brighter with each attack it absorbs.",
       requires: "m_frost_armor",
     },
@@ -803,6 +820,7 @@ export const CLASS_SKILLS = {
       description: "You seal a pact with infernal forces, dark flames erupting from your hands for 400% fire damage. Demonic fire — hotter and more malevolent than natural flame — consumes the enemy while dark energy courses through you, fueling your next spells with hellish power.",
       requires: "m_flame_wall",
       buff: "attack",
+      buffEffect: { fire_dmg: 25, atk_pct: 20 }, buffDuration: 3,
     },
     {
       id: "m_sandstorm", name: "Sandstorm", tier: 4, levelReq: 50, cost: 4,
@@ -816,6 +834,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_arcane_god", name: "Arcane Godform", tier: 6, levelReq: 90, cost: 7,
       mp: 220, cooldown: 7, damage: 0, element: "arcane", buff: "attack",
+      buffEffect: { atk_pct: 60, all_dmg: 30 }, buffDuration: 4,
       description: "You ascend to the pinnacle of arcane mastery for 700% damage, your body becoming a living conduit of pure magical energy. Your eyes glow with arcane light, your words reshape reality, and your gestures command forces beyond mortal comprehension. You are magic itself.",
       requires: "m_singularity",
     },
@@ -859,6 +878,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_sanguine_ritual", name: "Sanguine Ritual", tier: 4, levelReq: 55, cost: 4,
       mp: 120, cooldown: 5, damage: 0, element: "blood", buff: "attack",
+      buffEffect: { blood_dmg: 30, lifesteal: 15 }, buffDuration: 3,
       description: "You perform an ancient, forbidden blood ritual for 750% blood damage, drawing arcane circles in your own blood that pulse with terrible power. Dark crimson sigils float in the air, each one a command to destroy, each one feeding on stolen life force.",
       requires: "m_blood_pact",
     },
@@ -867,6 +887,7 @@ export const CLASS_SKILLS = {
     {
       id: "m_sand_barrier", name: "Sand Barrier", tier: 2, levelReq: 14, cost: 2,
       mp: 50, cooldown: 4, damage: 0, element: "sand", buff: "defense",
+      buffEffect: { def_pct: 35 }, buffDuration: 3,
       description: "You raise a barrier of compressed desert sand that absorbs incoming attacks for 3 turns. Millions of sand grains interlock and harden into a wall stronger than stone, the desert's ancient protection shielding you from harm. The harder they hit, the harder it becomes.",
       requires: null,
     },
@@ -1059,6 +1080,7 @@ export const CLASS_SKILLS = {
     {
       id: "r_dodge_roll", name: "Dodge Roll", tier: 1, levelReq: 1, cost: 1,
       mp: 22, cooldown: 3, damage: 0, element: null, buff: "defense",
+      buffEffect: { evasion: 30 }, buffDuration: 2,
       description: "You tuck into a swift dodge roll, your body flowing like water as attacks pass harmlessly through empty air. Your evasion increases by 30% for 2 turns. Arrows, blades, and spells all miss as you dance around danger with practiced grace.",
       requires: null,
       synergy: "High DEX characters benefit most since base evasion is already high.",
@@ -1110,6 +1132,7 @@ export const CLASS_SKILLS = {
     {
       id: "r_eagle_eye", name: "Eagle Eye", tier: 3, levelReq: 25, cost: 3,
       mp: 50, cooldown: 5, damage: 0, element: null, buff: "attack",
+      buffEffect: { crit_pct: 25, accuracy: 20 }, buffDuration: 3,
       description: "You focus your vision with the supernatural precision of an eagle, the world sharpening into crystal clarity. Critical hit chance increases by 25% and accuracy is boosted for 3 turns. You can see the gaps in their armor, the pulse in their neck, every weakness.",
       requires: "r_frost_arrow",
       synergy: "High LUK + Eagle Eye = near-100% crit window.",
@@ -1138,6 +1161,7 @@ export const CLASS_SKILLS = {
     {
       id: "r_hunters_mark", name: "Hunter's Mark", tier: 4, levelReq: 45, cost: 4,
       mp: 70, cooldown: 5, damage: 0, element: null, buff: "attack",
+      buffEffect: { enemy_dmg_taken: 25 }, buffDuration: 3,
       description: "You mark the target with a glowing hunter's sigil that only you can see, increasing all damage they take by 25% for 3 turns. The mark reveals every vulnerability, every weak point. The prey has been chosen — the hunt begins.",
       requires: "r_eagle_eye",
     },
@@ -1186,6 +1210,7 @@ export const CLASS_SKILLS = {
     {
       id: "r_nature_bond", name: "Nature's Bond", tier: 2, levelReq: 12, cost: 2,
       mp: 35, cooldown: 4, damage: 0, element: null, buff: "defense",
+      buffEffect: { hp_regen: 15 }, buffDuration: 3,
       description: "You forge a deep bond with the living forest around you, drawing on nature's healing energy to regenerate 15% HP over 3 turns. Roots and vines gently wrap around your wounds, leaves glow with warm green light, and the pain slowly fades.",
       requires: "r_dodge_roll",
     },
@@ -1201,6 +1226,7 @@ export const CLASS_SKILLS = {
     {
       id: "r_wind_walk", name: "Wind Walk", tier: 3, levelReq: 26, cost: 3,
       mp: 55, cooldown: 5, damage: 0, element: null, buff: "defense",
+      buffEffect: { evasion: 35, atk_speed: 20 }, buffDuration: 3,
       description: "You become one with the wind, your body growing lighter as invisible currents lift your steps. Speed and evasion increase by 35% for 3 turns. You move like a breeze through the battlefield, untouchable and almost invisible.",
       requires: "r_dodge_roll",
     },
@@ -1222,6 +1248,7 @@ export const CLASS_SKILLS = {
     {
       id: "r_elemental_quiver", name: "Elemental Quiver", tier: 4, levelReq: 48, cost: 4,
       mp: 85, cooldown: 5, damage: 0, element: null, buff: "attack",
+      buffEffect: { all_dmg: 30 }, buffDuration: 4,
       description: "You enchant your quiver with swirling elemental energy, every arrow now crackling with magical power. All arrow damage increases by 30% for 4 turns. Fire, ice, and lightning dance along each shaft, eager to be unleashed.",
       requires: "r_eagle_eye",
     },
@@ -1236,6 +1263,7 @@ export const CLASS_SKILLS = {
     {
       id: "r_spirit_of_the_wild", name: "Spirit of the Wild", tier: 6, levelReq: 90, cost: 7,
       mp: 200, cooldown: 7, damage: 0, element: null, buff: "attack",
+      buffEffect: { atk_pct: 50, crit_pct: 25 }, buffDuration: 4,
       description: "You invoke the ancient spirit of the wild, and the primal beast within you awakens with a roar. Your attack power surges by 50% and critical chance by 25% for 4 turns. Your eyes glow with feral intensity as instinct sharpens every sense.",
       requires: "r_wrath_of_hunt",
     },
@@ -1519,6 +1547,7 @@ export const CLASS_SKILLS = {
     {
       id: "ro_smoke_bomb", name: "Smoke Bomb", tier: 1, levelReq: 1, cost: 1,
       mp: 25, cooldown: 3, damage: 0, element: null, buff: "defense",
+      buffEffect: { evasion: 40 }, buffDuration: 2,
       description: "You hurl a smoke bomb at your feet, the device erupting in a thick cloud of acrid, choking smoke. You vanish completely as your evasion soars by 40% for 2 turns — enemies swing wildly at shadows and smoke, hitting nothing but empty air.",
       requires: null,
     },
@@ -1606,6 +1635,7 @@ export const CLASS_SKILLS = {
     {
       id: "ro_death_mark", name: "Death Mark", tier: 4, levelReq: 45, cost: 4,
       mp: 88, cooldown: 5, damage: 0, element: null, buff: "attack",
+      buffEffect: { enemy_dmg_taken: 30 }, buffDuration: 3,
       description: "You mark the enemy for death with an invisible sigil that only the shadows can see, increasing all damage they take by 30% for 3 turns. The mark reveals every weakness, every opening. The condemned cannot escape their fate — death always collects.",
       requires: "ro_garrote",
     },
@@ -1618,6 +1648,7 @@ export const CLASS_SKILLS = {
     {
       id: "ro_shadow_realm_entry", name: "Shadow Walk", tier: 4, levelReq: 55, cost: 4,
       mp: 105, cooldown: 5, damage: 0, element: null, buff: "defense",
+      buffEffect: { stealth: 1, next_dmg: 100 }, buffDuration: 3,
       description: "You step through the veil into the shadow realm, your body becoming transparent as you exist between worlds for 3 turns. Completely invisible to mortal eyes, your next attack from stealth deals double damage. They cannot fight what they cannot see.",
       requires: "ro_sand_blind",
     },
@@ -1632,6 +1663,7 @@ export const CLASS_SKILLS = {
     {
       id: "ro_phantom", name: "Phantom Rogue", tier: 5, levelReq: 75, cost: 5,
       mp: 155, cooldown: 6, damage: 0, element: null, buff: "defense",
+      buffEffect: { evasion: 50, ignore_def: 1 }, buffDuration: 2,
       description: "You become a phantom, your body flickering between solid and ethereal as you gain 50% evasion for 2 turns. Attacks pass through your ghostly form harmlessly, while your own strikes ignore enemy defenses. You are neither alive nor dead — just deadly.",
       requires: "ro_shadow_realm_entry",
     },
@@ -1662,6 +1694,7 @@ export const CLASS_SKILLS = {
     {
       id: "ro_shadowmeld", name: "Shadowmeld", tier: 3, levelReq: 27, cost: 3,
       mp: 55, cooldown: 4, damage: 0, element: null, buff: "defense",
+      buffEffect: { evasion: 35, stealth: 1 }, buffDuration: 3,
       description: "You meld with the shadows until you become one with the darkness, gaining 35% evasion and stealth for 3 turns. Your body dissolves into the dark corners of the battlefield, invisible to the naked eye. You wait, patient as a spider, for the perfect moment to strike.",
       requires: "ro_smoke_bomb",
     },
@@ -1683,6 +1716,7 @@ export const CLASS_SKILLS = {
     {
       id: "ro_mark_of_shadows", name: "Mark of Shadows", tier: 4, levelReq: 49, cost: 4,
       mp: 80, cooldown: 5, damage: 0, element: null, buff: "attack",
+      buffEffect: { stealth_dmg: 100 }, buffDuration: 3,
       description: "You place the ancient mark of shadows on the enemy, a dark sigil that glows with malevolent energy. All damage from stealth attacks is doubled for 3 turns, and the mark makes them visible to you even in complete darkness. Nowhere to hide, nowhere to run.",
       requires: "ro_death_mark",
     },
@@ -1697,6 +1731,7 @@ export const CLASS_SKILLS = {
     {
       id: "ro_void_dancer", name: "Void Dancer", tier: 6, levelReq: 90, cost: 7,
       mp: 200, cooldown: 7, damage: 0, element: null, buff: "attack",
+      buffEffect: { evasion: 40, phase: 1 }, buffDuration: 3,
       description: "You dance between the cracks in reality for 3 turns, phasing in and out of existence with each graceful step. Your evasion increases by 40% as attacks pass through your flickering form. Your movements are hypnotic, beautiful, and impossibly deadly.",
       requires: "ro_phantom",
     },
