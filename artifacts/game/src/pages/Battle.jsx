@@ -452,7 +452,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       if (skill.buff) {
         setActivePlayerBuffs(prev => [
           ...prev.filter(b => b.skillId !== skill.id),
-          { type: skill.buff, turnsLeft: skill.cooldown || 3, skillName: skill.name, skillId: skill.id }
+          { type: skill.buff, turnsLeft: skill.buffDuration || skill.cooldown || 3, skillName: skill.name, skillId: skill.id, buffEffect: skill.buffEffect, element: skill.element }
         ]);
       }
     }
@@ -1434,36 +1434,40 @@ export default function Battle({ character, onCharacterUpdate }) {
             <PixelBar current={playerMp} max={actualMaxMp} type="mp" label="MP" />
             <PixelBar current={character.exp} max={character.exp_to_next} type="exp" label="EXP" />
           </div>
-          {/* Active skill buffs with description */}
+          {/* Active buff effects — compact display next to character */}
           {activePlayerBuffs.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {activePlayerBuffs.map((buff, i) => {
-                const folder = getSkillSpriteFolder(buff.skillId);
-                const skill = charSkills.find(s => s.id === buff.skillId);
-                const isDefense = buff.type === "defense";
-                return (
-                  <div
-                    key={buff.skillId || i}
-                    className={`flex items-center gap-2 px-2 py-1 rounded border ${isDefense ? "border-blue-500/40 bg-blue-500/10" : "border-orange-500/40 bg-orange-500/10"}`}
-                  >
-                    <div className={`relative w-7 h-7 rounded shrink-0 flex items-center justify-center ${isDefense ? "bg-blue-500/20" : "bg-orange-500/20"}`}>
-                      {folder ? (
-                        <img src={`/sprites/skills/${folder}/${buff.skillId}.png`} alt={buff.skillName} className="w-5 h-5" style={{ imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
-                      ) : (
-                        <span className="text-xs">{isDefense ? "🛡️" : "⚔️"}</span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[10px] font-semibold ${isDefense ? "text-blue-400" : "text-orange-400"}`}>
-                        {buff.skillName} <span className="text-muted-foreground font-normal">({buff.turnsLeft}T)</span>
-                      </p>
-                      <p className="text-[9px] text-muted-foreground truncate">
-                        {skill?.description || (isDefense ? "Defense increased" : "Attack power increased")}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="mt-2 px-2 py-1.5 rounded border border-yellow-500/30 bg-yellow-500/5">
+              <p className="text-[10px] font-semibold text-yellow-400 mb-1">Buff Effects</p>
+              <p className="text-[10px] text-orange-300">
+                {activePlayerBuffs.map(buff => {
+                  const parts = [];
+                  const fx = buff.buffEffect || {};
+                  if (fx.fire_dmg) parts.push(`+${fx.fire_dmg}% Fire DMG`);
+                  if (fx.ice_dmg) parts.push(`+${fx.ice_dmg}% Ice DMG`);
+                  if (fx.lightning_dmg) parts.push(`+${fx.lightning_dmg}% Lightning DMG`);
+                  if (fx.arcane_dmg) parts.push(`+${fx.arcane_dmg}% Arcane DMG`);
+                  if (fx.blood_dmg) parts.push(`+${fx.blood_dmg}% Blood DMG`);
+                  if (fx.sand_dmg) parts.push(`+${fx.sand_dmg}% Sand DMG`);
+                  if (fx.atk_pct) parts.push(`+${fx.atk_pct}% Attack`);
+                  if (fx.def_pct) parts.push(`+${fx.def_pct}% Defense`);
+                  if (fx.crit_pct) parts.push(`+${fx.crit_pct}% Crit`);
+                  if (fx.atk_speed) parts.push(`+${fx.atk_speed}% AtkSpd`);
+                  if (fx.hp_pct) parts.push(`+${fx.hp_pct}% HP`);
+                  if (fx.hp_regen) parts.push(`+${fx.hp_regen}% HP Regen`);
+                  if (fx.hp_restore) parts.push(`+${fx.hp_restore}% HP Restore`);
+                  if (fx.block_pct) parts.push(`+${fx.block_pct}% Block`);
+                  if (fx.lifesteal) parts.push(`+${fx.lifesteal}% Lifesteal`);
+                  if (fx.reflect) parts.push(`${fx.reflect}% Reflect`);
+                  if (fx.reflect_magic) parts.push(`Magic Reflect`);
+                  if (fx.all_stats) parts.push(`+${fx.all_stats} All Stats`);
+                  if (fx.mana_absorb) parts.push(`Mana Absorb`);
+                  if (fx.extra_turn) parts.push(`Extra Turn`);
+                  if (fx.freeze) parts.push(`Freeze ${fx.freeze}T`);
+                  if (fx.shock_reflect) parts.push(`Shock Reflect`);
+                  if (parts.length === 0) parts.push(buff.type === "defense" ? "+Def" : "+Atk");
+                  return `${parts.join("  ")}  for ${buff.turnsLeft} turns`;
+                }).join("  |  ")}
+              </p>
             </div>
           )}
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
