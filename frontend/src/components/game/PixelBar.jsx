@@ -8,7 +8,8 @@ const BAR_FILLS = {
 
 /**
  * PixelBar — pixel-art styled HP/MP/EXP bar using sprite assets.
- * type: "hp" | "mp" | "exp"
+ * Frame: 73×14 sprite with ~3px decorative border.
+ * Fill: 56×7 sprites positioned inside with 1px padding to the frame.
  */
 export default function PixelBar({ current, max, type = "hp", label, showText = true }) {
   const safeMax = Number.isFinite(max) && max > 0 ? max : 1;
@@ -17,10 +18,21 @@ export default function PixelBar({ current, max, type = "hp", label, showText = 
 
   const fillSrc = BAR_FILLS[type] || BAR_FILLS.hp;
 
+  // Frame aspect ratio: 73:14 ≈ 5.21:1
+  // At width 180, height ≈ 35 (scaled 2.5x from native 73×14)
+  const barWidth = 180;
+  const barHeight = 34;
+
+  // Border is ~3px at native scale → ~7px at 2.5x
+  // Plus 1px padding → 8px inset from each edge (top/bottom: ~7px border + 1px ≈ 10px at 2.5x, but fill is 7/14 = 50% height)
+  // Fill area inset: left/right ~8px from edges, top/bottom ~10px from edges
+  const insetX = 10;
+  const insetY = 10;
+
   return (
-    <div style={{ maxWidth: 220 }}>
+    <div style={{ maxWidth: barWidth }}>
       {label && (
-        <div className="flex justify-between text-xs mb-0.5" style={{ maxWidth: 220 }}>
+        <div className="flex justify-between text-xs mb-0.5" style={{ maxWidth: barWidth }}>
           <span className="text-muted-foreground font-bold text-[10px]">{label}</span>
           {showText && (
             <span className="text-foreground font-medium text-[10px]">
@@ -30,26 +42,50 @@ export default function PixelBar({ current, max, type = "hp", label, showText = 
         </div>
       )}
       <div
-        className="relative overflow-hidden"
+        className="relative"
         style={{
           width: "100%",
-          maxWidth: 220,
-          height: 20,
-          borderImage: "url('/sprites/ui/bars/bar_frame.png') 3 / 5px",
-          borderStyle: "solid",
-          imageRendering: "pixelated",
-          background: "#080b18",
+          maxWidth: barWidth,
+          height: barHeight,
         }}
       >
+        {/* Dark background behind fill area */}
         <div
           style={{
             position: "absolute",
-            inset: 0,
-            width: `${pct}%`,
+            left: insetX,
+            right: insetX,
+            top: insetY,
+            bottom: insetY,
+            background: "#080b18",
+          }}
+        />
+        {/* Colored fill */}
+        <div
+          style={{
+            position: "absolute",
+            left: insetX,
+            top: insetY,
+            bottom: insetY,
+            width: `${(pct / 100) * (barWidth - insetX * 2)}px`,
             backgroundImage: `url('${fillSrc}')`,
             backgroundSize: "100% 100%",
             imageRendering: "pixelated",
             transition: "width 0.4s ease",
+          }}
+        />
+        {/* Frame overlay (on top of fill) */}
+        <img
+          src="/sprites/ui/bars/bar_frame.png"
+          alt=""
+          draggable={false}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            imageRendering: "pixelated",
+            pointerEvents: "none",
           }}
         />
       </div>
