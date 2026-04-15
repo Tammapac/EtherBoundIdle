@@ -28,6 +28,7 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
       style={{
         borderImage: `url('${frameSrc}') 5 / 5px`,
         borderStyle: "solid",
+        borderRadius: 2,
         imageRendering: "pixelated",
         background: bgColor,
         padding: isLg ? "6px 20px" : "3px 10px",

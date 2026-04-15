@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import PixelButton from "@/components/game/PixelButton";
+import PixelBar from "@/components/game/PixelBar";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Zap, LogOut, ArrowUp, Skull, Coins, Star, Gem, Trophy, Package, Play, Pause } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
@@ -293,8 +294,8 @@ export default function TowerCombat({ session: initialSession, character, onLeav
                 </div>
               </div>
               <div className="space-y-1.5">
-                <HpBar current={me.hp} max={me.max_hp} color="bg-gradient-to-r from-green-600 to-emerald-500" label="HP" height="h-3" />
-                <HpBar current={me.mp} max={me.max_mp} color="bg-gradient-to-r from-blue-600 to-cyan-500" label="MP" height="h-2.5" />
+                <PixelBar current={me.hp} max={me.max_hp} type="hp" label="HP" />
+                <PixelBar current={me.mp} max={me.max_mp} type="mp" label="MP" />
               </div>
             </div>
           )}
