@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import { Input } from "@/components/ui/input";
+import PixelButton from "@/components/game/PixelButton";
 
 function getSkillSpriteFolder(skillId) {
   if (!skillId) return null;
@@ -466,9 +467,9 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
                   )}
                 </div>
               )}
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1" onClick={() => setShowLeaveConfirm(false)}>Stay</Button>
-                <Button variant="destructive" className="flex-1" onClick={doLeave}>Leave</Button>
+              <div className="flex gap-3 justify-center">
+                <PixelButton variant="cancel" onClick={() => setShowLeaveConfirm(false)} />
+                <PixelButton variant="ok" onClick={doLeave} />
               </div>
             </motion.div>
           </motion.div>

@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Map, Trees, Sun, Snowflake, Moon, Star, Lock, ChevronRight, Users, AlertTriangle
@@ -10,6 +11,7 @@ import {
 import { REGIONS } from "@/lib/gameData";
 import { useToast } from "@/components/ui/use-toast";
 import PartyActivityNotifier from "@/components/game/PartyActivityNotifier";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const REGION_ICONS = { Trees, Sun, Snowflake, Moon, Star };
 
@@ -17,6 +19,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [travelConfirm, setTravelConfirm] = useState(null); // regionKey awaiting confirm
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   // Get current party
   const { data: partyData } = useQuery({
@@ -25,11 +28,27 @@ export default function WorldMap({ character, onCharacterUpdate }) {
       const led = await base44.entities.Party.filter({ leader_id: character.id });
       const active = led.find(p => p.status !== 'disbanded');
       if (active) return active;
-      const all = await base44.entities.Party.list('-updated_date', 50);
+      const all = await base44.entities.Party.list('-updated_date', 20);
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    refetchInterval: 15000,
+    staleTime: 120_000,
+  });
+
+  // Fetch fresh party member levels (party members array stores stale join-time levels)
+  const { data: freshMemberLevels = {} } = useQuery({
+    queryKey: ["partyMemberLevels", partyData?.id],
+    queryFn: async () => {
+      const memberIds = partyData.members.map(m => m.character_id);
+      const res = await base44.functions.invoke("getPublicProfiles", { characterIds: memberIds });
+      const levels = {};
+      for (const p of (res?.profiles || [])) {
+        levels[p.id] = p.level;
+      }
+      return levels;
+    },
+    enabled: !!partyData?.members?.length,
+    staleTime: 120_000,
   });
 
   const travelMutation = useMutation({
@@ -131,7 +150,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
               {/* Check party members who can't enter */}
               {(() => {
                 const minLevel = REGIONS[travelConfirm]?.levelRange[0] || 1;
-                const blocked = partyData?.members?.filter(m => m.character_id !== character.id && m.level < minLevel) || [];
+                const blocked = partyData?.members?.filter(m => m.character_id !== character.id && (freshMemberLevels[m.character_id] || m.level) < minLevel) || [];
                 if (blocked.length > 0) {
                   return (
                     <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-1">
@@ -140,7 +159,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
                       </div>
                       {blocked.map(m => (
                         <p key={m.character_id} className="text-xs text-muted-foreground">
-                          ❌ {m.name} (Lv.{m.level}) — needs Lv.{minLevel}
+                          ❌ {m.name} (Lv.{freshMemberLevels[m.character_id] || m.level}) — needs Lv.{minLevel}
                         </p>
                       ))}
                       <p className="text-xs text-muted-foreground mt-1">These members cannot follow you.</p>
@@ -174,9 +193,9 @@ export default function WorldMap({ character, onCharacterUpdate }) {
                   <ChevronRight className="w-3.5 h-3.5" /> Go Alone
                 </Button>
               </div>
-              <button onClick={() => setTravelConfirm(null)} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
-                Cancel
-              </button>
+              <div className="flex justify-center">
+                <PixelButton variant="cancel" onClick={() => setTravelConfirm(null)} />
+              </div>
             </motion.div>
           </motion.div>
         )}

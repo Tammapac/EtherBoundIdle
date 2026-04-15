@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Map, Trees, Sun, Snowflake, Moon, Star, Lock, ChevronRight, Users, AlertTriangle
@@ -192,9 +193,9 @@ export default function WorldMap({ character, onCharacterUpdate }) {
                   <ChevronRight className="w-3.5 h-3.5" /> Go Alone
                 </Button>
               </div>
-              <button onClick={() => setTravelConfirm(null)} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
-                Cancel
-              </button>
+              <div className="flex justify-center">
+                <PixelButton variant="cancel" onClick={() => setTravelConfirm(null)} />
+              </div>
             </motion.div>
           </motion.div>
         )}

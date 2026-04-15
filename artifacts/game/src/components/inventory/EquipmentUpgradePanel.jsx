@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Zap, Hammer, Sparkles, AlertTriangle, Skull,
@@ -382,22 +383,9 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                     <div className="bg-destructive/20 border border-destructive/50 rounded-lg p-3 text-sm text-destructive font-semibold text-center">
                       💀 Are you ABSOLUTELY SURE?
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setConfirmStar(false)}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={() => starMutation.mutate()}
-                        disabled={starMutation.isPending}
-                        className="flex-1 bg-destructive hover:bg-destructive/90 gap-2"
-                      >
-                        {starMutation.isPending ? "Rolling..." : ""}
-                        <Skull className="w-4 h-4" /> COMMIT
-                      </Button>
+                    <div className="flex gap-3 justify-center">
+                      <PixelButton variant="cancel" onClick={() => setConfirmStar(false)} />
+                      <PixelButton variant="ok" onClick={() => starMutation.mutate()} disabled={starMutation.isPending} />
                     </div>
                   </motion.div>
                 )}
@@ -458,21 +446,9 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                     <div className="bg-cyan-600/20 border border-cyan-500/50 rounded-lg p-3 text-sm text-cyan-300 font-semibold text-center">
                       ✨ Confirm awakening?
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setConfirmAwaken(false)}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={() => awakenMutation.mutate()}
-                        disabled={awakenMutation.isPending}
-                        className="flex-1 bg-cyan-600 hover:bg-cyan-700 gap-2"
-                      >
-                        <Sparkles className="w-4 h-4" /> {awakenMutation.isPending ? "Awakening..." : "AWAKEN"}
-                      </Button>
+                    <div className="flex gap-3 justify-center">
+                      <PixelButton variant="cancel" onClick={() => setConfirmAwaken(false)} />
+                      <PixelButton variant="ok" onClick={() => awakenMutation.mutate()} disabled={awakenMutation.isPending} />
                     </div>
                   </motion.div>
                 )}

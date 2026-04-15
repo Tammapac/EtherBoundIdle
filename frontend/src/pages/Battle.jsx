@@ -20,6 +20,7 @@ const LOOT_TYPE_ICONS = {
 };
 
 import HealthBar from "@/components/game/HealthBar";
+import PixelBar from "@/components/game/PixelBar";
 import AttackVisual from "@/components/game/AttackVisual";
 import PartyBattlePanel from "@/components/game/PartyBattlePanel";
 import PartyBattleArena from "@/components/game/PartyBattleArena";
@@ -1412,10 +1413,10 @@ export default function Battle({ character, onCharacterUpdate }) {
               <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
             </div>
           </div>
-          <div className="space-y-2">
-            <HealthBar current={playerHp} max={actualMaxHp} color="bg-red-500" label="HP" />
-            <HealthBar current={playerMp} max={actualMaxMp} color="bg-blue-500" label="MP" />
-            <HealthBar current={character.exp} max={character.exp_to_next} color="bg-primary" label="EXP" />
+          <div className="space-y-1.5">
+            <PixelBar current={playerHp} max={actualMaxHp} type="hp" label="HP" />
+            <PixelBar current={playerMp} max={actualMaxMp} type="mp" label="MP" />
+            <PixelBar current={character.exp} max={character.exp_to_next} type="exp" label="EXP" />
           </div>
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
             {(() => {
@@ -1528,7 +1529,7 @@ export default function Battle({ character, onCharacterUpdate }) {
                   })()}
                 </div>
               </div>
-              <HealthBar current={enemyHp} max={enemy.maxHp} color="bg-destructive" label="HP" />
+              <PixelBar current={enemyHp} max={enemy.maxHp} type="hp" label="HP" />
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">Searching for enemy...</div>

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, Trash2, LogOut, Shield, Swords, Star, AlertTriangle
@@ -190,22 +191,9 @@ export default function CharacterSelection({ onCharacterSelected }) {
               <p className="text-xs text-destructive/80 mb-6">
                 This action cannot be undone. All items and progress will be lost.
               </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setDeleteConfirm(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => deleteMutation.mutate(deleteConfirm.id)}
-                  disabled={deleteMutation.isPending}
-                >
-                  Delete
-                </Button>
+              <div className="flex gap-3 justify-center">
+                <PixelButton variant="cancel" onClick={() => setDeleteConfirm(null)} />
+                <PixelButton variant="ok" onClick={() => deleteMutation.mutate(deleteConfirm.id)} disabled={deleteMutation.isPending} />
               </div>
             </motion.div>
           </motion.div>

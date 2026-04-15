@@ -1,42 +1,29 @@
+import { apiFetch } from "../api/client";
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, Trash2, LogOut, Shield, Swords, Star, AlertTriangle
 } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
-
-const CLASS_ICONS = {
-  warrior: Shield,
-  mage: Star,
-  ranger: Swords,
-  rogue: Swords,
-};
+import { useAuth } from "@/lib/AuthContext";
+import { CLASS_SPRITE_URLS } from "@/lib/pixelSprites";
 
 export default function CharacterSelection({ onCharacterSelected }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const queryClient = useQueryClient();
+  const { user, logout } = useAuth();
 
   const { data: characters = [], isLoading, isError, error } = useQuery({
-    queryKey: ["characters"],
+    queryKey: ["characters", user?.id],
     queryFn: async () => {
-      try {
-        // Always fetch from the authenticated user's session
-        const me = await base44.auth.me();
-        if (!me) {
-          console.error("No authenticated user found");
-          return [];
-        }
-        // Query characters created by the authenticated user (bound to server via created_by email)
-        const chars = await base44.entities.Character.filter({ created_by: me.email }, "-updated_date", 100);
-        return chars || [];
-      } catch (err) {
-        console.error("Failed to fetch characters:", err);
-        return [];
-      }
+      if (!user?.id) return [];
+      const filter = JSON.stringify({ created_by: user.id });
+      const chars = await apiFetch(`/entities/Character?filter=${encodeURIComponent(filter)}`);
+      return chars || [];
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -53,7 +40,10 @@ export default function CharacterSelection({ onCharacterSelected }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (characterId) => {
-      await base44.entities.Character.delete(characterId);
+    await apiFetch(`/entities/Character/${characterId}`, {
+    method: "DELETE"
+});
+
       queryClient.invalidateQueries({ queryKey: ["characters"] });
       setDeleteConfirm(null);
     },
@@ -90,7 +80,7 @@ export default function CharacterSelection({ onCharacterSelected }) {
           <AnimatePresence>
             {characters.map((char) => {
               const cls = CLASSES[char.class];
-              const Icon = CLASS_ICONS[char.class] || Shield;
+              const spriteUrl = CLASS_SPRITE_URLS[char.class] || CLASS_SPRITE_URLS.warrior;
               return (
                 <motion.div
                   key={char.id}
@@ -100,8 +90,8 @@ export default function CharacterSelection({ onCharacterSelected }) {
                   className="bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:border-primary/50 transition-all"
                 >
                   <div className="flex items-center gap-4 flex-1">
-                    <div className={`w-12 h-12 rounded-lg ${cls?.color} bg-opacity-20 border border-current border-opacity-30 flex items-center justify-center`}>
-                      <Icon className={`w-6 h-6 ${cls?.color}`} />
+                    <div className={`w-12 h-12 rounded-lg ${cls?.color} bg-opacity-20 border border-current border-opacity-30 flex items-center justify-center overflow-hidden`}>
+                      <img src={spriteUrl} alt={char.class} className="w-10 h-10" style={{ imageRendering: "pixelated" }} />
                     </div>
                     <div>
                       <h3 className="font-bold text-lg">{char.name}</h3>
@@ -161,7 +151,7 @@ export default function CharacterSelection({ onCharacterSelected }) {
             size="lg"
             variant="outline"
             className="flex-1 gap-2"
-            onClick={() => base44.auth.logout()}
+            onClick={() => logout()}
           >
             <LogOut className="w-5 h-5" /> Logout
           </Button>
@@ -201,22 +191,9 @@ export default function CharacterSelection({ onCharacterSelected }) {
               <p className="text-xs text-destructive/80 mb-6">
                 This action cannot be undone. All items and progress will be lost.
               </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setDeleteConfirm(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => deleteMutation.mutate(deleteConfirm.id)}
-                  disabled={deleteMutation.isPending}
-                >
-                  Delete
-                </Button>
+              <div className="flex gap-3 justify-center">
+                <PixelButton variant="cancel" onClick={() => setDeleteConfirm(null)} />
+                <PixelButton variant="ok" onClick={() => deleteMutation.mutate(deleteConfirm.id)} disabled={deleteMutation.isPending} />
               </div>
             </motion.div>
           </motion.div>

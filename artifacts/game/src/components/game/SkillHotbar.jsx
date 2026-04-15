@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import { base44 } from "@/api/base44Client";
+import PixelButton from "@/components/game/PixelButton";
 
 const MAX_HOTBAR = 6;
 
@@ -85,12 +86,8 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
         <div className="flex gap-1.5">
           {isEditing ? (
             <>
-              <Button size="sm" className="h-7 text-xs gap-1" onClick={saveHotbar} disabled={saving}>
-                <Check className="w-3 h-3" /> {saving ? "Saving..." : "Save"}
-              </Button>
-              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { setIsEditing(false); setLocalHotbar(character?.hotbar_skills || []); }}>
-                <X className="w-3 h-3" /> Cancel
-              </Button>
+              <PixelButton variant="ok" onClick={saveHotbar} disabled={saving} />
+              <PixelButton variant="cancel" onClick={() => { setIsEditing(false); setLocalHotbar(character?.hotbar_skills || []); }} />
             </>
           ) : (
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setIsEditing(true)}>

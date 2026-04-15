@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Zap, Hammer, Sparkles, AlertTriangle, Skull,
@@ -11,125 +12,123 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { RARITY_CONFIG } from "@/lib/gameData";
 
-export default function EquipmentUpgradePanel({ item, character, onClose }) {
+export default function EquipmentUpgradePanel({ item: initialItem, character, onClose, onItemUpdated }) {
   const [activeTab, setActiveTab] = useState("safe"); // safe, star, awaken
   const [confirmStar, setConfirmStar] = useState(false);
   const [confirmAwaken, setConfirmAwaken] = useState(false);
+  const [result, setResult] = useState(null); // { type: "success"|"destroyed"|"failed", title, message }
+  const [liveItem, setLiveItem] = useState(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Success chances for star upgrades
-  const STAR_SUCCESS_CHANCES = {
-    0: 90, 1: 75, 2: 50, 3: 35, 4: 12, 5: 8, 6: 2
-  };
+  const item = liveItem || initialItem;
 
-  const rarityMultipliers = {
-    common: 1.0, uncommon: 1.3, rare: 1.7, epic: 2.2, legendary: 3.0, mythic: 4.0, set: 3.5, shiny: 5.0
-  };
+  // Fetch game config for star upgrade success chances
+  const { data: gameConfig } = useQuery({
+    queryKey: ["gameConfig"],
+    queryFn: () => base44.functions.invoke("gameConfigManager", {}),
+    staleTime: 60000,
+  });
+  const upgCfg = gameConfig?.config?.UPGRADES || {};
+  const starChancesArr = upgCfg.STAR_SUCCESS_CHANCES || [90, 75, 50, 35, 12, 8, 2];
+  const STAR_SUCCESS_CHANCES = Object.fromEntries(starChancesArr.map((v, i) => [i, v]));
+
+  const configRarityMults = gameConfig?.config?.RARITY_MULTIPLIERS || {};
+  const defaultRarityMults = { common: 1.0, uncommon: 1.3, rare: 1.7, epic: 2.2, legendary: 3.0, mythic: 4.0, set: 3.5, shiny: 5.0 };
+  const rarityMultipliers = { ...defaultRarityMults, ...configRarityMults };
   const rarityMult = rarityMultipliers[item.rarity] || 1.0;
 
   const currentStar = item.star_level || 0;
   const successChance = STAR_SUCCESS_CHANCES[currentStar] || 0;
-  const gemCost = Math.ceil(5 * Math.pow(1.5, currentStar) * rarityMult);
+  const gemCost = Math.ceil((upgCfg.STAR_GEM_BASE || 50) * Math.pow(upgCfg.STAR_GEM_GROWTH || 2.0, currentStar) * rarityMult);
 
   // Safe upgrade costs — gold only
   const currentUpgrade = item.upgrade_level || 0;
-  const goldCost = Math.floor(300 * (currentUpgrade + 1) * rarityMult);
+  const goldCost = Math.floor(1000 * Math.pow(1.5, currentUpgrade) * rarityMult);
 
   // Mutations
+  const clearResult = () => setResult(null);
+
   const safeMutation = useMutation({
     mutationFn: async () => {
       const response = await base44.functions.invoke('upgradeItemSafe', { itemId: item.id });
-      return response.data;
+      return response;
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast({
-          title: `✅ Upgraded!`,
-          description: data.message,
-          duration: 2000
-        });
+        setResult({ type: "success", title: "UPGRADED!", message: `+${(item.upgrade_level || 0) + 1} Success` });
         if (data.gold_spent && character) {
           character.gold = (character.gold || 0) - data.gold_spent;
         }
+        if (data.item) {
+          setLiveItem({ ...item, ...data.item, upgrade_level: data.item.upgrade_level ?? data.item.upgradeLevel });
+          onItemUpdated?.(data.item);
+        }
         queryClient.invalidateQueries({ queryKey: ["items"] });
+        queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
         queryClient.invalidateQueries({ queryKey: ["characters"] });
-        setTimeout(onClose, 500);
+      } else {
+        setResult({ type: "failed", title: "FAILED", message: data.message || "Upgrade failed" });
       }
     },
     onError: (error) => {
-      toast({
-        title: "Upgrade failed",
-        description: error.response?.data?.error || "Unknown error",
-        variant: "destructive"
-      });
+      setResult({ type: "failed", title: "ERROR", message: error.response?.data?.error || "Unknown error" });
     }
   });
 
   const starMutation = useMutation({
     mutationFn: async () => {
       const response = await base44.functions.invoke('starUpgradeItem', { itemId: item.id });
-      return response.data;
+      return response;
     },
     onSuccess: (data) => {
-      if (data.success) {
-        toast({
-          title: `⭐ SUCCESS!`,
-          description: data.message,
-          duration: 3000
-        });
-      } else {
-        toast({
-          title: `💀 DESTROYED!`,
-          description: data.message || 'Item was destroyed!',
-          variant: "destructive",
-          duration: 4000
-        });
-      }
       if (data.gems_spent) {
         const newGems = (character.gems || 0) - data.gems_spent;
         if (character && newGems >= 0) {
           character.gems = newGems;
         }
       }
+      if (data.success) {
+        setResult({ type: "success", title: "STAR UP!", message: `⭐ ${(item.star_level || 0) + 1} Success!` });
+        if (data.item) {
+          setLiveItem({ ...item, ...data.item, star_level: data.item.star_level ?? data.item.starLevel });
+          onItemUpdated?.(data.item);
+        }
+      } else if (data.itemDestroyed) {
+        setResult({ type: "destroyed", title: "DESTROYED!", message: data.message || "Item was destroyed!" });
+      } else {
+        setResult({ type: "failed", title: "FAILED", message: data.message || "Star upgrade failed" });
+      }
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
       setConfirmStar(false);
-      setTimeout(onClose, 1000);
     },
     onError: (error) => {
-      toast({
-        title: "Star upgrade failed",
-        description: error.response?.data?.error || "Unknown error",
-        variant: "destructive"
-      });
+      setResult({ type: "failed", title: "ERROR", message: error.response?.data?.error || "Unknown error" });
     }
   });
 
   const awakenMutation = useMutation({
     mutationFn: async () => {
       const response = await base44.functions.invoke('awakenItem', { itemId: item.id });
-      return response.data;
+      return response;
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast({
-          title: `✨ AWAKENED!`,
-          description: data.message,
-          duration: 3000
-        });
+        setResult({ type: "success", title: "AWAKENED!", message: "Item has been awakened with immense power!" });
+        if (data.item) {
+          setLiveItem({ ...item, ...data.item, is_awakened: true });
+          onItemUpdated?.(data.item);
+        }
+      } else {
+        setResult({ type: "failed", title: "FAILED", message: data.message || "Awakening failed" });
       }
       queryClient.invalidateQueries({ queryKey: ["items"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
       setConfirmAwaken(false);
-      setTimeout(onClose, 500);
     },
     onError: (error) => {
-      toast({
-        title: "Awakening failed",
-        description: error.response?.data?.error || "Unknown error",
-        variant: "destructive"
-      });
+      setResult({ type: "failed", title: "ERROR", message: error.response?.data?.error || "Unknown error" });
     }
   });
 
@@ -202,6 +201,51 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
           <Sparkles className="w-4 h-4" /> Awaken
         </button>
       </div>
+
+      {/* Result Overlay — big and centered */}
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="relative z-10"
+          >
+            <div
+              className={`rounded-xl p-6 text-center border-2 cursor-pointer ${
+                result.type === "success"
+                  ? "bg-green-500/20 border-green-500/60"
+                  : result.type === "destroyed"
+                  ? "bg-red-500/20 border-red-500/60"
+                  : "bg-orange-500/20 border-orange-500/60"
+              }`}
+              onClick={clearResult}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", damping: 8, stiffness: 200 }}
+              >
+                <p className={`text-3xl font-black tracking-wider mb-1 ${
+                  result.type === "success" ? "text-green-400"
+                  : result.type === "destroyed" ? "text-red-400"
+                  : "text-orange-400"
+                }`}>
+                  {result.type === "success" ? "✅" : result.type === "destroyed" ? "💀" : "❌"} {result.title}
+                </p>
+              </motion.div>
+              <p className={`text-sm font-medium mt-2 ${
+                result.type === "success" ? "text-green-300"
+                : result.type === "destroyed" ? "text-red-300"
+                : "text-orange-300"
+              }`}>
+                {result.message}
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">Click to continue</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Tab Content */}
       <div className="space-y-3">
@@ -339,22 +383,9 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
                     <div className="bg-destructive/20 border border-destructive/50 rounded-lg p-3 text-sm text-destructive font-semibold text-center">
                       💀 Are you ABSOLUTELY SURE?
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setConfirmStar(false)}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={() => starMutation.mutate()}
-                        disabled={starMutation.isPending}
-                        className="flex-1 bg-destructive hover:bg-destructive/90 gap-2"
-                      >
-                        {starMutation.isPending ? "Rolling..." : ""}
-                        <Skull className="w-4 h-4" /> COMMIT
-                      </Button>
+                    <div className="flex gap-3 justify-center">
+                      <PixelButton variant="cancel" onClick={() => setConfirmStar(false)} />
+                      <PixelButton variant="ok" onClick={() => starMutation.mutate()} disabled={starMutation.isPending} />
                     </div>
                   </motion.div>
                 )}
@@ -384,12 +415,12 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Gem Cost:</span>
                     <span className="font-semibold flex items-center gap-1">
-                      <Gem className="w-4 h-4 text-cyan-400" /> 50
+                      <Gem className="w-4 h-4 text-cyan-400" /> 5,000
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Stat Bonus:</span>
-                    <span className="font-semibold text-cyan-400">+50%</span>
+                    <span className="font-semibold text-cyan-400">+100%</span>
                   </div>
                 </div>
 
@@ -401,7 +432,7 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
                 {!confirmAwaken ? (
                   <Button
                     onClick={() => setConfirmAwaken(true)}
-                    disabled={awakenMutation.isPending || (character.gems || 0) < 50}
+                    disabled={awakenMutation.isPending || (character.gems || 0) < 5000}
                     className="w-full bg-cyan-600 hover:bg-cyan-700 gap-2"
                   >
                     <Sparkles className="w-4 h-4" /> Awaken
@@ -415,21 +446,9 @@ export default function EquipmentUpgradePanel({ item, character, onClose }) {
                     <div className="bg-cyan-600/20 border border-cyan-500/50 rounded-lg p-3 text-sm text-cyan-300 font-semibold text-center">
                       ✨ Confirm awakening?
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setConfirmAwaken(false)}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={() => awakenMutation.mutate()}
-                        disabled={awakenMutation.isPending}
-                        className="flex-1 bg-cyan-600 hover:bg-cyan-700 gap-2"
-                      >
-                        <Sparkles className="w-4 h-4" /> {awakenMutation.isPending ? "Awakening..." : "AWAKEN"}
-                      </Button>
+                    <div className="flex gap-3 justify-center">
+                      <PixelButton variant="cancel" onClick={() => setConfirmAwaken(false)} />
+                      <PixelButton variant="ok" onClick={() => awakenMutation.mutate()} disabled={awakenMutation.isPending} />
                     </div>
                   </motion.div>
                 )}
