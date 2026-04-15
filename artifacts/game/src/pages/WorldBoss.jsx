@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -251,9 +252,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
         <div className="relative">
           <div className="flex items-center justify-between mb-2">
-            <Button variant="ghost" size="sm" onClick={onLeave} className="text-muted-foreground hover:text-destructive gap-1">
-              <LogOut className="w-3.5 h-3.5" /> Leave
-            </Button>
+            <PixelButton variant="cancel" label="LEAVE" onClick={onLeave} />
             <Badge variant="outline" className="text-xs">
               <Users className="w-3 h-3 mr-1" />{participants.length} fighters
             </Badge>
@@ -379,9 +378,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
 
       {/* Claim Button */}
       {(isDefeated || isExpired) && myEntry && !myEntry.claimed && (
-        <Button onClick={handleClaim} className="w-full h-12 font-orbitron gap-3 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 border border-amber-500/30 shadow-lg shadow-amber-500/20">
-          <Sparkles className="w-5 h-5" /> Claim Rewards
-        </Button>
+        <PixelButton variant="ok" label="CLAIM REWARDS" onClick={handleClaim} />
       )}
 
       {/* Two columns: participants + log */}
@@ -506,9 +503,7 @@ function WorldBossCombat({ boss, character, onLeave }) {
                   </div>
                 )}
               </div>
-              <Button onClick={() => { setShowRewards(false); onLeave(); }} className="w-full bg-amber-600 hover:bg-amber-700">
-                Awesome!
-              </Button>
+              <PixelButton variant="ok" label="AWESOME!" onClick={() => { setShowRewards(false); onLeave(); }} />
             </motion.div>
           </motion.div>
         )}

@@ -8,6 +8,7 @@ import { ArrowLeftRight, Plus, Minus, Check, X, Search, Coins, Package, Shield, 
 import { RARITY_CONFIG, CLASSES } from "@/lib/gameData";
 import { addMinutes } from "date-fns";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+import PixelButton from "@/components/game/PixelButton";
 
 const MIN_LEVEL_TO_TRADE = 5;
 
@@ -202,7 +203,7 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
           <h3 className="font-semibold flex items-center gap-2">
             <ArrowLeftRight className="w-4 h-4 text-primary" /> Trading with {otherName}
           </h3>
-          <Button variant="destructive" size="sm" onClick={() => cancelTradeMutation.mutate(activeTrade)}>Cancel</Button>
+          <PixelButton variant="cancel" label="CANCEL" onClick={() => cancelTradeMutation.mutate(activeTrade)} />
         </div>
 
         {activeTrade.status === "pending" && !isInit && (
@@ -235,10 +236,8 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
               ))}
             </div>
             {!myConfirmed && (
-              <Button size="sm" className="w-full text-xs h-7" variant="outline"
-                onClick={() => updateOfferMutation.mutate({ trade: activeTrade, itemIds: selectedItems, gold: myGoldOffer })}>
-                Update Offer
-              </Button>
+              <PixelButton variant="ok" label="UPDATE OFFER" className="w-full"
+                onClick={() => updateOfferMutation.mutate({ trade: activeTrade, itemIds: selectedItems, gold: myGoldOffer })} />
             )}
           </div>
 
@@ -286,14 +285,13 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
             Both players confirmed! Completing trade...
           </div>
         ) : (
-          <Button
-            className="w-full gap-2"
+          <PixelButton
+            variant="ok"
+            label={myConfirmed ? "WAITING..." : "CONFIRM TRADE"}
+            className="w-full"
             disabled={myConfirmed || confirmMutation.isPending}
             onClick={() => confirmMutation.mutate(activeTrade)}
-          >
-            <Check className="w-4 h-4" />
-            {myConfirmed ? "Waiting for other player..." : "Confirm Trade"}
-          </Button>
+          />
         )}
       </div>
     );
@@ -313,12 +311,8 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
                 <p className="text-xs text-muted-foreground">Level {character.level}</p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="h-8 gap-1" onClick={() => acceptTradeMutation.mutate(trade)}>
-                  <Check className="w-3.5 h-3.5" /> Accept
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => declineTradeMutation.mutate(trade)}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
+                <PixelButton variant="ok" label="ACCEPT" onClick={() => acceptTradeMutation.mutate(trade)} />
+                <PixelButton variant="cancel" label="DECLINE" onClick={() => declineTradeMutation.mutate(trade)} />
               </div>
             </div>
           ))}
@@ -365,9 +359,7 @@ export default function TradePanel({ character, onCharacterUpdate, tradeTarget, 
               <p className="text-sm font-medium">{c.name}</p>
               <p className="text-xs text-muted-foreground">Lv.{c.level} {CLASSES[c.class]?.name}</p>
             </div>
-            <Button size="sm" onClick={() => initiateTradeMutation.mutate(c)} disabled={initiateTradeMutation.isPending} className="gap-1">
-              <ArrowLeftRight className="w-3.5 h-3.5" /> Trade
-            </Button>
+            <PixelButton variant="ok" label="TRADE" onClick={() => initiateTradeMutation.mutate(c)} disabled={initiateTradeMutation.isPending} />
           </div>
         ))}
       </div>

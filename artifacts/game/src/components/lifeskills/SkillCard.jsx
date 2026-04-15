@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Progress } from "@/components/ui/progress";
-import { Play, Square, TrendingUp, Zap, Coins, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, Zap, Coins, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const SKILL_META = {
@@ -182,13 +183,9 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
       {/* Action Buttons */}
       <div className="flex gap-2">
         {skill.is_active ? (
-          <Button size="sm" variant="destructive" className="flex-1 gap-1.5" onClick={() => onStop(skill.skill_type)} disabled={loading}>
-            <Square className="w-3 h-3" /> Stop
-          </Button>
+          <PixelButton variant="cancel" label="STOP" onClick={() => onStop(skill.skill_type)} disabled={loading} />
         ) : (
-          <Button size="sm" variant="outline" className={`flex-1 gap-1.5 ${meta.color}`} onClick={() => onStart(skill.skill_type)} disabled={loading}>
-            <Play className="w-3 h-3" /> Start
-          </Button>
+          <PixelButton variant="ok" label="START" onClick={() => onStart(skill.skill_type)} disabled={loading} />
         )}
         <Button size="sm" variant="ghost" className="gap-1 px-2" onClick={() => setShowUpgrades(v => !v)}>
           <TrendingUp className="w-3.5 h-3.5" />
@@ -215,10 +212,12 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
                   </div>
                   <p className="text-xs text-muted-foreground">-8% cycle time per level</p>
                 </div>
-                <Button size="sm" className="gap-1 h-7 text-xs" disabled={loading || speedLvl >= 10} onClick={() => onUpgrade(skill.skill_type, 'speed')}>
-                  <Coins className="w-3 h-3" />
-                  {speedLvl < 10 ? speedCost.toLocaleString() : "MAX"}
-                </Button>
+                <PixelButton
+                  variant="ok"
+                  label={speedLvl < 10 ? `UPGRADE (${speedCost.toLocaleString()}G)` : "MAX"}
+                  disabled={loading || speedLvl >= 10}
+                  onClick={() => onUpgrade(skill.skill_type, 'speed')}
+                />
               </div>
 
               <div className="flex items-center justify-between bg-muted/40 rounded-lg p-2">
@@ -230,10 +229,12 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
                   </div>
                   <p className="text-xs text-muted-foreground">+10% XP gain per level</p>
                 </div>
-                <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" disabled={loading || xpBoostLvl >= 10} onClick={() => onUpgrade(skill.skill_type, 'xp_boost')}>
-                  <Coins className="w-3 h-3" />
-                  {xpBoostLvl < 10 ? xpBoostCost.toLocaleString() : "MAX"}
-                </Button>
+                <PixelButton
+                  variant="ok"
+                  label={xpBoostLvl < 10 ? `UPGRADE (${xpBoostCost.toLocaleString()}G)` : "MAX"}
+                  disabled={loading || xpBoostLvl >= 10}
+                  onClick={() => onUpgrade(skill.skill_type, 'xp_boost')}
+                />
               </div>
             </div>
           </motion.div>

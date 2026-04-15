@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Lock, ArrowRight, Minus, Plus } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
@@ -52,7 +52,7 @@ function RecipeRow({ recipe, availableQty, characterId, onDone }) {
         recipe_input: recipe.input,
         quantity: qty,
       });
-      if (res.data?.success) {
+      if (res?.success) {
         toast({
           title: `Processed ${qty}× ${recipe.input_label}`,
           description: `+${qty}× ${recipe.output_label}`,
@@ -98,14 +98,12 @@ function RecipeRow({ recipe, availableQty, characterId, onDone }) {
         >
           <Plus className="w-2.5 h-2.5" />
         </button>
-        <Button
-          size="sm"
-          className="h-7 px-2 text-xs"
+        <PixelButton
+          variant="ok"
+          label={loading ? "..." : "PROCESS"}
           disabled={loading || !canProcess}
           onClick={handleProcess}
-        >
-          {loading ? "..." : "Process"}
-        </Button>
+        />
       </div>
     </div>
   );

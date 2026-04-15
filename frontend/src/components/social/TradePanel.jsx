@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeftRight, Plus, Minus, Check, X, Search, Coins, Package, Shield, Swords, AlertTriangle } from "lucide-react";
 import { RARITY_CONFIG, CLASSES } from "@/lib/gameData";
 import { addMinutes } from "date-fns";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+import PixelButton from "@/components/game/PixelButton";
 
 const MIN_LEVEL_TO_TRADE = 5;
 
-export default function TradePanel({ character, onCharacterUpdate }) {
+export default function TradePanel({ character, onCharacterUpdate, tradeTarget, onTradeTargetConsumed }) {
   const [view, setView] = useState("list"); // list | initiate | active
   const [targetSearch, setTargetSearch] = useState("");
   const [targetResults, setTargetResults] = useState([]);
@@ -19,6 +21,7 @@ export default function TradePanel({ character, onCharacterUpdate }) {
   const [activeTrade, setActiveTrade] = useState(null);
   const qc = useQueryClient();
 
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
   const canTrade = (character.level || 1) >= MIN_LEVEL_TO_TRADE;
 
   const { data: myItems = [] } = useQuery({
@@ -30,7 +33,8 @@ export default function TradePanel({ character, onCharacterUpdate }) {
   const { data: incomingTrades = [] } = useQuery({
     queryKey: ["trades_pending", character.id],
     queryFn: () => base44.entities.TradeSession.filter({ receiver_id: character.id, status: "pending" }),
-    refetchInterval: 60000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   const { data: myTrades = [] } = useQuery({
@@ -42,27 +46,42 @@ export default function TradePanel({ character, onCharacterUpdate }) {
       ]);
       return [...asInit, ...asRecv].filter(t => ["pending", "active", "initiator_locked", "receiver_locked"].includes(t.status));
     },
-    refetchInterval: 60000,
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
-  // Subscribe to real-time trade updates
+  // Poll active trade for real-time updates
   useEffect(() => {
-    const unsub = base44.entities.TradeSession.subscribe((event) => {
-      qc.invalidateQueries({ queryKey: ["trades_pending", character.id] });
-      qc.invalidateQueries({ queryKey: ["trades_active", character.id] });
-      if (activeTrade && event.id === activeTrade.id) {
-        base44.entities.TradeSession.filter({ id: event.id }).then(res => {
-          if (res[0]) setActiveTrade(res[0]);
-        });
-      }
-    });
-    return unsub;
-  }, [character.id, activeTrade?.id, qc]);
+    if (!activeTrade?.id) return;
+    const poll = async () => {
+      try {
+        const res = await base44.entities.TradeSession.get(activeTrade.id);
+        if (res) setActiveTrade(res);
+      } catch {}
+    };
+    const interval = setInterval(poll, pollInterval || 15000);
+    return () => clearInterval(interval);
+  }, [activeTrade?.id, pollInterval]);
+
+  // Auto-initiate trade when clicking trade button from friend list
+  useEffect(() => {
+    if (!tradeTarget?.friendId || !canTrade) return;
+    const autoTrade = async () => {
+      try {
+        const target = await base44.entities.Character.get(tradeTarget.friendId);
+        if (target && target.id !== character.id) {
+          initiateTradeMutation.mutate(target);
+        }
+      } catch {}
+      onTradeTargetConsumed?.();
+    };
+    autoTrade();
+  }, [tradeTarget?.friendId]);
 
   const searchPlayer = async () => {
     if (!targetSearch.trim()) return;
-    const res = await base44.entities.Character.filter({ name: targetSearch.trim() });
-    setTargetResults(res.filter(c => c.id !== character.id));
+    const res = await base44.functions.invoke("lookupPlayerByName", { name: targetSearch.trim() });
+    setTargetResults((res || []).filter(c => c.id !== character.id));
   };
 
   const initiateTradeMutation = useMutation({
@@ -127,8 +146,9 @@ export default function TradePanel({ character, onCharacterUpdate }) {
       // If both confirmed, execute trade via backend
       if ((isInit && trade.receiver_confirmed) || (!isInit && trade.initiator_confirmed)) {
         const result = await base44.functions.invoke("completeTrade", { trade_id: trade.id });
-        if (result.data?.success) {
+        if (result?.success) {
           qc.invalidateQueries({ queryKey: ["items", character.id] });
+          qc.invalidateQueries({ queryKey: ["equippedItems", character.id] });
           qc.invalidateQueries({ queryKey: ["trades_active", character.id] });
           setView("list");
           setActiveTrade(null);
@@ -183,7 +203,7 @@ export default function TradePanel({ character, onCharacterUpdate }) {
           <h3 className="font-semibold flex items-center gap-2">
             <ArrowLeftRight className="w-4 h-4 text-primary" /> Trading with {otherName}
           </h3>
-          <Button variant="destructive" size="sm" onClick={() => cancelTradeMutation.mutate(activeTrade)}>Cancel</Button>
+          <PixelButton variant="cancel" label="CANCEL" onClick={() => cancelTradeMutation.mutate(activeTrade)} />
         </div>
 
         {activeTrade.status === "pending" && !isInit && (
@@ -216,10 +236,8 @@ export default function TradePanel({ character, onCharacterUpdate }) {
               ))}
             </div>
             {!myConfirmed && (
-              <Button size="sm" className="w-full text-xs h-7" variant="outline"
-                onClick={() => updateOfferMutation.mutate({ trade: activeTrade, itemIds: selectedItems, gold: myGoldOffer })}>
-                Update Offer
-              </Button>
+              <PixelButton variant="ok" label="UPDATE OFFER" className="w-full"
+                onClick={() => updateOfferMutation.mutate({ trade: activeTrade, itemIds: selectedItems, gold: myGoldOffer })} />
             )}
           </div>
 
@@ -267,14 +285,13 @@ export default function TradePanel({ character, onCharacterUpdate }) {
             Both players confirmed! Completing trade...
           </div>
         ) : (
-          <Button
-            className="w-full gap-2"
+          <PixelButton
+            variant="ok"
+            label={myConfirmed ? "WAITING..." : "CONFIRM TRADE"}
+            className="w-full"
             disabled={myConfirmed || confirmMutation.isPending}
             onClick={() => confirmMutation.mutate(activeTrade)}
-          >
-            <Check className="w-4 h-4" />
-            {myConfirmed ? "Waiting for other player..." : "Confirm Trade"}
-          </Button>
+          />
         )}
       </div>
     );
@@ -294,12 +311,8 @@ export default function TradePanel({ character, onCharacterUpdate }) {
                 <p className="text-xs text-muted-foreground">Level {character.level}</p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="h-8 gap-1" onClick={() => acceptTradeMutation.mutate(trade)}>
-                  <Check className="w-3.5 h-3.5" /> Accept
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => declineTradeMutation.mutate(trade)}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
+                <PixelButton variant="ok" label="ACCEPT" onClick={() => acceptTradeMutation.mutate(trade)} />
+                <PixelButton variant="cancel" label="DECLINE" onClick={() => declineTradeMutation.mutate(trade)} />
               </div>
             </div>
           ))}
@@ -346,9 +359,7 @@ export default function TradePanel({ character, onCharacterUpdate }) {
               <p className="text-sm font-medium">{c.name}</p>
               <p className="text-xs text-muted-foreground">Lv.{c.level} {CLASSES[c.class]?.name}</p>
             </div>
-            <Button size="sm" onClick={() => initiateTradeMutation.mutate(c)} disabled={initiateTradeMutation.isPending} className="gap-1">
-              <ArrowLeftRight className="w-3.5 h-3.5" /> Trade
-            </Button>
+            <PixelButton variant="ok" label="TRADE" onClick={() => initiateTradeMutation.mutate(c)} disabled={initiateTradeMutation.isPending} />
           </div>
         ))}
       </div>

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -250,16 +251,12 @@ export default function Leaderboard({ character }) {
               {/* Friend Request Button — for non-self characters */}
               {character && selectedChar.id !== character.id && (
                 <div className="mb-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full gap-2"
+                  <PixelButton
+                    variant="ok"
+                    label={friendRequestSent[selectedChar.id] ? "REQUEST SENT" : "SEND FRIEND REQUEST"}
                     disabled={friendRequestSent[selectedChar.id] || sendFriendRequestMutation.isPending}
                     onClick={() => sendFriendRequestMutation.mutate(selectedChar)}
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    {friendRequestSent[selectedChar.id] ? "Request Sent" : "Send Friend Request"}
-                  </Button>
+                  />
                 </div>
               )}
 
@@ -307,9 +304,9 @@ export default function Leaderboard({ character }) {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="flex-1 gap-1"
+                    <PixelButton
+                      variant="ok"
+                      label="SAVE"
                       onClick={() => {
                         updateStatsMutation.mutate({
                           action: "update_stats",
@@ -318,17 +315,12 @@ export default function Leaderboard({ character }) {
                         });
                       }}
                       disabled={updateStatsMutation.isPending}
-                    >
-                      <Check className="w-3 h-3" /> Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 gap-1"
+                    />
+                    <PixelButton
+                      variant="cancel"
+                      label="CANCEL"
                       onClick={() => { setEditStats(null); setTempStats({}); }}
-                    >
-                      <X className="w-3 h-3" /> Cancel
-                    </Button>
+                    />
                   </div>
                 </div>
               ) : null}
@@ -399,9 +391,7 @@ export default function Leaderboard({ character }) {
               </div>
               )}
 
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedChar(null)}>
-                Close
-              </Button>
+              <PixelButton variant="cancel" label="CLOSE" onClick={() => setSelectedChar(null)} />
             </motion.div>
           </motion.div>
         )}

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -177,21 +176,18 @@ export default function WorldMap({ character, onCharacterUpdate }) {
               })()}
 
               <div className="flex gap-2">
-                <Button
-                  className="flex-1 gap-1.5"
+                <PixelButton
+                  variant="ok"
+                  label="INVITE PARTY"
                   onClick={() => travelMutation.mutate({ regionKey: travelConfirm, inviteParty: true })}
                   disabled={travelMutation.isPending}
-                >
-                  <Users className="w-3.5 h-3.5" /> Invite Party
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-1.5"
+                />
+                <PixelButton
+                  variant="ok"
+                  label="GO ALONE"
                   onClick={() => travelMutation.mutate({ regionKey: travelConfirm, inviteParty: false })}
                   disabled={travelMutation.isPending}
-                >
-                  <ChevronRight className="w-3.5 h-3.5" /> Go Alone
-                </Button>
+                />
               </div>
               <div className="flex justify-center">
                 <PixelButton variant="cancel" onClick={() => setTravelConfirm(null)} />
@@ -255,28 +251,24 @@ export default function WorldMap({ character, onCharacterUpdate }) {
                 </div>
                 <div className="hidden md:block flex-shrink-0">
                   {!isCurrent && !isLocked && (
-                    <Button
-                      size="sm"
-                      className="gap-1"
+                    <PixelButton
+                      variant="ok"
+                      label="TRAVEL"
                       onClick={() => handleTravelClick(key)}
                       disabled={travelMutation.isPending}
-                    >
-                      {hasParty && isLeader ? <Users className="w-3.5 h-3.5" /> : <ChevronRight className="w-4 h-4" />}
-                      Travel
-                    </Button>
+                    />
                   )}
                 </div>
               </div>
               {!isCurrent && !isLocked && (
-                <Button
-                  size="sm"
-                  className="w-full mt-3 md:hidden gap-1"
-                  onClick={() => handleTravelClick(key)}
-                  disabled={travelMutation.isPending}
-                >
-                  {hasParty && isLeader ? <Users className="w-3.5 h-3.5" /> : <ChevronRight className="w-4 h-4" />}
-                  Travel
-                </Button>
+                <div className="w-full mt-3 md:hidden">
+                  <PixelButton
+                    variant="ok"
+                    label="TRAVEL"
+                    onClick={() => handleTravelClick(key)}
+                    disabled={travelMutation.isPending}
+                  />
+                </div>
               )}
             </motion.div>
           );

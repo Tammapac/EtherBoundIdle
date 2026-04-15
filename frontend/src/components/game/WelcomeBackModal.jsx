@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Gem, Coins, TrendingUp, Package, Zap, X } from "lucide-react";
 
@@ -74,12 +75,9 @@ export default function WelcomeBackModal({ rewards, hoursOffline, onClose }) {
           )}
 
           {/* Close Button */}
-          <Button
-            onClick={onClose}
-            className="w-full bg-primary hover:bg-primary/90 gap-2"
-          >
-            <Zap className="w-4 h-4" /> Claim Rewards
-          </Button>
+          <div className="flex justify-center">
+            <PixelButton variant="ok" label="CLAIM REWARDS" onClick={onClose} />
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>

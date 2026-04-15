@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { apiFetch } from "@/api/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import { Shield, Mail, User, Lock, ChevronRight, CheckCircle, AlertCircle, KeyRound } from "lucide-react";
 
@@ -250,24 +251,17 @@ export default function Auth() {
               </div>
             )}
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full h-12 font-orbitron text-base tracking-wider shadow-md shadow-primary/20"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {mode === "reset" ? "Resetting..." : mode === "login" ? "Logging in..." : "Creating account..."}
-                </div>
-              ) : (
-                <>
-                  {mode === "reset" ? "Reset Password" : mode === "login" ? "Login" : "Create Account"}
-                  <ChevronRight className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </Button>
+            <div className="flex justify-center">
+              <PixelButton
+                variant="ok"
+                label={
+                  isLoading
+                    ? (mode === "reset" ? "RESETTING..." : mode === "login" ? "LOGGING IN..." : "CREATING...")
+                    : (mode === "reset" ? "RESET PASSWORD" : mode === "login" ? "LOGIN" : "CREATE ACCOUNT")
+                }
+                disabled={isLoading}
+              />
+            </div>
           </form>
 
           <div className="mt-6 text-center">

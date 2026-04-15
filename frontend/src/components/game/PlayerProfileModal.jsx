@@ -3,9 +3,11 @@ import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { X, Shield, Swords, Crown, Footprints, CircleDot, Gem, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { RARITY_CONFIG, CLASSES } from "@/lib/gameData";
 import { calculateFinalStats } from "@/lib/statSystem";
+import { getItemSprite } from "@/lib/itemIcons";
 
 const SLOT_ICONS = {
   weapon: Swords, armor: Shield, helmet: Crown,
@@ -62,19 +64,24 @@ export default function PlayerProfileModal({ characterId, characterName, onClose
       >
         {/* Header */}
         <div className="flex items-start justify-between">
-          <div>
-            <h2 className="font-orbitron text-lg font-bold">{char?.name || characterName}</h2>
+          <div className="flex items-center gap-3">
             {char && (
-              <p className={`text-sm font-medium ${CLASS_COLORS[char.class]}`}>
-                Lv.{char.level} {classData?.name}
-              </p>
+              <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden">
+                <img src={`/sprites/class_${char.class || "warrior"}.png`} alt={char.class} className="w-10 h-10" style={{ imageRendering: "pixelated" }} />
+              </div>
             )}
+            <div>
+              <h2 className="font-orbitron text-lg font-bold">{char?.name || characterName}</h2>
+              {char && (
+                <p className={`text-sm font-medium ${CLASS_COLORS[char.class]}`}>
+                  Lv.{char.level} {classData?.name}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex gap-2 items-center">
             {onInviteToParty && (
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={onInviteToParty}>
-                <UserPlus className="w-3 h-3" /> Invite
-              </Button>
+              <PixelButton variant="ok" label="INVITE" onClick={onInviteToParty} />
             )}
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />
@@ -94,6 +101,7 @@ export default function PlayerProfileModal({ characterId, characterName, onClose
                 { label: "HP", value: char.max_hp },
                 { label: "MP", value: char.max_mp },
                 { label: "ATK", value: derived.attackPower || 0 },
+                { label: "M.ATK", value: derived.magicAttack || 0 },
                 { label: "DEF", value: derived.defense || 0 },
                 { label: "Crit", value: `${(derived.critChance || 0).toFixed(1)}%` },
                 { label: "Level", value: char.level },
@@ -136,7 +144,11 @@ export default function PlayerProfileModal({ characterId, characterName, onClose
                         item ? `${rarity?.border || "border-border"} bg-muted/30` : "border-border/30 bg-muted/10"
                       }`}
                     >
-                      <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${item ? rarity?.color : "text-muted-foreground/30"}`} />
+                      {item && getItemSprite(item) ? (
+                        <img src={getItemSprite(item)} alt="" className="w-7 h-7 flex-shrink-0 sprite-outline" style={{ imageRendering: "pixelated" }} />
+                      ) : (
+                        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${item ? rarity?.color : "text-muted-foreground/30"}`} />
+                      )}
                       <div className="min-w-0">
                         <p className={`truncate ${item ? rarity?.color : "text-muted-foreground/40"}`}>
                           {item ? item.name : `No ${slot}`}

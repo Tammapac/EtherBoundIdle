@@ -226,9 +226,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
             {autoFight ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
             {autoFight ? "Auto ON" : "Auto OFF"}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowLeaveConfirm(true)} className="gap-1 text-muted-foreground hover:text-destructive">
-            <LogOut className="w-3.5 h-3.5" /> Leave
-          </Button>
+          <PixelButton variant="cancel" label="LEAVE" onClick={() => setShowLeaveConfirm(true)} />
         </div>
       </div>
 
@@ -429,7 +427,7 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
                   <div className="flex justify-between"><span className="text-muted-foreground">Items Looted</span><span className="text-amber-400">{totalRewards.loot.length}</span></div>
                 )}
               </div>
-              <Button onClick={doLeave} className="w-full bg-violet-600 hover:bg-violet-700">Return to Portal</Button>
+              <PixelButton variant="cancel" label="RETURN TO PORTAL" onClick={doLeave} />
             </motion.div>
           </motion.div>
         )}
@@ -649,13 +647,9 @@ function PortalLobby({ session: initialSession, character, onLeave, onStart }) {
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Button variant="outline" className="flex-1 gap-1.5" onClick={onLeave}>
-          <LogOut className="w-4 h-4" /> Leave
-        </Button>
+        <PixelButton variant="cancel" label="LEAVE" onClick={onLeave} />
         {isLeader && (
-          <Button onClick={handleStart} disabled={loading} className="flex-1 gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500">
-            <Play className="w-4 h-4" /> {loading ? "Starting..." : "Start Portal"}
-          </Button>
+          <PixelButton variant="ok" label={loading ? "STARTING..." : "START PORTAL"} onClick={handleStart} disabled={loading} />
         )}
       </div>
       {!isLeader && <p className="text-xs text-muted-foreground text-center">Waiting for the leader to start...</p>}
@@ -826,9 +820,7 @@ export default function Portal({ character, onCharacterUpdate }) {
               </h1>
               <p className="text-xs text-muted-foreground">Enter the rift and face endless waves of enemies.</p>
             </div>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setShowJoin(v => !v)}>
-              <LogIn className="w-3.5 h-3.5" /> Join by ID
-            </Button>
+            <PixelButton variant="ok" label="JOIN BY ID" onClick={() => setShowJoin(v => !v)} />
           </div>
 
           {/* Join by Session ID */}
@@ -839,7 +831,7 @@ export default function Portal({ character, onCharacterUpdate }) {
               >
                 <Input value={joinId} onChange={e => setJoinId(e.target.value)} placeholder="Paste Session ID..."
                   className="h-8 text-xs flex-1" onKeyDown={e => e.key === 'Enter' && handleJoinById()} />
-                <Button size="sm" onClick={handleJoinById} disabled={loading} className="h-8 text-xs">{loading ? "..." : "Join"}</Button>
+                <PixelButton variant="ok" label={loading ? "..." : "JOIN"} onClick={handleJoinById} disabled={loading} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -884,10 +876,7 @@ export default function Portal({ character, onCharacterUpdate }) {
           {entriesLeft < maxEntries && (
             <div className="bg-card/50 border border-border rounded-lg p-2.5 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">{entriesLeft === 0 ? "No entries left" : `${entriesLeft} entries remaining`}</span>
-              <Button size="sm" variant="outline" className="gap-1 text-xs h-7" onClick={handleResetEntries}
-                disabled={loading || characterGems < entryResetGemCost}>
-                <Gem className="w-3 h-3 text-amber-400" /> Reset ({entryResetGemCost} Gems)
-              </Button>
+              <PixelButton variant="ok" label={`RESET (${entryResetGemCost} GEMS)`} onClick={handleResetEntries} disabled={loading || characterGems < entryResetGemCost} />
             </div>
           )}
 
@@ -899,12 +888,7 @@ export default function Portal({ character, onCharacterUpdate }) {
               <p className="text-sm text-muted-foreground">Your character is Lv.{character?.level || 1}. Reach level {minLevel} to unlock the Infinite Portal.</p>
             </div>
           ) : (
-            <Button onClick={handleEnter} disabled={loading || entriesLeft <= 0}
-              className="w-full h-12 font-orbitron gap-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-violet-500/30 shadow-lg shadow-violet-500/20 disabled:opacity-40"
-            >
-              <Sparkles className="w-5 h-5" />
-              {entriesLeft <= 0 ? "No Entries Left" : "Create Portal"}
-            </Button>
+            <PixelButton variant="ok" label={entriesLeft <= 0 ? "NO ENTRIES LEFT" : "CREATE PORTAL"} onClick={handleEnter} disabled={loading || entriesLeft <= 0} />
           )}
 
           {/* Upgrade Section */}
@@ -928,19 +912,15 @@ export default function Portal({ character, onCharacterUpdate }) {
                   <div className="h-full bg-violet-500 rounded-full transition-all duration-500" style={{ width: `${upgradeProgress}%` }} />
                 </div>
               </div>
-              <Button onClick={handleUpgrade} disabled={!canUpgrade || loading} variant="outline"
-                className="w-full gap-2 border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300 disabled:opacity-40">
-                <ArrowUp className="w-4 h-4" /> Upgrade ({nextUpgradeCost} Shards)
-              </Button>
+              <PixelButton variant="ok" label={`UPGRADE (${nextUpgradeCost} SHARDS)`} onClick={handleUpgrade} disabled={!canUpgrade || loading} />
             </div>
           )}
 
           {/* Reset Portal Level */}
           {portalLevel > 1 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 gap-1.5"
+            <PixelButton
+              variant="cancel"
+              label="RESET PORTAL TO LEVEL 1"
               disabled={loading}
               onClick={async () => {
                 if (!confirm("Reset portal to Level 1? You'll get back 50% of shards spent.")) return;
@@ -955,9 +935,7 @@ export default function Portal({ character, onCharacterUpdate }) {
                   toast({ title: err.message || "Reset failed", variant: "destructive" });
                 } finally { setLoading(false); }
               }}
-            >
-              Reset Portal to Level 1
-            </Button>
+            />
           )}
 
           {/* Max Level Banner */}
@@ -1002,10 +980,7 @@ export default function Portal({ character, onCharacterUpdate }) {
                     <div key={ps.id} className="p-2.5 border-b border-border/20 hover:bg-violet-500/5 transition-colors">
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xs font-semibold text-foreground truncate">{ps.ownerName}</span>
-                        <Button size="sm" className="h-6 text-[10px] px-2 bg-violet-600 hover:bg-violet-700"
-                          onClick={() => handleJoinSession(ps.id)} disabled={loading || !meetsLevelReq}>
-                          Join
-                        </Button>
+                        <PixelButton variant="ok" label="JOIN" onClick={() => handleJoinSession(ps.id)} disabled={loading || !meetsLevelReq} />
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Badge variant="outline" className="text-[9px] px-1 py-0 border-violet-500/30 text-violet-400">P-Lv.{ps.portalLevel}</Badge>
@@ -1045,10 +1020,7 @@ export default function Portal({ character, onCharacterUpdate }) {
                   <span className="text-muted-foreground ml-1">{ps.status === "waiting" ? "Lobby" : `W${ps.wave}`}</span>
                   <span className="text-muted-foreground ml-1">{ps.memberCount}/{ps.maxMembers}</span>
                 </div>
-                <Button size="sm" className="text-xs h-7 bg-violet-600 hover:bg-violet-700"
-                  onClick={() => handleJoinSession(ps.id)} disabled={loading || !meetsLevelReq}>
-                  Join
-                </Button>
+                <PixelButton variant="ok" label="JOIN" onClick={() => handleJoinSession(ps.id)} disabled={loading || !meetsLevelReq} />
               </div>
             ))}
           </div>

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Coins } from "lucide-react";
+import PixelButton from "@/components/game/PixelButton";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -229,24 +228,18 @@ export default function ResourceInventory({ resources, character, onCharacterUpd
                 {/* Sell buttons — only for ores */}
                 {isOre && (
                   <div className="flex gap-1 mt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 h-6 text-[10px] gap-1 px-1"
+                    <PixelButton
+                      variant="ok"
+                      label={`×1 (${price}G)`}
                       disabled={isSelling || res.quantity < 1}
                       onClick={() => handleSellOne(res)}
-                    >
-                      <Coins className="w-2.5 h-2.5" /> ×1 ({price}g)
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="flex-1 h-6 text-[10px] gap-1 px-1"
+                    />
+                    <PixelButton
+                      variant="ok"
+                      label={`SELL ALL (${(price * res.quantity).toLocaleString()}G)`}
                       disabled={isSelling || res.quantity < 1}
                       onClick={() => handleSellAll(res)}
-                    >
-                      <Coins className="w-2.5 h-2.5" /> All ({(price * res.quantity).toLocaleString()}g)
-                    </Button>
+                    />
                   </div>
                 )}
               </div>

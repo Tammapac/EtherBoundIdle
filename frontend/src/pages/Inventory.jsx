@@ -1,38 +1,40 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Backpack, Swords, ShieldCheck, Crown, Footprints, CircleDot,
   Gem, Coins, ArrowUpRight, FlaskConical, Package, Hand,
-  Heart, Zap, Shield, Crosshair, Wind, Flame
+  Heart, Zap, Shield, Crosshair, Wind, Flame,
+  Droplet, Snowflake, Skull, User, Sparkles, Star, Egg
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { getItemIcon } from "@/lib/itemIcons";
+import { getItemIcon, getItemSprite } from "@/lib/itemIcons";
 import { RARITY_CONFIG } from "@/lib/gameData";
 import { canEquipItem, validateEquip, getAllowedClassesLabel, EQUIPMENT_SLOTS, SLOT_LABELS } from "@/lib/equipmentSystem";
 import { calculateFinalStats } from "@/lib/statSystem";
 import { aggregateSetStats } from "@/lib/setSystem";
 import ItemTooltip from "@/components/game/ItemTooltip";
+import { getUniqueItemDef } from "@/lib/uniqueItems";
+import SetCollectionPanel from "@/components/game/SetCollectionPanel";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const TYPE_ICONS = {
-  weapon: Swords,
-  armor: ShieldCheck,
-  helmet: Crown,
-  gloves: Hand,
-  boots: Footprints,
-  ring: CircleDot,
-  amulet: Gem,
-  consumable: FlaskConical,
-  material: Package,
+  weapon: Swords, armor: ShieldCheck, helmet: Crown, gloves: Hand,
+  boots: Footprints, ring: CircleDot, amulet: Gem,
+  consumable: FlaskConical, material: Package,
 };
 
 const SLOT_ORDER = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
 
-function HoverTooltip({ item, character, equipped, triggerRef }) {
+// ─── Hover Tooltip ──────────────────────────────────────────────────────────
+
+function HoverTooltip({ item, character, equipped, triggerRef, allRunes = [] }) {
   if (!item || !triggerRef?.current) return null;
   const rect = triggerRef.current.getBoundingClientRect();
   const tooltipW = 264;
@@ -49,10 +51,7 @@ function HoverTooltip({ item, character, equipped, triggerRef }) {
   top = Math.max(margin, Math.min(top, window.innerHeight - tooltipH - margin));
 
   return (
-    <div
-      className="fixed z-[100] pointer-events-none"
-      style={{ top, left, maxHeight: "80vh" }}
-    >
+    <div className="fixed z-[100] pointer-events-none" style={{ top, left, maxHeight: "80vh" }}>
       <div className="bg-card border border-border rounded-lg p-3 w-64 shadow-xl overflow-y-auto max-h-[80vh]">
         <ItemTooltip
           item={item}
@@ -61,21 +60,122 @@ function HoverTooltip({ item, character, equipped, triggerRef }) {
           compareItem={!item.equipped ? equipped.find(i => i.type === item.type && i.id !== item.id) : null}
           equippedItems={equipped}
           character={character}
+          socketedRunes={allRunes}
         />
       </div>
     </div>
   );
 }
 
-function ItemCard({ item, character, equipped, onSelect, rarity, canEquip }) {
+// ─── Item Card ──────────────────────────────────────────────────────────────
+
+const CONSUMABLE_DESCRIPTIONS = {
+  hourglass: "Resets all dungeon entries",
+  scroll_exp: "Boosts EXP gain for 2 hours",
+  scroll_gold: "Boosts gold gain for 2 hours",
+  scroll_dmg: "Boosts damage for 2 hours",
+  scroll_loot: "Boosts loot drops for 2 hours",
+  dungeon_ticket: "Grants 1 bonus dungeon entry",
+  pet_egg: "Hatch to receive a pet",
+  pet_egg_shiny: "Hatch to receive a shiny pet",
+  upgrade_stone: "Used to upgrade equipment",
+  pet_incubator: "Required to hatch pet eggs",
+};
+
+const CONSUMABLE_DETAILS = {
+  hourglass:      { effect: "Resets all dungeon entries to 0", icon: "⏳" },
+  scroll_exp:     { effect: "+50% EXP gain from combat", duration: "2 hours", icon: "📜" },
+  scroll_gold:    { effect: "+50% Gold gain from combat", duration: "2 hours", icon: "📜" },
+  scroll_dmg:     { effect: "+25% Damage dealt in combat", duration: "2 hours", icon: "📜" },
+  scroll_loot:    { effect: "+25% Loot drop quality", duration: "2 hours", icon: "📜" },
+  dungeon_ticket: { effect: "+1 Bonus dungeon entry (permanent)", icon: "🎟️" },
+  pet_egg:        { effect: "Use in Pets tab to start hatching", icon: "🥚" },
+  pet_egg_shiny:  { effect: "Use in Pets tab to hatch a Mythic pet", icon: "✨" },
+  upgrade_stone:  { effect: "Used to upgrade equipment at the forge", icon: "🔧" },
+  pet_incubator:  { effect: "Required to start hatching a pet egg in the Pets tab", icon: "🔬" },
+};
+
+function getConsumableDesc(item, forCard = false) {
+  const extra = item.extraData || item.extra_data || {};
+  // For currency items, only show description in the detail modal (not on the small card)
+  if (extra.is_currency && extra.description) return forCard ? "" : extra.description;
+  const cType = extra.consumableType || extra.materialType || "";
+  return CONSUMABLE_DESCRIPTIONS[cType] || "";
+}
+
+function ConsumableDetail({ item }) {
+  const extra = item.extraData || item.extra_data || {};
+  const cType = extra.consumableType || extra.materialType || "";
+  const detail = CONSUMABLE_DETAILS[cType];
+  if (!detail) return null;
+  const stats = item.stats || {};
+  return (
+    <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+      <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Effect</p>
+      <p className="text-sm text-foreground">{detail.icon} {detail.effect}</p>
+      {stats.bonus_value && (
+        <p className="text-xs text-amber-400">Bonus: +{stats.bonus_value}%</p>
+      )}
+      {detail.duration && (
+        <p className="text-xs text-muted-foreground">Duration: {detail.duration}</p>
+      )}
+    </div>
+  );
+}
+
+function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew, onMarkSeen, allRunes = [] }) {
   const [hovered, setHovered] = useState(false);
   const ref = useRef(null);
   const Icon = getItemIcon(item);
+  const isConsumableOrMaterial = item.type === "consumable" || item.type === "material";
   const levelOk = character.level >= (item.level_req || 1);
   const classOk = canEquipItem(character.class, item).allowed;
   const isStack = item.stackCount > 1;
   const itemLevel = item.item_level;
   const isSetItem = item.rarity === "set";
+  const isUnique = !!item.is_unique || !!getUniqueItemDef(item.name) || (item.proc_effects && item.proc_effects.length > 0);
+  const extraData = item.extraData || item.extra_data || {};
+  const runeSlots = extraData.rune_slots || 0;
+
+  // Clean card for consumables/materials
+  if (isConsumableOrMaterial) {
+    const desc = getConsumableDesc(item, true);
+    return (
+      <motion.button
+        ref={ref}
+        whileHover={{ scale: 1.02 }}
+        onClick={() => onSelect(item)}
+        onMouseEnter={() => { setHovered(true); if (isNew && onMarkSeen) onMarkSeen(item.id); }}
+        onMouseLeave={() => setHovered(false)}
+        className={`relative bg-card border rounded-lg p-3 text-left transition-all hover:bg-muted/50 border-border ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""}`}
+      >
+        {isStack && (
+          <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+            x{item.stackCount}
+          </span>
+        )}
+        {isNew && (
+          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none animate-pulse">
+            NEW
+          </span>
+        )}
+        <div className="flex items-center gap-2.5 mb-1">
+          {getItemSprite(item) ? (
+            <img src={getItemSprite(item)} alt="" className="w-12 h-12 flex-shrink-0 sprite-outline" style={{ imageRendering: "pixelated" }} />
+          ) : (
+            <Icon className={`w-10 h-10 ${rarity.color} flex-shrink-0`} />
+          )}
+          <div className="flex-1 min-w-0">
+            <span className={`text-xs font-semibold ${rarity.color} truncate block`}>{item.name}</span>
+            {desc && <span className="text-[10px] text-muted-foreground leading-tight block">{desc}</span>}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1 mt-1">
+          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>{rarity.label}</Badge>
+        </div>
+      </motion.button>
+    );
+  }
 
   return (
     <>
@@ -83,20 +183,29 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip }) {
         ref={ref}
         whileHover={{ scale: 1.02 }}
         onClick={() => onSelect(item)}
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => { setHovered(true); if (isNew && onMarkSeen) onMarkSeen(item.id); }}
         onMouseLeave={() => setHovered(false)}
         className={`relative bg-card border rounded-lg p-3 text-left transition-all hover:bg-muted/50 ${
           item.equipped ? `${rarity.border} ${rarity.bg}` : !canEquip ? "border-destructive/30 opacity-60" : "border-border"
-        } ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""} ${isSetItem ? "ring-1 ring-cyan-400/50" : ""}`}
+        } ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""} ${isSetItem ? "ring-1 ring-cyan-400/50" : ""} ${isUnique ? "ring-1 ring-orange-400/50" : ""} ${item.is_awakened ? "outline outline-2 outline-purple-400 shadow-[0_0_16px_rgba(168,85,247,0.5),0_0_4px_rgba(168,85,247,0.3)] animate-pulse" : ""}`}
       >
         {isStack && (
           <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
             x{item.stackCount}
           </span>
         )}
+        {isNew && (
+          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none animate-pulse">
+            NEW
+          </span>
+        )}
         <div className="flex items-center gap-2 mb-1">
-          <div className="relative flex-shrink-0">
-            <Icon className={`w-5 h-5 ${rarity.color}`} />
+          <div className="relative flex-shrink-0 w-12 h-12 flex items-center justify-center">
+            {getItemSprite(item) ? (
+              <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
+            ) : (
+              <Icon className={`w-10 h-10 ${rarity.color}`} />
+            )}
             {itemLevel && (
               <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold leading-none px-0.5 rounded ${rarity.color} bg-background border border-current`}>
                 {itemLevel}
@@ -123,30 +232,102 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-1 mt-1">
-          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>
-            {rarity.label}
-          </Badge>
+          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>{rarity.label}</Badge>
           {item.equipped && <Badge className="text-xs bg-primary/20 text-primary">Equipped</Badge>}
           {isSetItem && <Badge className="text-xs bg-cyan-500/20 text-cyan-300 border-cyan-500/30">Set</Badge>}
+          {runeSlots > 0 && (
+            <Badge className="text-xs bg-purple-500/15 text-purple-400 border-purple-500/30 gap-0.5">
+              <Gem className="w-2.5 h-2.5" /> {runeSlots}
+            </Badge>
+          )}
           {!levelOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Req. {item.level_req}</Badge>}
           {levelOk && !classOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Wrong Class</Badge>}
         </div>
+        {isUnique && (
+          <span className="absolute bottom-1 right-1 bg-orange-500 text-white text-[9px] font-bold rounded w-[16px] h-[16px] flex items-center justify-center leading-none">
+            U
+          </span>
+        )}
       </motion.button>
       {hovered && (
-        <HoverTooltip item={item} character={character} equipped={equipped} triggerRef={ref} />
+        <HoverTooltip item={item} character={character} equipped={equipped} triggerRef={ref} allRunes={allRunes} />
       )}
     </>
   );
 }
 
-function CharacterStatsPanel({ character, equippedItems }) {
-  if (!character) return null;
+// ─── Compact Equipment Grid ─────────────────────────────────────────────────
 
+function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
+  const getSlot = (slot) => equipped.find(i => i.type === slot);
+
+  const renderSlot = (slot) => {
+    const item = getSlot(slot);
+    const Icon = item ? getItemIcon(item) : (TYPE_ICONS[slot] || Backpack);
+    const rarity = item ? RARITY_CONFIG[item.rarity] : null;
+    const extraData = item ? (item.extraData || item.extra_data || {}) : {};
+    const runeSlots = extraData.rune_slots || 0;
+
+    return (
+      <button
+        key={slot}
+        onClick={() => item && onSelectItem(item)}
+        className={`relative w-full h-[52px] rounded-lg border flex items-center gap-2 px-2 transition-all hover:brightness-110 ${
+          item
+            ? `${rarity?.border} ${rarity?.bg} cursor-pointer`
+            : "border-dashed border-gray-600/50 bg-gray-900/30"
+        }`}
+        title={item ? item.name : SLOT_LABELS[slot]}
+      >
+        <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
+          {item && getItemSprite(item) ? (
+            <img src={getItemSprite(item)} alt="" className="w-10 h-10 sprite-outline" style={{ imageRendering: "pixelated" }} />
+          ) : (
+            <Icon className={`w-8 h-8 ${item ? rarity?.color : "text-gray-600"}`} />
+          )}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <span className={`text-[10px] font-semibold truncate block leading-tight ${item ? rarity?.color : "text-gray-600"}`}>
+            {item ? item.name : SLOT_LABELS[slot]}
+          </span>
+          {item && (
+            <span className="text-[9px] text-muted-foreground leading-none">
+              {(item.upgrade_level || 0) > 0 && <span className="text-green-400 mr-1">+{item.upgrade_level}</span>}
+              {runeSlots > 0 && <span className="text-purple-400">◈{runeSlots}</span>}
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-1.5 w-full">
+      {SLOT_ORDER.map(slot => (
+        <div key={slot}>{renderSlot(slot)}</div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Stats Panel ────────────────────────────────────────────────────────────
+
+function CharacterStatsPanel({ character, equippedItems, equippedRunes = [] }) {
+  if (!character) return null;
   const setStats = aggregateSetStats(equippedItems);
-  const { derived } = calculateFinalStats(character, equippedItems, setStats);
+  const { total, derived } = calculateFinalStats(character, equippedItems, setStats, equippedRunes);
+
+  const baseStats = [
+    { icon: Swords, label: "STR", value: total.strength, color: "text-red-400" },
+    { icon: Crosshair, label: "DEX", value: total.dexterity, color: "text-green-400" },
+    { icon: Zap, label: "INT", value: total.intelligence, color: "text-blue-400" },
+    { icon: Heart, label: "VIT", value: total.vitality, color: "text-orange-400" },
+    { icon: Gem, label: "LUK", value: total.luck, color: "text-yellow-400" },
+  ];
 
   const stats = [
     { icon: Swords, label: "ATK", value: derived.attackPower, color: "text-red-400" },
+    { icon: Swords, label: "M.ATK", value: derived.magicAttack, color: "text-purple-400" },
     { icon: Heart, label: "HP", value: derived.maxHp, color: "text-green-400" },
     { icon: Zap, label: "MP", value: derived.maxMp, color: "text-blue-400" },
     { icon: Shield, label: "DEF", value: derived.rawDefense, color: "text-yellow-400" },
@@ -158,35 +339,112 @@ function CharacterStatsPanel({ character, equippedItems }) {
     { icon: Zap, label: "MP/s", value: derived.mpRegen, color: "text-indigo-400" },
     { icon: Swords, label: "SPD", value: `${derived.attackSpeed}x`, color: "text-violet-400" },
     { icon: Shield, label: "DMG Red", value: `${derived.damageReduction}%`, color: "text-stone-400" },
+    { icon: Droplet, label: "Lifesteal", value: `${derived.lifesteal || 0}%`, color: "text-rose-400", hide: !derived.lifesteal },
+    { icon: Coins, label: "Gold+", value: `${derived.goldGainPct || 0}%`, color: "text-yellow-300" },
+    { icon: Gem, label: "EXP+", value: `${derived.expGainPct || 0}%`, color: "text-cyan-300" },
   ];
 
+  const elementalStats = [
+    { icon: Flame, label: "Fire DMG", value: `${derived.fireDmg || 0}%`, color: "text-orange-500" },
+    { icon: Snowflake, label: "Ice DMG", value: `${derived.iceDmg || 0}%`, color: "text-sky-400" },
+    { icon: Zap, label: "Lightning", value: `${derived.lightningDmg || 0}%`, color: "text-yellow-300" },
+    { icon: Skull, label: "Poison", value: `${derived.poisonDmg || 0}%`, color: "text-green-500" },
+    { icon: Droplet, label: "Blood", value: `${derived.bloodDmg || 0}%`, color: "text-red-600" },
+    { icon: Wind, label: "Sand", value: `${derived.sandDmg || 0}%`, color: "text-amber-500" },
+  ].filter(s => parseInt(s.value) > 0);
+
+  const StatRow = ({ icon: Icon, label, value, color }) => (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1">
+        <Icon className={`w-3 h-3 ${color}`} />
+        <span className="text-muted-foreground">{label}</span>
+      </div>
+      <span className={`font-mono font-semibold ${color}`}>{value}</span>
+    </div>
+  );
+
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-1">
-      <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Character Stats</h3>
-      {stats.map(({ icon: Icon, label, value, color }) => (
-        <div key={label} className="flex items-center justify-between py-0.5">
-          <div className="flex items-center gap-1.5">
+    <div className="bg-card border border-border rounded-xl p-3 text-[11px] max-h-[280px] overflow-y-auto">
+      {/* Base stats in a row */}
+      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Base Stats</h3>
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2">
+        {baseStats.map(({ icon: Icon, label, value, color }) => (
+          <div key={label} className="flex items-center gap-1">
             <Icon className={`w-3 h-3 ${color}`} />
-            <span className="text-xs text-muted-foreground">{label}</span>
+            <span className="text-muted-foreground">{label}</span>
+            <span className={`font-mono font-semibold ${color}`}>{value}</span>
           </div>
-          <span className={`text-xs font-mono font-semibold ${color}`}>{value}</span>
-        </div>
-      ))}
+        ))}
+      </div>
+      <div className="border-t border-border my-1.5" />
+      {/* Combat stats in 2 columns */}
+      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Combat Stats</h3>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {stats.filter(s => !s.hide).map(s => <StatRow key={s.label} {...s} />)}
+      </div>
+      {elementalStats.length > 0 && (
+        <>
+          <div className="border-t border-border my-1.5" />
+          <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Elemental</h3>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+            {elementalStats.map(s => <StatRow key={s.label} {...s} />)}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
+// ─── Main Inventory ─────────────────────────────────────────────────────────
+
 export default function Inventory({ character, onCharacterUpdate }) {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState("all");
   const [selectedItem, setSelectedItem] = useState(null);
+  const [seenItems, setSeenItems] = useState(() => {
+    if (!character?.id) return new Set();
+    try {
+      const stored = localStorage.getItem(`seen_items_${character.id}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
+
+  useEffect(() => {
+    if (!character?.id) return;
+    try {
+      const stored = localStorage.getItem(`seen_items_${character.id}`);
+      setSeenItems(stored ? new Set(JSON.parse(stored)) : new Set());
+    } catch { setSeenItems(new Set()); }
+  }, [character?.id]);
+
+  const markSeen = useCallback((itemId) => {
+    setSeenItems(prev => {
+      if (prev.has(itemId)) return prev;
+      const next = new Set(prev);
+      next.add(itemId);
+      try { localStorage.setItem(`seen_items_${character.id}`, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, [character?.id]);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["items", character?.id],
     queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
     enabled: !!character?.id,
   });
+
+  // Fetch runes for stat calculations + tooltip display
+  const { data: runeData } = useQuery({
+    queryKey: ["runes", character?.id],
+    queryFn: () => base44.functions.invoke("runes", { characterId: character.id, action: "list" }),
+    enabled: !!character?.id,
+    staleTime: 120_000,
+  });
+  const allRunes = runeData?.runes || [];
+  const equippedRunes = useMemo(() => allRunes.filter(r => r.itemId || r.item_id), [allRunes]);
 
   const applyEquipmentStats = async (newEquip, updatedItems) => {
     const nowEquipped = updatedItems.filter(i => Object.values(newEquip).includes(i.id));
@@ -206,29 +464,30 @@ export default function Inventory({ character, onCharacterUpdate }) {
         toast({ title: reason, variant: "destructive", duration: 2000 });
         return;
       }
-
       const currentEquipId = character.equipment?.[slot];
       const dupes = items.filter(i => i.type === slot && i.equipped && i.id !== item.id);
-      const updates = [];
-      if (currentEquipId) updates.push(base44.entities.Item.update(currentEquipId, { equipped: false }));
+      const unequipPromises = [];
+      if (currentEquipId && items.some(i => i.id === currentEquipId)) {
+        unequipPromises.push(base44.entities.Item.update(currentEquipId, { equipped: false }).catch(() => {}));
+      }
       for (const dupe of dupes) {
         if (dupe.id !== currentEquipId) {
-          updates.push(base44.entities.Item.update(dupe.id, { equipped: false }));
+          unequipPromises.push(base44.entities.Item.update(dupe.id, { equipped: false }).catch(() => {}));
         }
       }
-      updates.push(base44.entities.Item.update(item.id, { equipped: true }));
-      await Promise.all(updates);
-
+      await Promise.all(unequipPromises);
+      await base44.entities.Item.update(item.id, { equipped: true });
       const newEquip = { ...(character.equipment || {}), [slot]: item.id };
-      const updatedItems = items
-        .map(i => {
-          if (i.id === item.id) return { ...i, equipped: true };
-          if (i.type === slot && i.equipped) return { ...i, equipped: false };
-          return i;
-        });
+      const updatedItems = items.map(i => {
+        if (i.id === item.id) return { ...i, equipped: true };
+        if (i.type === slot && i.equipped) return { ...i, equipped: false };
+        return i;
+      });
       await applyEquipmentStats(newEquip, updatedItems);
+      queryClient.setQueryData(["items", character?.id], updatedItems);
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      setSelectedItem(null);
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
+      setSelectedItem({ ...item, equipped: true });
     },
   });
 
@@ -240,38 +499,64 @@ export default function Inventory({ character, onCharacterUpdate }) {
       delete newEquip[slot];
       const updatedItems = items.map(i => i.id === item.id ? { ...i, equipped: false } : i);
       await applyEquipmentStats(newEquip, updatedItems);
+      queryClient.setQueryData(["items", character?.id], updatedItems);
       queryClient.invalidateQueries({ queryKey: ["items"] });
-      setSelectedItem(null);
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
+      setSelectedItem({ ...item, equipped: false });
     },
   });
 
   const sellMutation = useMutation({
     mutationFn: async (itemIdToSell) => {
       const response = await base44.functions.invoke('sellItem', { itemId: itemIdToSell });
-      if (response.data?.success) {
-        onCharacterUpdate({ ...character, gold: response.data.newGold });
+      if (response?.success) {
+        onCharacterUpdate({ ...character, gold: response.newGold });
         queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
         queryClient.invalidateQueries({ queryKey: ["characters"] });
         setSelectedItem(null);
-        toast({ title: `Sold for ${response.data.sellPrice} gold!`, duration: 1000 });
-      } else if (response.data?.error) {
-        toast({ title: response.data.error, variant: 'destructive' });
+        toast({ title: `Sold for ${response.sellPrice} gold!`, duration: 1000 });
+      } else if (response?.error) {
+        toast({ title: response.error, variant: 'destructive' });
       }
-      return response.data;
+      return response;
+    },
+  });
+
+  const useItemMutation = useMutation({
+    mutationFn: async (itemIdToUse) => {
+      const response = await base44.functions.invoke('useItem', { itemId: itemIdToUse });
+      if (response?.success) {
+        queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
+        queryClient.invalidateQueries({ queryKey: ["characters"] });
+        setSelectedItem(null);
+        toast({ title: response.message || "Item used!" });
+      } else if (response?.error) {
+        toast({ title: response.error, variant: 'destructive' });
+      }
+      return response;
     },
   });
 
   const sellAllMutation = useMutation({
     mutationFn: async () => {
-      const unequipped = items.filter(i => !i.equipped);
+      const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+      const typeFilter = filter === "all" ? gearTypes : filter === "consumable" || filter === "special" || filter === "sets" ? [] : [filter];
+      const unequipped = items.filter(i => !i.equipped && typeFilter.includes(i.type));
       if (unequipped.length === 0) return;
-      await Promise.all(unequipped.map(item => base44.functions.invoke('sellItem', { itemId: item.id })));
+      // Sell in batches of 10 to avoid overwhelming the server
+      for (let i = 0; i < unequipped.length; i += 10) {
+        const batch = unequipped.slice(i, i + 10);
+        await Promise.all(batch.map(item => base44.functions.invoke('sellItem', { itemId: item.id })));
+      }
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       queryClient.invalidateQueries({ queryKey: ["characters"] });
     },
   });
 
-  const equipped = React.useMemo(() => {
+  const equipped = useMemo(() => {
     const equipMap = character.equipment || {};
     const authoritative = [];
     const seen = new Set();
@@ -295,10 +580,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
     return authoritative;
   }, [items, character.equipment]);
 
-  const getSlotEquipped = (slot) => {
-    return equipped.find(i => i.type === slot);
-  };
-
+  // Separate items by category
   const consumableStacks = items
     .filter(i => i.type === "consumable")
     .reduce((acc, item) => {
@@ -310,126 +592,168 @@ export default function Inventory({ character, onCharacterUpdate }) {
     }, {});
   const stackedConsumables = Object.values(consumableStacks);
 
-  const rawFiltered = filter === "all" ? items : items.filter(i => i.type === filter);
-  const filtered = (filter === "consumable"
-    ? stackedConsumables
-    : filter === "all"
-      ? [...items.filter(i => i.type !== "consumable"), ...stackedConsumables]
-      : rawFiltered
-  ).sort((a, b) => (RARITY_CONFIG[b.rarity]?.order ?? -1) - (RARITY_CONFIG[a.rarity]?.order ?? -1));
+  // Special items: materials, stones, tammablocks, tower shards, pet eggs — stacked by name
+  const specialStacks = items
+    .filter(i =>
+      i.type === "material" || i.type === "pet_egg" || i.type === "stone" ||
+      i.name?.toLowerCase().includes("tammablocks") ||
+      i.name?.toLowerCase().includes("tower shard") ||
+      i.name?.toLowerCase().includes("celestial stone") ||
+      i.name?.toLowerCase().includes("egg")
+    )
+    .reduce((acc, item) => {
+      const key = item.name;
+      if (!acc[key]) acc[key] = { ...item, stackCount: 0, stackIds: [] };
+      acc[key].stackCount++;
+      acc[key].stackIds.push(item.id);
+      return acc;
+    }, {});
+  const specialItems = Object.values(specialStacks);
+
+  // Virtual currency items from character.extraData — displayed in Special tab
+  const extraData = character?.extraData || character?.extra_data || {};
+  const CURRENCY_DEFS = [
+    { key: "dublons", name: "Dublons", rarity: "epic", description: "Premium gold coins earned from combat and quests. Spend them at the Shop for exclusive gear, consumables, and mystery boxes." },
+    { key: "crystals", name: "Crystals", rarity: "legendary", description: "Magical crystals used for high-tier gear upgrades, awakening equipment, and purchasing legendary items from the Shop.", sprite: "/sprites/currencies/crystals.png" },
+    { key: "ascension_shards", name: "Ascension Shards", rarity: "legendary", description: "Mystical shards required for ascending your character to unlock new power tiers and stat bonuses.", sprite: "/sprites/currencies/ascension_shards.png" },
+    { key: "celestial_stones", name: "Celestial Stones", rarity: "mythic", description: "Extremely rare stones dropped by bosses. Used to craft mythic equipment and upgrade legendary gear to its final form.", sprite: "/sprites/currencies/celestial_stones.png" },
+    { key: "portal_shards", name: "Portal Shards", rarity: "epic", description: "Earned by clearing waves in the Infinite Portal. Used to purchase portal-exclusive gear and enchantments.", sprite: "/sprites/currencies/portal_shards.png" },
+{ key: "sqrizzscrolls", name: "Sqrizzscrolls", rarity: "epic", description: "Ancient enchantment scrolls. Use them to add special bonus stats or reroll sub-stats on your equipment.", sprite: "/sprites/currencies/sqrizzscrolls.png" },
+    { key: "boss_stones", name: "Boss Stones", rarity: "mythic", description: "Trophies from defeating dungeon bosses. Trade them for boss-exclusive set pieces and powerful unique weapons.", sprite: "/sprites/currencies/boss_stones.png" },
+    { key: "tammablocks", name: "Tammablocks", rarity: "rare", description: "Versatile building blocks used for guild upgrades, base construction, and crafting special utility items.", sprite: "/sprites/currencies/tammablocks.png" },
+    { key: "tower_shards", name: "Tower Shards", rarity: "epic", description: "Collected from clearing floors in the Tower of Trials. Exchange them for tower-exclusive gear and upgrade materials.", sprite: "/sprites/currencies/tower_shards.png" },
+  ];
+  const currencyItems = CURRENCY_DEFS
+    .filter(c => (extraData[c.key] || 0) > 0)
+    .map(c => ({
+      id: `currency_${c.key}`,
+      name: c.name,
+      type: "material",
+      rarity: c.rarity,
+      level: 1,
+      stats: {},
+      extraData: { description: c.description, is_currency: true, quantity: extraData[c.key], sprite: c.sprite },
+      stackCount: extraData[c.key],
+      _isCurrency: true,
+    }));
+  const allSpecialItems = [...currencyItems, ...specialItems];
+
+  const getFilteredItems = () => {
+    if (filter === "sets") return null; // handled separately
+    if (filter === "special") return allSpecialItems;
+    if (filter === "consumable") return stackedConsumables;
+
+    const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+    let result;
+    if (filter === "all") {
+      result = items.filter(i => gearTypes.includes(i.type));
+    } else {
+      result = items.filter(i => i.type === filter);
+    }
+    return result.sort((a, b) => (RARITY_CONFIG[b.rarity]?.order ?? -1) - (RARITY_CONFIG[a.rarity]?.order ?? -1));
+  };
+
+  const filtered = getFilteredItems();
+  const sellableItems = (() => {
+    const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+    const typeFilter = filter === "all" ? gearTypes : filter === "consumable" || filter === "special" || filter === "sets" ? [] : [filter];
+    return items.filter(i => !i.equipped && typeFilter.includes(i.type));
+  })();
+  const sellableCount = sellableItems.length;
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
           <Backpack className="w-5 h-5 text-primary" /> Inventory
         </h2>
-        {items.filter(i => !i.equipped).length > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
+        {sellableCount > 0 && (
+          <PixelButton
+            variant="ok"
+            label={`SELL ALL${filter !== "all" ? " " + filter.charAt(0).toUpperCase() + filter.slice(1) + "S" : ""} (${sellableCount} · ${sellableItems.reduce((s, i) => s + (i.sell_price || 5), 0)}G)`}
             onClick={() => sellAllMutation.mutate()}
             disabled={sellAllMutation.isPending}
-            className="gap-1.5"
-          >
-            <Coins className="w-3.5 h-3.5" />
-            Sell All ({items.filter(i => !i.equipped).length} · {items.filter(i => !i.equipped).reduce((s, i) => s + (i.sell_price || 5), 0)}g)
-          </Button>
+          />
         )}
       </div>
 
-      <div className="flex gap-4">
-        <div className="flex-1 min-w-0 space-y-4">
-          <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="text-xs font-semibold text-muted-foreground mb-3">EQUIPMENT</h3>
-            <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
-              {SLOT_ORDER.map(slot => {
-                const item = getSlotEquipped(slot);
-                const Icon = item ? getItemIcon(item) : (TYPE_ICONS[slot] || Backpack);
-                const rarity = item ? RARITY_CONFIG[item.rarity] : null;
-                return (
-                  <button
-                    key={slot}
-                    onClick={() => item && setSelectedItem(item)}
-                    className={`p-3 rounded-lg border-2 text-center transition-all relative ${
-                      item
-                        ? `${rarity?.border} ${rarity?.bg}`
-                        : "border-dashed border-border bg-muted/30"
-                    }`}
-                  >
-                    <div className="relative inline-block mb-1">
-                      <Icon className={`w-5 h-5 ${item ? rarity?.color : "text-muted-foreground"}`} />
-                      {item?.item_level && (
-                        <span className={`absolute -bottom-1 -right-2 text-[8px] font-bold leading-none px-0.5 rounded ${rarity?.color} bg-background border border-current`}>
-                          {item.item_level}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs truncate">{item ? item.name : SLOT_LABELS[slot]}</p>
-                    {item && (
-                      <div className="flex items-center justify-center gap-0.5 mt-0.5">
-                        {(item.upgrade_level || 0) > 0 && (
-                          <span className="text-[8px] font-bold text-green-400">+{item.upgrade_level}</span>
-                        )}
-                        {(item.star_level || 0) > 0 && (
-                          <span className="text-[8px] text-yellow-400">★{item.star_level}</span>
-                        )}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <Tabs value={filter} onValueChange={setFilter}>
-            <TabsList className="bg-muted flex flex-wrap h-auto gap-1 p-1">
-              <TabsTrigger value="all" className="flex items-center gap-1 text-xs"><Backpack className="w-3 h-3" />All</TabsTrigger>
-              <TabsTrigger value="weapon" className="flex items-center gap-1 text-xs"><Swords className="w-3 h-3" />Weapons</TabsTrigger>
-              <TabsTrigger value="armor" className="flex items-center gap-1 text-xs"><ShieldCheck className="w-3 h-3" />Armor</TabsTrigger>
-              <TabsTrigger value="helmet" className="flex items-center gap-1 text-xs"><Crown className="w-3 h-3" />Helmets</TabsTrigger>
-              <TabsTrigger value="gloves" className="flex items-center gap-1 text-xs"><Hand className="w-3 h-3" />Gloves</TabsTrigger>
-              <TabsTrigger value="boots" className="flex items-center gap-1 text-xs"><Footprints className="w-3 h-3" />Boots</TabsTrigger>
-              <TabsTrigger value="ring" className="flex items-center gap-1 text-xs"><CircleDot className="w-3 h-3" />Rings</TabsTrigger>
-              <TabsTrigger value="amulet" className="flex items-center gap-1 text-xs"><Gem className="w-3 h-3" />Amulets</TabsTrigger>
-              <TabsTrigger value="consumable" className="flex items-center gap-1 text-xs"><FlaskConical className="w-3 h-3" />Consumables</TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {isLoading && Array(4).fill(0).map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-3 animate-pulse h-24" />
-            ))}
-            {filtered.map(item => {
-              const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
-              const { valid: canEquip } = validateEquip(character, item);
-              return (
-                <ItemCard
-                  key={item.stackIds ? item.name : item.id}
-                  item={item}
-                  character={character}
-                  equipped={equipped}
-                  onSelect={setSelectedItem}
-                  rarity={rarity}
-                  canEquip={canEquip}
-                />
-              );
-            })}
-            {!isLoading && filtered.length === 0 && (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                No items found.
-              </div>
-            )}
-          </div>
+      {/* Top: Equipment Grid + Stats (compact side-by-side) */}
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-3">
+        {/* Equipment Grid */}
+        <div className="bg-card border border-border rounded-xl p-3">
+          <h3 className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Equipment</h3>
+          <CharacterEquipmentPanel
+            character={character}
+            equipped={equipped}
+            onSelectItem={setSelectedItem}
+          />
         </div>
 
-        <div className="hidden md:block w-52 flex-shrink-0">
-          <div className="sticky top-4">
-            <CharacterStatsPanel character={character} equippedItems={equipped} />
-          </div>
-        </div>
+        {/* Stats Panel (scrollable) */}
+        <CharacterStatsPanel character={character} equippedItems={equipped} equippedRunes={equippedRunes} />
       </div>
 
+      {/* Tabs */}
+      <Tabs value={filter} onValueChange={setFilter}>
+        <TabsList className="bg-muted flex flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="all" className="flex items-center gap-1 text-xs"><Backpack className="w-3 h-3" />All Gear</TabsTrigger>
+          <TabsTrigger value="weapon" className="flex items-center gap-1 text-xs"><Swords className="w-3 h-3" />Weapons</TabsTrigger>
+          <TabsTrigger value="armor" className="flex items-center gap-1 text-xs"><ShieldCheck className="w-3 h-3" />Armor</TabsTrigger>
+          <TabsTrigger value="helmet" className="flex items-center gap-1 text-xs"><Crown className="w-3 h-3" />Helmets</TabsTrigger>
+          <TabsTrigger value="gloves" className="flex items-center gap-1 text-xs"><Hand className="w-3 h-3" />Gloves</TabsTrigger>
+          <TabsTrigger value="boots" className="flex items-center gap-1 text-xs"><Footprints className="w-3 h-3" />Boots</TabsTrigger>
+          <TabsTrigger value="ring" className="flex items-center gap-1 text-xs"><CircleDot className="w-3 h-3" />Rings</TabsTrigger>
+          <TabsTrigger value="amulet" className="flex items-center gap-1 text-xs"><Gem className="w-3 h-3" />Amulets</TabsTrigger>
+          <TabsTrigger value="consumable" className="flex items-center gap-1 text-xs"><FlaskConical className="w-3 h-3" />Consumables</TabsTrigger>
+          <TabsTrigger value="special" className="flex items-center gap-1 text-xs"><Sparkles className="w-3 h-3" />Special</TabsTrigger>
+          <TabsTrigger value="sets" className="flex items-center gap-1 text-xs"><Shield className="w-3 h-3 text-yellow-400" />Sets</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* Item Grid */}
+      {filter === "sets" ? (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <SetCollectionPanel
+            equippedItems={equipped}
+            allItems={items}
+            characterClass={character?.class}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {isLoading && Array(4).fill(0).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-lg p-3 animate-pulse h-24" />
+          ))}
+          {filtered && filtered.map(item => {
+            const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
+            const { valid: canEquip } = validateEquip(character, item);
+            return (
+              <ItemCard
+                key={item.stackIds ? item.name : item.id}
+                item={item}
+                character={character}
+                equipped={equipped}
+                onSelect={setSelectedItem}
+                rarity={rarity}
+                canEquip={canEquip}
+                isNew={!seenItems.has(item.id)}
+                onMarkSeen={markSeen}
+                allRunes={allRunes}
+              />
+            );
+          })}
+          {!isLoading && filtered && filtered.length === 0 && (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              {filter === "special"
+                ? "No special items. Tammablocks, Tower Shards, Pet Eggs, and Celestial Stones appear here."
+                : "No items found."}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Item Detail Modal */}
       <AnimatePresence>
         {selectedItem && (
           <motion.div
@@ -460,7 +784,11 @@ export default function Inventory({ character, onCharacterUpdate }) {
                       compareItem={!selectedItem.equipped ? equippedInSlot : null}
                       equippedItems={equipped}
                       character={character}
+                      socketedRunes={allRunes}
                     />
+                    {(selectedItem.type === "consumable" || selectedItem.type === "material") && (
+                      <ConsumableDetail item={selectedItem} />
+                    )}
                     {equippedInSlot && !selectedItem.equipped && (
                       <div className="mt-3 pt-3 border-t border-border">
                         <p className="text-xs text-muted-foreground mb-2">Currently Equipped:</p>
@@ -468,31 +796,55 @@ export default function Inventory({ character, onCharacterUpdate }) {
                       </div>
                     )}
                     <div className="flex gap-2 mt-5">
-                      {SLOT_ORDER.includes(selectedItem.type) && (
+                      {selectedItem._isCurrency && (
+                        <div className="flex-1 text-center text-xs text-muted-foreground py-2 space-y-2">
+                          {(selectedItem.extraData || selectedItem.extra_data || {}).description && (
+                            <p className="text-sm text-foreground/80 text-left">{(selectedItem.extraData || selectedItem.extra_data).description}</p>
+                          )}
+                          <p>You have <span className="font-bold text-foreground">{selectedItem.stackCount?.toLocaleString()}</span> {selectedItem.name}</p>
+                        </div>
+                      )}
+                      {!selectedItem._isCurrency && SLOT_ORDER.includes(selectedItem.type) && (
                         selectedItem.equipped ? (
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => unequipMutation.mutate(selectedItem)}>
-                            Unequip
-                          </Button>
+                          <PixelButton variant="cancel" label="UNEQUIP" onClick={() => unequipMutation.mutate(selectedItem)} />
                         ) : (
-                          <Button
-                            size="sm"
-                            className="flex-1 gap-1"
+                          <PixelButton
+                            variant="ok"
+                            label={!levelOk ? `REQ. LV.${selectedItem.level_req}` : !classCheck.allowed ? "WRONG CLASS" : "EQUIP"}
                             disabled={!canEquip}
                             onClick={() => equipMutation.mutate(selectedItem)}
-                            title={!canEquip ? equipReason : ""}
-                          >
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                            {!levelOk ? `Req. Lv.${selectedItem.level_req}` : !classCheck.allowed ? "Wrong Class" : "Equip"}
-                          </Button>
+                          />
                         )
                       )}
-                      <Button variant="destructive" size="sm" onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}>
-                        <Coins className="w-3.5 h-3.5 mr-1" /> Sell {selectedItem.stackIds ? "1" : ""} ({selectedItem.sell_price || 5}g)
-                      </Button>
+                      {selectedItem.type === "consumable" && (() => {
+                        const selExtra = selectedItem.extraData || selectedItem.extra_data || {};
+                        const isPetEgg = selExtra.consumableType === "pet_egg" || selExtra.consumableType === "pet_egg_shiny";
+                        return isPetEgg ? (
+                          <PixelButton
+                            variant="ok"
+                            label="HATCH IN PETS"
+                            onClick={() => { setSelectedItem(null); navigate("/pets"); }}
+                          />
+                        ) : (
+                          <PixelButton
+                            variant="ok"
+                            label="USE"
+                            disabled={useItemMutation.isPending}
+                            onClick={() => useItemMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}
+                          />
+                        );
+                      })()}
+                      {!selectedItem._isCurrency && (
+                        <PixelButton
+                          variant="ok"
+                          label={`SELL${selectedItem.stackIds ? " ×1" : ""} (${selectedItem.sell_price || 5}G)`}
+                          onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}
+                        />
+                      )}
                     </div>
-                    <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => setSelectedItem(null)}>
-                      Close
-                    </Button>
+                    <div className="mt-2">
+                      <PixelButton variant="cancel" label="CLOSE" onClick={() => setSelectedItem(null)} />
+                    </div>
                   </>
                 );
               })()}

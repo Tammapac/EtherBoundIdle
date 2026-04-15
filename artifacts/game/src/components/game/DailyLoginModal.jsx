@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { base44 } from "@/api/base44Client";
 import { Coins, Gem, Gift, Star, X, Flame } from "lucide-react";
 
@@ -111,12 +112,9 @@ export default function DailyLoginModal({ character, onCharacterUpdate }) {
               </p>
             )}
 
-            <Button
-              onClick={() => setShow(false)}
-              className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold"
-            >
-              <Flame className="w-4 h-4 mr-2" /> Collect & Continue
-            </Button>
+            <div className="flex justify-center">
+              <PixelButton variant="ok" label="COLLECT & CONTINUE" onClick={() => setShow(false)} />
+            </div>
           </motion.div>
         </motion.div>
       )}

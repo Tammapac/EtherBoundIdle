@@ -3,6 +3,7 @@ import { apiFetch } from "../api/client";
 import { useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import { Shield, Sparkles, Target, Swords, ChevronRight } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
@@ -122,15 +123,14 @@ export default function CharacterCreation({ onCreated }) {
             </div>
           </div>
 
-          <Button
-            size="lg"
-            className="w-full h-12 font-orbitron text-base tracking-wider"
-            disabled={!name.trim() || !selectedClass || createMutation.isPending}
-            onClick={() => createMutation.mutate()}
-          >
-            {createMutation.isPending ? "Creating..." : "Begin Adventure"}
-            <ChevronRight className="w-5 h-5 ml-2" />
-          </Button>
+          <div className="flex justify-center">
+            <PixelButton
+              variant="ok"
+              label={createMutation.isPending ? "CREATING..." : "BEGIN ADVENTURE"}
+              disabled={!name.trim() || !selectedClass || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            />
+          </div>
         </div>
       </motion.div>
     </div>

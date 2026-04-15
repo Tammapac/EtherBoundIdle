@@ -893,59 +893,39 @@ function PetsInner({ character, onCharacterUpdate }) {
           <div className="flex gap-1.5 flex-wrap">
             {isEquipped ? (
               <>
-                <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px]" onClick={() => unequipMutation.mutate()}>
-                  Unequip
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className={`h-7 px-2 text-[10px] gap-1 ${canFeedNow ? "text-pink-400 border-pink-500/30 hover:bg-pink-500/10" : "text-muted-foreground border-gray-600"}`}
-                  title={canFeedNow ? "Feed pet (+bond) — costs 200 gold" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
+                <PixelButton variant="cancel" label="UNEQUIP" onClick={() => unequipMutation.mutate()} />
+                <PixelButton
+                  variant="ok"
+                  label={canFeedNow ? "FEED (200G)" : formatCountdown(feedCooldown)}
                   onClick={() => canFeedNow && feedMutation.mutate(pet.id)}
                   disabled={!canFeedNow || feedMutation.isPending}
-                >
-                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed (200g)" : formatCountdown(feedCooldown)}
-                </Button>
+                />
               </>
             ) : (
               <>
-                <Button size="sm" className="flex-1 h-7 text-[10px] bg-primary/80 hover:bg-primary" onClick={() => equipMutation.mutate(pet.id)}>
-                  Equip
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className={`h-7 px-2 text-[10px] gap-1 ${canFeedNow ? "text-pink-400 border-pink-500/30 hover:bg-pink-500/10" : "text-muted-foreground border-gray-600"}`}
-                  title={canFeedNow ? "Feed pet (+bond) — costs 200 gold" : `Feed cooldown: ${formatCountdown(feedCooldown)}`}
+                <PixelButton variant="ok" label="EQUIP" onClick={() => equipMutation.mutate(pet.id)} />
+                <PixelButton
+                  variant="ok"
+                  label={canFeedNow ? "FEED (200G)" : formatCountdown(feedCooldown)}
                   onClick={() => canFeedNow && feedMutation.mutate(pet.id)}
                   disabled={!canFeedNow || feedMutation.isPending}
-                >
-                  <Heart className="w-3 h-3" />{canFeedNow ? "Feed (200g)" : formatCountdown(feedCooldown)}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2 text-[10px] text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/10"
-                  title="Reroll Traits (costs gold)"
+                />
+                <PixelButton
+                  variant="ok"
+                  label="REROLL TRAITS"
                   onClick={() => rerollTraitsMutation.mutate(pet.id)}
                   disabled={rerollTraitsMutation.isPending}
-                >
-                  <RefreshCw className="w-3 h-3 mr-1" />Traits
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2 text-[10px] text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                  title={`Sell for gold (${({ common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 }[pet.rarity] || 100).toLocaleString()} gold)`}
+                />
+                <PixelButton
+                  variant="ok"
+                  label="SELL"
                   onClick={() => {
                     const prices = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
                     const price = prices[pet.rarity] || 100;
                     setConfirmModal({ title: "Sell Pet", message: `Sell ${pet.species} for ${price.toLocaleString()} gold?`, onConfirm: () => sellMutation.mutate(pet.id) });
                   }}
                   disabled={sellMutation.isPending}
-                >
-                  Sell
-                </Button>
+                />
                 <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300" onClick={() => {
                   setConfirmModal({ title: "Release Pet", message: `Release ${pet.species}? This cannot be undone.`, onConfirm: () => releaseMutation.mutate(pet.id), variant: "destructive" });
                 }}>
@@ -1110,25 +1090,18 @@ function PetsInner({ character, onCharacterUpdate }) {
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
-              <Button size="sm" className="text-xs gap-1" onClick={() => grantPetMutation.mutate()}
-                disabled={grantPetMutation.isPending}>
-                <PawPrint className="w-3 h-3" /> Grant Pet
-              </Button>
+              <PixelButton variant="ok" label="GRANT PET" onClick={() => grantPetMutation.mutate()} disabled={grantPetMutation.isPending} />
             </div>
           </div>
 
           {/* Fuse toggle */}
           <div className="flex justify-end">
             {fusionGroups.length > 0 && (
-              <Button
-                size="sm"
-                variant={fuseMode ? "destructive" : "outline"}
-                className="gap-1.5 text-xs"
+              <PixelButton
+                variant={fuseMode ? "cancel" : "ok"}
+                label={fuseMode ? "CANCEL FUSION" : "FUSE PETS"}
                 onClick={() => { setFuseMode(!fuseMode); setSelectedForFuse([]); setFuseSpeciesFilter(null); setFuseRarityFilter(null); }}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                {fuseMode ? "Cancel Fusion" : "Fuse Pets"}
-              </Button>
+              />
             )}
           </div>
 
@@ -1163,9 +1136,9 @@ function PetsInner({ character, onCharacterUpdate }) {
                 </div>
               </div>
               {canFuse && (
-                <Button
-                  size="sm"
-                  className={`bg-amber-600 hover:bg-amber-700 text-white gap-1.5 transition-all ${fuseAnimating ? "animate-pulse scale-105 ring-2 ring-amber-400/60" : ""}`}
+                <PixelButton
+                  variant="ok"
+                  label={fuseMutation.isPending ? "FUSING..." : `FUSE INTO ${(RARITY_NEXT[selectedForFuse[0]?.rarity] || "HIGHER RARITY").toUpperCase()}`}
                   onClick={() => {
                     const sp = selectedForFuse[0];
                     const fuseChances = { common: 80, uncommon: 65, rare: 50, epic: 35, legendary: 20, mythic: 10 };
@@ -1179,12 +1152,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                     });
                   }}
                   disabled={fuseMutation.isPending}
-                >
-                  <Sparkles className={`w-3.5 h-3.5 ${fuseAnimating ? "animate-spin" : ""}`} />
-                  {fuseMutation.isPending
-                    ? "Fusing..."
-                    : `Fuse into ${RARITY_NEXT[selectedForFuse[0]?.rarity] || "higher rarity"}`}
-                </Button>
+                />
               )}
             </div>
           )}
@@ -1238,10 +1206,9 @@ function PetsInner({ character, onCharacterUpdate }) {
                     </button>
                   ))}
                   {rarityFilter !== "all" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 gap-1"
+                    <PixelButton
+                      variant="ok"
+                      label={`SELL ALL ${rarityFilter.toUpperCase()}`}
                       onClick={() => {
                         const count = unequippedPets.filter(p => p.rarity === rarityFilter).length;
                         const prices = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
@@ -1253,9 +1220,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                         });
                       }}
                       disabled={sellAllMutation.isPending || unequippedPets.filter(p => p.rarity === rarityFilter).length === 0}
-                    >
-                      <Trash2 className="w-3 h-3" /> Sell All {rarityFilter}
-                    </Button>
+                    />
                   )}
                 </div>
               )}
@@ -1337,15 +1302,12 @@ function PetsInner({ character, onCharacterUpdate }) {
                             </div>
                             <div className="flex gap-1.5">
                               {isDone ? (
-                                <Button
-                                  size="sm"
-                                  className="h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white gap-1"
+                                <PixelButton
+                                  variant="ok"
+                                  label="CLAIM"
                                   onClick={() => claimExpeditionMutation.mutate({ expeditionId: exp.id, petName: pet?.species || "Pet" })}
                                   disabled={claimExpeditionMutation.isPending}
-                                >
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  Claim
-                                </Button>
+                                />
                               ) : (
                                 <Button
                                   size="sm"
@@ -1468,18 +1430,16 @@ function PetsInner({ character, onCharacterUpdate }) {
                       </div>
                     )}
 
-                    <Button
-                      className="w-full gap-1.5 text-sm"
+                    <PixelButton
+                      variant="ok"
+                      label={startExpeditionMutation.isPending ? "SENDING..." : "SEND ON EXPEDITION"}
                       disabled={!selectedExpeditionPet || !selectedRegion || !selectedDuration || startExpeditionMutation.isPending}
                       onClick={() => startExpeditionMutation.mutate({
                         petId: selectedExpeditionPet,
                         region: selectedRegion,
                         duration: selectedDuration,
                       })}
-                    >
-                      <MapPin className="w-4 h-4" />
-                      {startExpeditionMutation.isPending ? "Sending..." : "Send on Expedition"}
-                    </Button>
+                    />
                   </div>
                 )}
               </div>
@@ -1543,23 +1503,17 @@ function PetsInner({ character, onCharacterUpdate }) {
                   </p>
                   {selectedInventoryItem && (
                     <div className="flex gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 text-[10px] text-red-400 hover:text-red-300 gap-1"
+                      <PixelButton
+                        variant="ok"
+                        label="SALVAGE"
                         onClick={() => { setConfirmModal({ title: "Salvage Item", message: `Salvage ${selectedInventoryItem.name} for gold?`, onConfirm: () => salvageMutation.mutate(selectedInventoryItem.id) }); }}
                         disabled={salvageMutation.isPending}
-                      >
-                        <Trash2 className="w-3 h-3" /> Salvage
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 text-[10px] text-muted-foreground gap-1"
+                      />
+                      <PixelButton
+                        variant="cancel"
+                        label="CLEAR"
                         onClick={() => setSelectedInventoryItem(null)}
-                      >
-                        Clear
-                      </Button>
+                      />
                     </div>
                   )}
                 </div>
@@ -1664,15 +1618,9 @@ function PetsInner({ character, onCharacterUpdate }) {
                             )}
                           </p>
                         )}
-                        <Button
-                          size="sm"
-                          className={`w-full gap-1.5 text-xs transition-all ${
-                            evolveAnimating === pet.id ? "animate-pulse scale-105 ring-2 ring-purple-400/60" : ""
-                          } ${
-                            eligible
-                              ? "bg-gradient-to-r from-amber-600 to-purple-600 hover:from-amber-700 hover:to-purple-700 text-white"
-                              : "opacity-50 cursor-not-allowed"
-                          }`}
+                        <PixelButton
+                          variant="ok"
+                          label={isEvolving ? "EVOLVING..." : eligible ? `EVOLVE (${({ common: 200, uncommon: 350, rare: 500, epic: 800, legendary: 1500, mythic: 3000 }[pet.rarity] || 500).toLocaleString()} 💎)` : `LV.${nextStage?.levelReq} REQUIRED`}
                           disabled={!eligible || isEvolving}
                           onClick={() => {
                             if (!eligible) return;
@@ -1684,10 +1632,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                               onConfirm: () => { setEvolvingPetId(pet.id); evolveMutation.mutate(pet.id); },
                             });
                           }}
-                        >
-                          <TrendingUp className={`w-3 h-3 ${evolveAnimating === pet.id ? "animate-spin" : ""}`} />
-                          {isEvolving ? "Evolving..." : eligible ? `Evolve (${({ common: 200, uncommon: 350, rare: 500, epic: 800, legendary: 1500, mythic: 3000 }[pet.rarity] || 500).toLocaleString()} 💎)` : `Lv.${nextStage?.levelReq} required`}
-                        </Button>
+                        />
                       </div>
                     )}
                   </div>
@@ -1753,18 +1698,14 @@ function PetsInner({ character, onCharacterUpdate }) {
                     }`}>
                       {availablePoints} skill point{availablePoints !== 1 ? "s" : ""} available
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5 text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                    <PixelButton
+                      variant="ok"
+                      label="RESET (2,000G)"
                       onClick={() => {
                         setConfirmModal({ title: "Reset Skill Tree", message: "Reset skill tree for 2,000 gold?", onConfirm: () => resetSkillsMutation.mutate(pet.id) });
                       }}
                       disabled={resetSkillsMutation.isPending}
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset (2,000g)
-                    </Button>
+                    />
                   </div>
                 </div>
 
@@ -1931,17 +1872,15 @@ function PetsInner({ character, onCharacterUpdate }) {
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <p className="text-[10px] text-amber-400">Cost: 5,000 gold + 100 gems</p>
-                  <Button
-                    className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white gap-1.5"
+                  <PixelButton
+                    variant="ok"
+                    label={breedMutation.isPending ? "BREEDING..." : "BREED (5,000G + 100💎)"}
                     onClick={() => {
                       setBreedResult(null);
                       breedMutation.mutate({ pet1Id: breedSlot1.id, pet2Id: breedSlot2.id });
                     }}
                     disabled={breedMutation.isPending}
-                  >
-                    <Heart className="w-4 h-4" />
-                    {breedMutation.isPending ? "Breeding..." : "Breed (5,000g + 100💎)"}
-                  </Button>
+                  />
                 </div>
               </div>
             </div>
@@ -2405,27 +2344,20 @@ function HatcheryTab({ character }) {
             {/* Actions */}
             <div className="flex gap-2 justify-center mt-3">
               {!isReady && (incubating.speedups_used || 0) < 5 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1 border-violet-500/40 text-violet-400 hover:bg-violet-500/20"
+                <PixelButton
+                  variant="ok"
+                  label={`SPEED UP -30M (50💎) (${incubating.speedups_used || 0}/5)`}
                   onClick={() => speedupMutation.mutate()}
                   disabled={speedupMutation.isPending}
-                >
-                  <FastForward className="w-3.5 h-3.5" />
-                  Speed Up (-30m)
-                  <span className="flex items-center gap-0.5 text-violet-300"><Gem className="w-3 h-3" />50</span>
-                  <span className="text-[10px] text-muted-foreground">({incubating.speedups_used || 0}/5)</span>
-                </Button>
+                />
               )}
               {isReady && (
-                <Button
-                  className="gap-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 font-orbitron"
+                <PixelButton
+                  variant="ok"
+                  label={claimMutation.isPending ? "HATCHING..." : "HATCH NOW!"}
                   onClick={() => claimMutation.mutate()}
                   disabled={claimMutation.isPending}
-                >
-                  <Sparkles className="w-4 h-4" /> Hatch Now!
-                </Button>
+                />
               )}
             </div>
           </div>
@@ -2514,9 +2446,7 @@ function HatcheryTab({ character }) {
                   </div>
                 )}
               </motion.div>
-              <Button onClick={() => setShowHatchResult(null)} className="w-full bg-amber-600 hover:bg-amber-700 font-orbitron">
-                Awesome!
-              </Button>
+              <PixelButton variant="ok" label="AWESOME!" onClick={() => setShowHatchResult(null)} />
             </motion.div>
           </motion.div>
         )}

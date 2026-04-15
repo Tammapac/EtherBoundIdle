@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Hammer, BookOpen, Landmark, ArrowUp } from "lucide-react";
+import PixelButton from "@/components/game/PixelButton";
 
 const BUILDINGS = [
   {
@@ -65,9 +66,7 @@ export default function GuildBase({ guild, myRole, onUpgrade, isUpgrading }) {
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">Lv.{level}/{MAX_LEVEL}</Badge>
                   {!maxed && canManage(myRole) && (
-                    <Button size="sm" className="h-7 text-xs gap-1" disabled={!canAfford || isUpgrading} onClick={() => onUpgrade(b, level)}>
-                      <ArrowUp className="w-3 h-3" /> {cost}t
-                    </Button>
+                    <PixelButton variant="ok" label={`UPGRADE (${cost}T)`} disabled={!canAfford || isUpgrading} onClick={() => onUpgrade(b, level)} />
                   )}
                   {maxed && <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">MAX</Badge>}
                 </div>

@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -58,21 +60,49 @@ const DERIVED_SECTIONS = [
     title: "Utility",
     color: "text-yellow-400",
     stats: [
-      { key: "goldGainPct",    label: "Gold Bonus",     icon: Coins,        fmt: v => v.toFixed(0),           suffix: "%",   color: "text-yellow-400", hideIfZero: true },
-      { key: "expGainPct",     label: "EXP Bonus",      icon: Star,         fmt: v => v.toFixed(0),           suffix: "%",   color: "text-purple-400", hideIfZero: true },
+      { key: "goldGainPct",    label: "Gold Bonus",     icon: Coins,        fmt: v => v.toFixed(0),           suffix: "%",   color: "text-yellow-400" },
+      { key: "expGainPct",     label: "EXP Bonus",      icon: Star,         fmt: v => v.toFixed(0),           suffix: "%",   color: "text-purple-400" },
+      { key: "lootBonus",      label: "Loot Bonus",     icon: Sparkles,     fmt: v => v.toFixed(0),           suffix: "%",   color: "text-green-400" },
     ]
   },
 ];
 
 export default function CharacterProfileModal({ character, onCharacterUpdate, onClose }) {
+  const { logout } = useAuth();
   const [pendingStats, setPendingStats] = useState({});
 
   const { data: equippedItems = [] } = useQuery({
-    queryKey: ["items", character?.id],
-    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
+    queryKey: ["equippedItems", character?.id],
+    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id, equipped: true }),
     enabled: !!character?.id,
-    select: (data) => data.filter(i => i.equipped),
   });
+
+  const { data: guildData } = useQuery({
+    queryKey: ["guildForStats", character?.guild_id],
+    queryFn: async () => {
+      if (!character?.guild_id) return null;
+      const guilds = await base44.entities.Guild.filter({ id: character.guild_id });
+      return guilds?.[0] || null;
+    },
+    enabled: !!character?.guild_id,
+    staleTime: 60000,
+  });
+
+  const { data: petData } = useQuery({
+    queryKey: ["petsForStats", character?.id],
+    queryFn: () => base44.functions.invoke("petAction", { characterId: character.id, action: "list" }),
+    enabled: !!character?.id,
+    staleTime: 60000,
+  });
+
+  const { data: runeData } = useQuery({
+    queryKey: ["runesForStats", character?.id],
+    queryFn: () => base44.functions.invoke("runes", { characterId: character.id, action: "list" }),
+    enabled: !!character?.id,
+    staleTime: 60000,
+  });
+  const equippedRunes = (runeData?.runes || []).filter(r => r.itemId);
+  const equippedPetForStats = (petData?.pets || []).find(p => p.equipped);
 
   const statMutation = useMutation({
     mutationFn: async () => {
@@ -82,7 +112,7 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
         updates[key] = (character[key] || 10) + val;
       }
       const tempChar = { ...character, ...updates };
-      const { derived } = calculateFinalStats(tempChar, equippedItems);
+      const { derived } = calculateFinalStats(tempChar, equippedItems, null, equippedRunes);
       updates.max_hp = derived.maxHp;
       updates.max_mp = derived.maxMp;
       updates.hp = derived.maxHp;
@@ -96,13 +126,21 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
   const totalPending = Object.values(pendingStats).reduce((s, v) => s + v, 0);
   const availablePoints = (character?.stat_points || 0) - totalPending;
 
-  const addStat = (key) => {
-    if (availablePoints <= 0) return;
-    setPendingStats(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+  const addStat = (key, amount = 1) => {
+    setPendingStats(prev => {
+      const currentTotal = Object.values(prev).reduce((s, v) => s + v, 0);
+      const remaining = (character?.stat_points || 0) - currentTotal;
+      const actualAdd = Math.min(amount, remaining);
+      if (actualAdd <= 0) return prev;
+      return { ...prev, [key]: (prev[key] || 0) + actualAdd };
+    });
   };
-  const removeStat = (key) => {
-    if (!pendingStats[key]) return;
-    setPendingStats(prev => ({ ...prev, [key]: prev[key] - 1 }));
+  const removeStat = (key, amount = 1) => {
+    setPendingStats(prev => {
+      const current = prev[key] || 0;
+      if (current <= 0) return prev;
+      return { ...prev, [key]: Math.max(0, current - amount) };
+    });
   };
 
   if (!character) return null;
@@ -112,7 +150,28 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
   for (const [k, v] of Object.entries(pendingStats)) {
     previewChar[k] = (character[k] || 10) + v;
   }
-  const { base, equipBonus, total, derived } = calculateFinalStats(previewChar, equippedItems);
+  const { base, equipBonus, total, derived } = calculateFinalStats(previewChar, equippedItems, null, equippedRunes);
+  derived.lootBonus = Math.min(50, Math.round((total.luck || 0) * 0.5));
+
+  // Add guild + pet bonuses to EXP/Gold/Damage display so player sees total
+  const guildBuffs2 = guildData?.buffs && typeof guildData.buffs === 'object' ? guildData.buffs : {};
+  derived.expGainPct = (derived.expGainPct || 0) + (guildBuffs2.exp_bonus || 0);
+  derived.goldGainPct = (derived.goldGainPct || 0) + (guildBuffs2.gold_bonus || 0);
+  if (guildBuffs2.damage_bonus) {
+    const dmgBonus = 1 + (guildBuffs2.damage_bonus / 100);
+    derived.attackPower = Math.floor((derived.attackPower || 0) * dmgBonus);
+    derived.magicAttack = Math.floor((derived.magicAttack || 0) * dmgBonus);
+  }
+  if (equippedPetForStats) {
+    if (equippedPetForStats.passiveType === "exp_gain") derived.expGainPct += equippedPetForStats.passiveValue || 0;
+    if (equippedPetForStats.passiveType === "gold_gain") derived.goldGainPct += equippedPetForStats.passiveValue || 0;
+    // Add pet skill tree exp/gold bonuses
+    const st2 = equippedPetForStats.skillTree || {};
+    const expPts = st2.resource?.exp_seeker || 0;
+    const goldPts = st2.resource?.gold_finder || 0;
+    if (expPts > 0) derived.expGainPct += Math.round(0.02 * expPts * 100);
+    if (goldPts > 0) derived.goldGainPct += Math.round(0.02 * goldPts * 100);
+  }
 
   return (
     <AnimatePresence>
@@ -134,8 +193,8 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center">
-                <Shield className="w-7 h-7 text-primary" />
+              <div className="w-14 h-14 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden">
+                <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-12 h-12" style={{ imageRendering: "pixelated" }} />
               </div>
               <div>
                 <h2 className="font-orbitron font-bold text-xl">{character.name}</h2>
@@ -196,7 +255,7 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-sm">Attributes</h3>
                 {availablePoints > 0 && (
-                  <Badge className="bg-primary/20 text-primary border-primary/30">{availablePoints} pts available</Badge>
+                  <Badge className="bg-primary/20 text-primary border-primary/30">{availablePoints} pts (Shift+Click=10)</Badge>
                 )}
               </div>
               <div className="space-y-2">
@@ -216,13 +275,43 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
                         {(gearBonus > 0 || pending > 0) && <span className="text-foreground font-bold">= {finalVal}</span>}
                       </div>
                       {(character.stat_points || 0) > 0 && (
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeStat(key)} disabled={!pendingStats[key]}>
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => addStat(key)} disabled={availablePoints <= 0}>
-                            <Plus className="w-3 h-3" />
-                          </Button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="h-6 w-6 flex items-center justify-center rounded bg-red-900/50 text-red-300 hover:bg-red-800 disabled:opacity-30 text-xs"
+                            onClick={(e) => removeStat(key, e.shiftKey ? 10 : 1)}
+                            disabled={!pendingStats[key]}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={pending}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              const val = Math.max(0, Math.min(parseInt(raw) || 0, availablePoints + pending));
+                              setPendingStats(prev => ({ ...prev, [key]: val }));
+                            }}
+                            className="w-10 h-6 text-center text-xs rounded px-1 font-mono"
+                            style={{ backgroundColor: '#1e293b', color: '#e2e8f0', border: '1px solid #475569' }}
+                          />
+                          <button
+                            type="button"
+                            className="h-6 w-6 flex items-center justify-center rounded bg-green-900/50 text-green-300 hover:bg-green-800 disabled:opacity-30 text-xs"
+                            onClick={(e) => addStat(key, e.shiftKey ? 10 : 1)}
+                            disabled={availablePoints <= 0}
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            className="h-6 px-1.5 text-[10px] rounded bg-cyan-900/50 text-cyan-300 hover:bg-cyan-800 disabled:opacity-30"
+                            onClick={() => addStat(key, availablePoints)}
+                            disabled={availablePoints <= 0}
+                          >
+                            MAX
+                          </button>
                         </div>
                       )}
                     </div>
@@ -230,9 +319,14 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
                 })}
               </div>
               {totalPending > 0 && (
-                <Button className="w-full mt-3" size="sm" onClick={() => statMutation.mutate()} disabled={statMutation.isPending}>
-                  Confirm ({totalPending} points)
-                </Button>
+                <div className="flex justify-center mt-3">
+                  <PixelButton
+                    variant="ok"
+                    label={`CONFIRM (${totalPending} PTS)`}
+                    onClick={() => statMutation.mutate()}
+                    disabled={statMutation.isPending}
+                  />
+                </div>
               )}
             </div>
 
@@ -260,10 +354,174 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
               );
             })}
 
+            {/* Combat Bonuses - Guild & Pet */}
+            {(() => {
+              const bonuses = [];
+
+              // Guild bonuses
+              const guildBuffs = guildData?.buffs && typeof guildData.buffs === 'object' ? guildData.buffs : {};
+              if (guildBuffs.exp_bonus) bonuses.push({ label: "Guild EXP Bonus", value: `+${guildBuffs.exp_bonus}%`, color: "text-green-400", icon: TrendingUp });
+              if (guildBuffs.gold_bonus) bonuses.push({ label: "Guild Gold Bonus", value: `+${guildBuffs.gold_bonus}%`, color: "text-yellow-400", icon: Coins });
+              if (guildBuffs.damage_bonus) bonuses.push({ label: "Guild Damage Bonus", value: `+${guildBuffs.damage_bonus}%`, color: "text-red-400", icon: Swords });
+
+              // Pet passive bonus
+              if (equippedPetForStats) {
+                const PASSIVE_LABELS = { crit_chance: "Crit Chance", exp_gain: "EXP Gain", gold_gain: "Gold Gain", damage: "Damage", defense: "Defense", luck: "Luck" };
+                const PASSIVE_ICONS = { crit_chance: Target, exp_gain: Star, gold_gain: Coins, damage: Swords, defense: Shield, luck: Clover };
+                const PASSIVE_COLORS = { crit_chance: "text-orange-400", exp_gain: "text-purple-400", gold_gain: "text-yellow-400", damage: "text-red-400", defense: "text-blue-400", luck: "text-amber-400" };
+                const pLabel = PASSIVE_LABELS[equippedPetForStats.passiveType] || equippedPetForStats.passiveType;
+                const pIcon = PASSIVE_ICONS[equippedPetForStats.passiveType] || Star;
+                const pColor = PASSIVE_COLORS[equippedPetForStats.passiveType] || "text-cyan-400";
+                bonuses.push({
+                  label: `Pet: ${pLabel}`,
+                  value: `+${equippedPetForStats.passiveValue}${equippedPetForStats.passiveType === 'crit_chance' || equippedPetForStats.passiveType === 'luck' ? '' : '%'}`,
+                  color: pColor,
+                  icon: pIcon,
+                });
+                const SKILL_LABELS = { heal: "Heal", shield: "Shield", extra_attack: "Extra Attack" };
+                const SKILL_ICONS = { heal: Heart, shield: ShieldCheck, extra_attack: Swords };
+                bonuses.push({
+                  label: `Pet Skill: ${SKILL_LABELS[equippedPetForStats.skillType] || equippedPetForStats.skillType}`,
+                  value: `${equippedPetForStats.skillValue}`,
+                  color: "text-cyan-400",
+                  icon: SKILL_ICONS[equippedPetForStats.skillType] || Zap,
+                });
+
+                // Pet skill tree bonuses
+                const PET_SKILL_TREES = {
+                  combat: {
+                    damage_boost: { name: "Damage Boost", effect: { damage: 0.02 } },
+                    crit_mastery: { name: "Crit Mastery", effect: { critChance: 0.01 } },
+                    lethal_strikes: { name: "Boss Damage", effect: { bossDamage: 0.03 } },
+                    berserker: { name: "Attack Speed", effect: { attackSpeed: 0.02 } },
+                  },
+                  resource: {
+                    gold_finder: { name: "Gold Gain", effect: { goldGain: 0.02 } },
+                    exp_seeker: { name: "EXP Gain", effect: { expGain: 0.02 } },
+                    lucky_looter: { name: "Drop Rate", effect: { luck: 0.02 } },
+                    treasure_sense: { name: "Expedition Loot", effect: { expeditionLoot: 0.03 } },
+                  },
+                  utility: {
+                    quick_learner: { name: "Pet XP Gain", effect: { petXpGain: 0.03 } },
+                    bond_master: { name: "Bond Gain", effect: { bondGain: 0.03 } },
+                    expedition_pro: { name: "Expedition Speed", effect: { expeditionSpeed: 0.03 } },
+                    aura_amplifier: { name: "Aura Strength", effect: { auraStrength: 0.02 } },
+                  },
+                };
+                const EFFECT_ICONS = { damage: Swords, critChance: Target, bossDamage: Flame, attackSpeed: Clock, goldGain: Coins, expGain: Star, luck: Clover, expeditionLoot: Sparkles, petXpGain: TrendingUp, bondGain: Heart, expeditionSpeed: Wind, auraStrength: Sparkles };
+                const EFFECT_COLORS = { damage: "text-red-400", critChance: "text-orange-400", bossDamage: "text-red-300", attackSpeed: "text-yellow-400", goldGain: "text-yellow-400", expGain: "text-purple-400", luck: "text-amber-400", expeditionLoot: "text-green-400", petXpGain: "text-cyan-400", bondGain: "text-pink-400", expeditionSpeed: "text-blue-400", auraStrength: "text-indigo-400" };
+                const st = equippedPetForStats.skillTree || {};
+                for (const branchKey of Object.keys(st)) {
+                  const branch = st[branchKey] || {};
+                  for (const [skillKey, points] of Object.entries(branch)) {
+                    if (typeof points !== "number" || points <= 0) continue;
+                    const skillDef = PET_SKILL_TREES[branchKey]?.[skillKey];
+                    if (!skillDef?.effect) continue;
+                    for (const [effectKey, effectVal] of Object.entries(skillDef.effect)) {
+                      const totalPct = Math.round(effectVal * points * 100);
+                      bonuses.push({
+                        label: `Skill: ${skillDef.name}`,
+                        value: `+${totalPct}%`,
+                        color: EFFECT_COLORS[effectKey] || "text-cyan-400",
+                        icon: EFFECT_ICONS[effectKey] || Zap,
+                      });
+                    }
+                  }
+                }
+              }
+
+              if (bonuses.length === 0) return null;
+
+              return (
+                <div className="bg-muted/30 rounded-xl p-4">
+                  <h4 className="text-xs font-semibold text-cyan-400 mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" /> Pet & Guild Bonuses
+                  </h4>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {bonuses.map((b, i) => {
+                      const BIcon = b.icon;
+                      return (
+                        <div key={i} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-muted/30">
+                          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            <BIcon className="w-3 h-3" />
+                            {b.label}
+                          </span>
+                          <span className={`text-xs font-bold ${b.color}`}>{b.value}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Active Scroll Buffs */}
+            {(() => {
+              const extra = character?.extraData || character?.extra_data || {};
+              const activeBuffs = (extra.active_buffs || []).filter(
+                b => new Date(b.expires_at).getTime() > Date.now()
+              );
+              if (activeBuffs.length === 0) return null;
+              const BUFF_LABELS = { exp_bonus: "EXP Bonus", gold_bonus: "Gold Bonus", dmg_bonus: "Damage Bonus", loot_bonus: "Loot Bonus" };
+              const BUFF_COLORS = { exp_bonus: "text-blue-400", gold_bonus: "text-yellow-400", dmg_bonus: "text-red-400", loot_bonus: "text-purple-400" };
+              const BUFF_ICONS = { exp_bonus: Zap, gold_bonus: Coins, dmg_bonus: Swords, loot_bonus: Sparkles };
+              return (
+                <div className="bg-muted/30 rounded-xl p-4">
+                  <h3 className="font-semibold text-sm mb-3 text-cyan-400">Active Scroll Buffs</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {activeBuffs.map((buff, i) => {
+                      const BIcon = BUFF_ICONS[buff.type] || Zap;
+                      const timeLeft = Math.max(0, new Date(buff.expires_at).getTime() - Date.now());
+                      const h = Math.floor(timeLeft / 3600000);
+                      const m = Math.floor((timeLeft % 3600000) / 60000);
+                      const timeStr = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                      return (
+                        <div key={i} className="flex items-center justify-between bg-background/50 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <BIcon className={`w-3.5 h-3.5 ${BUFF_COLORS[buff.type] || "text-cyan-400"}`} />
+                            <span className="text-xs text-muted-foreground">{BUFF_LABELS[buff.type] || buff.type}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-sm font-bold font-mono ${BUFF_COLORS[buff.type] || "text-cyan-400"}`}>+{buff.value}%</span>
+                            <span className="text-[10px] text-muted-foreground ml-1">({timeStr})</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Elemental Damage */}
+            <div className="bg-muted/30 rounded-xl p-4">
+              <h3 className="font-semibold text-sm mb-3 text-orange-400">Elemental Damage</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: "fireDmg",      emoji: "🔥", label: "Fire",      color: "text-orange-400" },
+                  { key: "iceDmg",       emoji: "❄️", label: "Ice",        color: "text-cyan-400"   },
+                  { key: "lightningDmg", emoji: "⚡", label: "Lightning", color: "text-yellow-300" },
+                  { key: "poisonDmg",    emoji: "☠️", label: "Poison",    color: "text-green-400"  },
+                  { key: "bloodDmg",     emoji: "🩸", label: "Blood",     color: "text-red-500"    },
+                  { key: "sandDmg",      emoji: "🌪️", label: "Sand",      color: "text-amber-400"  },
+                ].map(e => {
+                  const val = derived?.[e.key] ?? 0;
+                  return (
+                    <div key={e.key} className="flex items-center justify-between bg-background/50 rounded-lg px-3 py-2">
+                      <span className="text-xs text-muted-foreground">{e.emoji} {e.label}</span>
+                      <span className={`text-sm font-bold font-mono ${val > 0 ? e.color : "text-muted-foreground"}`}>
+                        {val > 0 ? `+${val}%` : "0%"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Logout */}
-            <Button variant="outline" className="w-full" onClick={() => base44.auth.logout()}>
-              Logout
-            </Button>
+            <div className="flex justify-center">
+              <PixelButton variant="cancel" label="LOGOUT" onClick={() => logout()} />
+            </div>
           </div>
         </motion.div>
       </motion.div>

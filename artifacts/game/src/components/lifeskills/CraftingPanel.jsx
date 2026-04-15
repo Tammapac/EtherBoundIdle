@@ -1,6 +1,6 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Hammer, Lock } from "lucide-react";
+import PixelButton from "@/components/game/PixelButton";
+import { Lock } from "lucide-react";
 
 // Recipes using new resource_type names
 const RECIPES = [
@@ -62,10 +62,11 @@ export default function CraftingPanel({ skills, resources }) {
                 </p>
               )}
             </div>
-            <Button size="sm" disabled={locked || !hasIngredients} className="shrink-0 gap-1">
-              {locked ? <Lock className="w-3 h-3" /> : <Hammer className="w-3 h-3" />}
-              {locked ? `Lv.${reqLevel.lvl}` : "Craft"}
-            </Button>
+            <PixelButton
+              variant="ok"
+              label={locked ? `LV.${reqLevel.lvl}` : "CRAFT"}
+              disabled={locked || !hasIngredients}
+            />
           </div>
         );
       })}

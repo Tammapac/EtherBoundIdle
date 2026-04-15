@@ -2,6 +2,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, LogOut, Users, Star } from "lucide-react";
+import PixelButton from "@/components/game/PixelButton";
 
 const EMBLEM_ICONS = { shield: Shield, sword: Shield, crown: Star, dragon: Star, phoenix: Star, wolf: Shield };
 
@@ -25,9 +26,7 @@ export default function GuildHeader({ guild, myRole, onLeave, isLeaving }) {
             <Badge className="mt-1 text-xs capitalize bg-secondary/20 text-secondary border-secondary/30">{myRole}</Badge>
           </div>
         </div>
-        <Button variant="destructive" size="sm" onClick={onLeave} disabled={isLeaving} className="gap-1 flex-shrink-0">
-          <LogOut className="w-3.5 h-3.5" /> Leave
-        </Button>
+        <PixelButton variant="cancel" label="LEAVE" onClick={onLeave} disabled={isLeaving} className="flex-shrink-0" />
       </div>
       {guild.description && <p className="text-sm text-muted-foreground mt-3">{guild.description}</p>}
       <div className="flex gap-2 flex-wrap mt-3">

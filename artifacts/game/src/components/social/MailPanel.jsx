@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Mail, Send, Coins, Inbox, Trash2, X } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+import PixelButton from "@/components/game/PixelButton";
 
 export default function MailPanel({ character, onCharacterUpdate }) {
   const [composing, setComposing] = useState(false);
@@ -103,7 +104,7 @@ export default function MailPanel({ character, onCharacterUpdate }) {
     return (
       <div className="mt-4 bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedMail(null)}>← Back</Button>
+          <PixelButton variant="cancel" label="BACK" onClick={() => setSelectedMail(null)} />
           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(selectedMail.id)}>
             <Trash2 className="w-4 h-4" />
           </Button>
@@ -122,14 +123,12 @@ export default function MailPanel({ character, onCharacterUpdate }) {
               <Coins className="w-4 h-4 text-accent" />
               <span className="text-sm font-medium text-accent">{selectedMail.gold_attachment.toLocaleString()} Gold attached</span>
             </div>
-            <Button
-              size="sm"
+            <PixelButton
+              variant="ok"
+              label={selectedMail.is_claimed ? "CLAIMED" : "CLAIM"}
               disabled={selectedMail.is_claimed}
               onClick={() => claimGoldMutation.mutate(selectedMail)}
-              className="gap-1"
-            >
-              {selectedMail.is_claimed ? "Claimed" : "Claim"}
-            </Button>
+            />
           </div>
         )}
       </div>
@@ -162,18 +161,14 @@ export default function MailPanel({ character, onCharacterUpdate }) {
           <span className="text-xs text-muted-foreground">/ {(character.gold || 0).toLocaleString()}</span>
         </div>
         {sendMutation.error && <p className="text-xs text-destructive">{sendMutation.error.message}</p>}
-        <Button className="w-full gap-2" onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || !toName || !subject}>
-          <Send className="w-4 h-4" /> Send Mail
-        </Button>
+        <PixelButton variant="ok" label="SEND MAIL" className="w-full" onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending || !toName || !subject} />
       </div>
     );
   }
 
   return (
     <div className="mt-4 space-y-3">
-      <Button className="w-full gap-2" variant="outline" onClick={() => setComposing(true)}>
-        <Mail className="w-4 h-4" /> Compose Mail
-      </Button>
+      <PixelButton variant="ok" label="COMPOSE MAIL" className="w-full" onClick={() => setComposing(true)} />
 
       <Tabs defaultValue="inbox">
         <TabsList className="bg-muted">

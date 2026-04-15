@@ -107,14 +107,12 @@ export default function CharacterSelection({ onCharacterSelected }) {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
+                    <PixelButton
+                      variant="ok"
+                      label="PLAY"
                       onClick={() => selectMutation.mutate(char)}
                       disabled={selectMutation.isPending}
-                      className="gap-1.5"
-                    >
-                      Play
-                    </Button>
+                    />
                     <Button
                       size="icon"
                       variant="ghost"
@@ -137,24 +135,19 @@ export default function CharacterSelection({ onCharacterSelected }) {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 justify-center">
           {canCreateMore && (
-            <Button
-              size="lg"
-              className="flex-1 gap-2"
+            <PixelButton
+              variant="ok"
+              label="CREATE CHARACTER"
               onClick={() => onCharacterSelected(null)}
-            >
-              <Plus className="w-5 h-5" /> Create Character
-            </Button>
+            />
           )}
-          <Button
-            size="lg"
-            variant="outline"
-            className="flex-1 gap-2"
+          <PixelButton
+            variant="cancel"
+            label="LOGOUT"
             onClick={() => logout()}
-          >
-            <LogOut className="w-5 h-5" /> Logout
-          </Button>
+          />
         </div>
 
         {characters.length >= maxCharacters && (

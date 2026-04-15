@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Zap, LogOut, ArrowUp, Skull, Coins, Star, Gem, Trophy, Package, Play, Pause } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
@@ -216,9 +217,7 @@ export default function TowerCombat({ session: initialSession, character, onLeav
             {autoFight ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
             {autoFight ? "Auto ON" : "Auto OFF"}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setAutoFight(false); doLeave(); }} className="gap-1 text-muted-foreground hover:text-destructive">
-            <LogOut className="w-3.5 h-3.5" /> Leave
-          </Button>
+          <PixelButton variant="cancel" label="LEAVE" onClick={() => { setAutoFight(false); doLeave(); }} />
         </div>
       </div>
 
@@ -307,37 +306,16 @@ export default function TowerCombat({ session: initialSession, character, onLeav
           {inCombat && me && me.hp > 0 && (
             <div className="rounded-xl p-3 space-y-2 bg-black/30 border border-primary/20">
               <p className="text-xs font-semibold text-primary font-orbitron tracking-wide">ACTIONS</p>
-              <Button
-                size="sm"
-                className="w-full gap-1.5 bg-gradient-to-r from-primary/80 to-primary hover:from-primary hover:to-primary/80"
-                disabled={loading}
-                onClick={() => doAction("attack")}
-              >
-                <Swords className="w-3.5 h-3.5" /> Basic Attack
-              </Button>
-              {charSkills.map(skill => {
-                const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
-                const skillColor = elem ? `border-current/30 ${elem.color}` : "border-secondary/40 text-secondary";
-                return (
-                  <Button
-                    key={skill.id}
-                    size="sm"
-                    variant="outline"
-                    className={`w-full gap-1.5 hover:bg-muted/30 hover:scale-105 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 bg-black/20 transition-all duration-200 ${skillColor}`}
-                    disabled={loading}
-                    onClick={() => doAction("skill", skill.id)}
-                  >
-                    {(() => {
-                      const folder = getSkillSpriteFolder(skill.id);
-                      return folder
-                        ? <img src={`/sprites/skills/${folder}/${skill.id}.png`} alt={skill.name} style={{ width: 24, height: 24, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
-                        : <span className="text-sm">{elem?.icon || <Zap className="w-3.5 h-3.5" />}</span>;
-                    })()}
-                    {skill.name}
-                    <span className="text-xs opacity-60 ml-auto">({skill.mp}MP)</span>
-                  </Button>
-                );
-              })}
+              <PixelButton variant="ok" label="BASIC ATTACK" onClick={() => doAction("attack")} disabled={loading} />
+              {charSkills.map(skill => (
+                <PixelButton
+                  key={skill.id}
+                  variant="ok"
+                  label={`${skill.name.toUpperCase()} (${skill.mp}MP)`}
+                  onClick={() => doAction("skill", skill.id)}
+                  disabled={loading}
+                />
+              ))}
             </div>
           )}
 
@@ -351,9 +329,7 @@ export default function TowerCombat({ session: initialSession, character, onLeav
               <Skull className="w-10 h-10 text-destructive mx-auto" />
               <p className="font-orbitron text-xl font-bold text-destructive">DEFEATED</p>
               <p className="text-xs text-muted-foreground">You fell on Floor {session.floor}</p>
-              <Button size="sm" variant="outline" className="w-full border-destructive/30 text-destructive hover:bg-destructive/10" onClick={doLeave}>
-                Return to Tower
-              </Button>
+              <PixelButton variant="cancel" label="RETURN TO TOWER" onClick={doLeave} />
             </motion.div>
           )}
 
@@ -475,22 +451,8 @@ export default function TowerCombat({ session: initialSession, character, onLeav
 
                 {/* Action buttons */}
                 <div className="flex gap-2 pt-2">
-                  <Button
-                    onClick={doNextFloor}
-                    disabled={loading}
-                    className="flex-1 gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold"
-                    size="lg"
-                  >
-                    <ArrowUp className="w-4 h-4" /> {autoFight && autoTimer > 0 ? `Next Floor (${autoTimer}s)` : "Next Floor"}
-                  </Button>
-                  <Button
-                    onClick={doLeave}
-                    variant="outline"
-                    size="lg"
-                    className="gap-1.5 border-muted-foreground/20 text-muted-foreground hover:text-foreground"
-                  >
-                    <LogOut className="w-4 h-4" /> Leave
-                  </Button>
+                  <PixelButton variant="ok" label={autoFight && autoTimer > 0 ? `NEXT FLOOR (${autoTimer}S)` : "NEXT FLOOR"} onClick={doNextFloor} disabled={loading} />
+                  <PixelButton variant="cancel" label="LEAVE" onClick={doLeave} />
                 </div>
               </div>
             </motion.div>
@@ -519,9 +481,7 @@ export default function TowerCombat({ session: initialSession, character, onLeav
                 </motion.div>
                 <p className="font-orbitron text-2xl font-bold text-destructive">DEFEATED</p>
                 <p className="text-sm text-muted-foreground">You fell on Floor {session.floor}</p>
-                <Button onClick={doLeave} className="w-full bg-destructive/80 hover:bg-destructive text-white" size="lg">
-                  Return to Tower
-                </Button>
+                <PixelButton variant="cancel" label="RETURN TO TOWER" onClick={doLeave} />
               </div>
             </motion.div>
           </motion.div>

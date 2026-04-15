@@ -10,6 +10,7 @@ import PlayerProfileModal from "@/components/game/PlayerProfileModal";
 import { REGIONS } from "@/lib/gameData";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 import { CLASS_SPRITE_URLS } from "@/lib/pixelSprites";
+import PixelButton from "@/components/game/PixelButton";
 
 // Direct GET fetch for party data — avoids POST cache invalidation cascade
 async function fetchMyParty(characterId) {
@@ -208,12 +209,8 @@ export default function PartyPanel({ character }) {
                 <p className="text-xs font-semibold text-primary mb-1">Party Invite!</p>
                 <p className="text-xs text-muted-foreground mb-2">{inv.from_name || inv.from_character_name} invites you</p>
                 <div className="flex gap-1.5">
-                  <Button size="sm" className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleAccept(inv)}>
-                    <Check className="w-3 h-3 mr-1" /> Accept
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleDecline(inv)}>
-                    <X className="w-3 h-3 mr-1" /> Decline
-                  </Button>
+                  <PixelButton variant="ok" label="ACCEPT" className="flex-1" onClick={() => handleAccept(inv)} />
+                  <PixelButton variant="cancel" label="DECLINE" className="flex-1" onClick={() => handleDecline(inv)} />
                 </div>
               </motion.div>
             ))}
@@ -263,12 +260,8 @@ export default function PartyPanel({ character }) {
                     <p className="text-xs font-semibold text-primary mb-1">Party Invite!</p>
                     <p className="text-xs text-muted-foreground mb-2">{inv.from_name || inv.from_character_name} invites you</p>
                     <div className="flex gap-1.5">
-                      <Button size="sm" className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleAccept(inv)}>
-                        <Check className="w-3 h-3 mr-1" /> Accept
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleDecline(inv)}>
-                        <X className="w-3 h-3 mr-1" /> Decline
-                      </Button>
+                      <PixelButton variant="ok" label="ACCEPT" className="flex-1" onClick={() => handleAccept(inv)} />
+                      <PixelButton variant="cancel" label="DECLINE" className="flex-1" onClick={() => handleDecline(inv)} />
                     </div>
                   </motion.div>
                 ))}
@@ -313,14 +306,13 @@ export default function PartyPanel({ character }) {
                         {!isPlayerInParty ? (
                           <>
                             <p className="text-xs text-muted-foreground text-center py-1">No party yet</p>
-                            <Button
-                              size="sm"
-                              className="w-full h-8 text-xs gap-1.5 bg-primary hover:bg-primary/80"
+                            <PixelButton
+                              variant="ok"
+                              label="CREATE PARTY"
+                              className="w-full"
                               onClick={handleCreate}
                               disabled={mutation.isPending}
-                            >
-                              <UserPlus className="w-3.5 h-3.5" /> Create Party
-                            </Button>
+                            />
                             <p className="text-[10px] text-muted-foreground text-center">
                               Earn +5% XP & +10% Gold per member
                             </p>
@@ -385,14 +377,12 @@ export default function PartyPanel({ character }) {
                               </div>
                             )}
 
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                            <PixelButton
+                              variant="cancel"
+                              label="LEAVE PARTY"
+                              className="w-full"
                               onClick={handleLeave}
-                            >
-                              <LogOut className="w-3 h-3" /> Leave Party
-                            </Button>
+                            />
                           </>
                         )}
                       </div>
