@@ -14,6 +14,7 @@ import CharacterProfileModal from "@/components/game/CharacterProfileModal";
 import IdleStatusBar from "@/components/game/IdleStatusBar";
 import ActiveBuffsBar from "@/components/game/ActiveBuffsBar";
 import { useSocket } from "@/lib/SocketContext";
+import PixelButton from "@/components/game/PixelButton";
 
 const NAV_ITEMS = [
   { path: "/", icon: Swords, label: "Battle" },
@@ -96,9 +97,20 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card/50 backdrop-blur-sm">
-        <div className="p-4 border-b border-border">
-          <h1 className="font-orbitron text-xl font-bold text-primary tracking-wider">
+      <aside
+        className="hidden md:flex flex-col w-64"
+        style={{
+          borderImage: "url('/sprites/ui/buttons/btn_gold.png') 5 / 5px",
+          borderStyle: "solid",
+          imageRendering: "pixelated",
+          background: "#1a1832",
+        }}
+      >
+        <div className="p-4" style={{ borderBottom: "1px solid #c8973a" }}>
+          <h1
+            className="text-base font-bold tracking-wider"
+            style={{ fontFamily: "'Press Start 2P', monospace", color: "#c8973a" }}
+          >
             IDLE REALM
           </h1>
           <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
@@ -113,7 +125,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
         </div>
 
         {character && (
-          <div className="p-4 border-b border-border">
+          <div className="p-4" style={{ borderBottom: "1px solid #c8973a" }}>
             <button
               onClick={() => setProfileOpen(true)}
               className="flex items-center gap-3 w-full hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors group"
@@ -144,7 +156,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
           </div>
         )}
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 overflow-y-auto">
            {NAV_ITEMS.map(({ path, icon: Icon, label, admin }) => {
               // Hide admin link if user is not admin
               if (admin && currentUserRole !== "admin" && currentUserRole !== "superadmin") return null;
@@ -154,34 +166,38 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
                 <Link
                   key={path}
                   to={path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    active
-                      ? "bg-primary/15 text-primary glow-cyan"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
+                  className="flex items-center gap-3 px-3 py-2.5 transition-all"
+                  style={{
+                    borderBottom: "1px solid #c8973a",
+                    background: active ? "rgba(200, 151, 58, 0.15)" : "transparent",
+                    color: active ? "#c8973a" : "#a89070",
+                    fontFamily: "'Press Start 2P', monospace",
+                    fontSize: "8px",
+                    letterSpacing: "0.05em",
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(200,151,58,0.08)"; e.currentTarget.style.color = "#c8973a"; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#a89070"; }}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4 shrink-0" style={{ color: active ? "#c8973a" : "#a89070" }} />
                   {label}
                 </Link>
               );
             })}
           </nav>
 
-        <div className="p-3 border-t border-border space-y-2">
-          <Button
-            variant="outline"
-            className="w-full gap-2 text-xs justify-start"
+        <div className="p-3 space-y-2" style={{ borderTop: "1px solid #c8973a" }}>
+          <PixelButton
+            variant="ok"
+            label="CHARACTER SELECTION"
             onClick={onBackToSelection}
-          >
-            <RotateCcw className="w-3.5 h-3.5" /> Character Selection
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full gap-2 text-xs justify-start text-destructive hover:text-destructive"
+            className="w-full"
+          />
+          <PixelButton
+            variant="cancel"
+            label="LOGOUT"
             onClick={() => handleLogout()}
-          >
-            <LogOut className="w-3.5 h-3.5" /> Logout
-          </Button>
+            className="w-full"
+          />
         </div>
       </aside>
 

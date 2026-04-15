@@ -4,8 +4,9 @@ import React, { useState } from "react";
  * PixelButton — pixel art button using 9-slice border-image frames.
  * variant: "ok" (gold frame, navy text) | "cancel" (dark frame, golden text)
  * Scales to fit any text length via border-image stretching.
+ * size: "sm" (default) | "lg" (bigger for prominent actions)
  */
-export default function PixelButton({ variant = "ok", label, onClick, disabled, className = "", style: extraStyle }) {
+export default function PixelButton({ variant = "ok", label, onClick, disabled, className = "", size = "sm", style: extraStyle }) {
   const [hovered, setHovered] = useState(false);
 
   const isGold = variant === "ok";
@@ -15,6 +16,8 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
   const textColor = isGold ? "#1a1a3a" : "#f0c850";
   const bgColor = isGold ? "#f0c850" : "#1e1d3a";
 
+  const isLg = size === "lg";
+
   return (
     <button
       onClick={onClick}
@@ -23,12 +26,12 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
       onMouseLeave={() => setHovered(false)}
       className={`inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
       style={{
-        borderImage: `url('${frameSrc}') 3 / 6px`,
+        borderImage: `url('${frameSrc}') 5 / 5px`,
         borderStyle: "solid",
         imageRendering: "pixelated",
         background: bgColor,
-        padding: "4px 14px",
-        minHeight: 34,
+        padding: isLg ? "6px 20px" : "3px 10px",
+        minHeight: isLg ? 32 : 24,
         cursor: disabled ? "not-allowed" : "pointer",
         transform: hovered && !disabled ? "scale(1.05)" : "scale(1)",
         filter: hovered && !disabled ? "brightness(1.2)" : "none",
@@ -39,7 +42,7 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
       <span
         style={{
           fontFamily: "'Press Start 2P', monospace",
-          fontSize: 8,
+          fontSize: isLg ? 11 : 9,
           lineHeight: 1,
           color: textColor,
           pointerEvents: "none",

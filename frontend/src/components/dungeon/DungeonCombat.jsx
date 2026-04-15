@@ -333,15 +333,31 @@ export default function DungeonCombat({ session: initialSession, character, onLe
                 {isMyTurn ? "⚡ YOUR TURN — Act now!" : `⏳ ${currentTurnMember?.name}'s turn...`}
               </p>
               <PixelButton variant="ok" label="BASIC ATTACK" onClick={() => doAction('attack')} disabled={!isMyTurn || loading} />
-              {charSkills.map(skill => (
-                <PixelButton
-                  key={skill.id}
-                  variant="ok"
-                  label={`${skill.name.toUpperCase()} (${skill.mp}MP)`}
-                  onClick={() => doAction('skill', skill.id)}
-                  disabled={!isMyTurn || loading}
-                />
-              ))}
+              {charSkills.map(skill => {
+                const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
+                const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
+                  : skill.buff === "attack" ? "border-orange-500/50 text-orange-400"
+                  : elem ? `border-current/30 ${elem.color}`
+                  : "border-violet-500/30 text-secondary";
+                return (
+                  <button
+                    key={skill.id}
+                    onClick={() => doAction('skill', skill.id)}
+                    disabled={!isMyTurn || loading}
+                    title={`${skill.description || skill.name}\n${skill.mp}MP`}
+                    className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 hover:scale-110 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200 min-w-[52px] ${buffColor}`}
+                  >
+                    {(() => {
+                      const folder = getSkillSpriteFolder(skill.id);
+                      return folder
+                        ? <img src={`/sprites/skills/${folder}/${skill.id}.png`} alt={skill.name} style={{ width: 24, height: 24, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
+                        : <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>;
+                    })()}
+                    <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
+                    <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
+                  </button>
+                );
+              })}
               {isMyTurn && (
                 <p className="text-xs text-center text-muted-foreground">Auto-attack in 5s if idle</p>
               )}

@@ -373,7 +373,9 @@ function WorldBossCombat({ boss, character, onLeave }) {
 
       {/* Claim Button */}
       {(isDefeated || isExpired) && myEntry && !myEntry.claimed && (
-        <PixelButton variant="ok" label="CLAIM REWARDS" onClick={handleClaim} />
+        <div className="flex justify-center my-4">
+          <PixelButton variant="ok" size="lg" label="CLAIM REWARDS" onClick={handleClaim} />
+        </div>
       )}
 
       {/* Two columns: participants + log */}

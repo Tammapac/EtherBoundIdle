@@ -76,7 +76,7 @@ export default function WelcomeBackModal({ rewards, hoursOffline, onClose }) {
 
           {/* Close Button */}
           <div className="flex justify-center">
-            <PixelButton variant="ok" label="CLAIM REWARDS" onClick={onClose} />
+            <PixelButton variant="ok" size="lg" label="CLAIM REWARDS" onClick={onClose} />
           </div>
         </motion.div>
       </motion.div>

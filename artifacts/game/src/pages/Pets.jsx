@@ -917,7 +917,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                   disabled={rerollTraitsMutation.isPending}
                 />
                 <PixelButton
-                  variant="ok"
+                  variant="cancel"
                   label="SELL"
                   onClick={() => {
                     const prices = { common: 100, uncommon: 300, rare: 800, epic: 2000, legendary: 5000, mythic: 15000 };
@@ -1207,7 +1207,7 @@ function PetsInner({ character, onCharacterUpdate }) {
                   ))}
                   {rarityFilter !== "all" && (
                     <PixelButton
-                      variant="ok"
+                      variant="cancel"
                       label={`SELL ALL ${rarityFilter.toUpperCase()}`}
                       onClick={() => {
                         const count = unequippedPets.filter(p => p.rarity === rarityFilter).length;
