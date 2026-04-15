@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { getItemIcon, getItemSprite } from "@/lib/itemIcons";
 import { RARITY_CONFIG } from "@/lib/gameData";
-import { canEquipItem, validateEquip, getAllowedClassesLabel, EQUIPMENT_SLOTS, SLOT_LABELS } from "@/lib/equipmentSystem";
+import { canEquipItem, validateEquip, getAllowedClassesLabel, EQUIPMENT_SLOTS, SLOT_LABELS, RARITY_SELL_PRICES } from "@/lib/equipmentSystem";
 import { calculateFinalStats } from "@/lib/statSystem";
 import { aggregateSetStats } from "@/lib/setSystem";
 import ItemTooltip from "@/components/game/ItemTooltip";
@@ -398,6 +398,7 @@ function CharacterStatsPanel({ character, equippedItems, equippedRunes = [] }) {
 // ─── Main Inventory ─────────────────────────────────────────────────────────
 
 export default function Inventory({ character, onCharacterUpdate }) {
+  const getItemSellPrice = (item) => item.sell_price || Math.floor((RARITY_SELL_PRICES[item.rarity] || 10) * (1 + (item.item_level || 1) * 0.08));
   const navigate = useNavigate();
   const [filter, setFilter] = useState("all");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -671,7 +672,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
         {sellableCount > 0 && (
           <PixelButton
             variant="ok"
-            label={`SELL ALL${filter !== "all" ? " " + filter.charAt(0).toUpperCase() + filter.slice(1) + "S" : ""} (${sellableCount} · ${sellableItems.reduce((s, i) => s + (i.sell_price || 5), 0)}G)`}
+            label={`SELL ALL${filter !== "all" ? " " + filter.charAt(0).toUpperCase() + filter.slice(1) + "S" : ""} (${sellableCount} · ${sellableItems.reduce((s, i) => s + getItemSellPrice(i), 0)}G)`}
             onClick={() => sellAllMutation.mutate()}
             disabled={sellAllMutation.isPending}
           />
@@ -837,7 +838,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
                       {!selectedItem._isCurrency && (
                         <PixelButton
                           variant="ok"
-                          label={`SELL${selectedItem.stackIds ? " ×1" : ""} (${selectedItem.sell_price || 5}G)`}
+                          label={`SELL${selectedItem.stackIds ? " ×1" : ""} (${getItemSellPrice(selectedItem)}G)`}
                           onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}
                         />
                       )}

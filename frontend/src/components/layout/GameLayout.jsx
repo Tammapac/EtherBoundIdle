@@ -103,7 +103,10 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
           borderImage: "url('/sprites/ui/buttons/btn_gold.png') 5 / 5px",
           borderStyle: "solid",
           imageRendering: "pixelated",
-          background: "#1a1832",
+          background: "#0f0e24",
+          position: "relative",
+          zIndex: 10,
+          boxShadow: "4px 0 12px rgba(0,0,0,0.5)",
         }}
       >
         <div className="p-4" style={{ borderBottom: "1px solid #c8973a" }}>
@@ -174,9 +177,11 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
                     fontFamily: "'Press Start 2P', monospace",
                     fontSize: "8px",
                     letterSpacing: "0.05em",
+                    transform: "scale(1)",
+                    transition: "all 150ms ease",
                   }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(200,151,58,0.08)"; e.currentTarget.style.color = "#c8973a"; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#a89070"; }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(200,151,58,0.08)"; e.currentTarget.style.color = "#c8973a"; e.currentTarget.style.transform = "scale(1.03)"; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#a89070"; e.currentTarget.style.transform = "scale(1)"; }}
                 >
                   <Icon className="w-4 h-4 shrink-0" style={{ color: active ? "#c8973a" : "#a89070" }} />
                   {label}

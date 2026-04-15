@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import PixelButton from "@/components/game/PixelButton";
+import PixelBar from "@/components/game/PixelBar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -612,15 +613,9 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
                       <span className="text-[8px] text-muted-foreground">Lv{m.level} {m.class}</span>
                     </div>
                   </div>
-                  {/* HP bar */}
-                  <div className="h-1.5 bg-gray-800 overflow-hidden mb-0.5">
-                    <div className={`h-full transition-all ${hpPct > 50 ? "bg-green-500" : hpPct > 25 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${hpPct}%` }} />
-                  </div>
+                  <PixelBar current={dead ? 0 : m.hp} max={m.max_hp} type="hp" showText={false} />
                   <p className="text-[8px] text-muted-foreground">{dead ? "KO'd" : `${m.hp}/${m.max_hp}`}</p>
-                  {/* MP bar */}
-                  <div className="h-1 bg-gray-800 overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${mpPct}%` }} />
-                  </div>
+                  <PixelBar current={m.mp} max={m.max_mp} type="mp" showText={false} />
                   {m.reviveTimer > 0 && <p className="text-[8px] text-cyan-400 mt-0.5">Reviving... ({m.reviveTimer}/3)</p>}
                 </div>
               );
