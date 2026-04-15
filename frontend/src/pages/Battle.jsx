@@ -1334,7 +1334,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       className="fixed inset-0 pointer-events-none z-0"
       style={{
         backgroundImage: `url('/sprites/backgrounds/${character?.current_region || "verdant_forest"}.png')`,
-        backgroundSize: "cover",
+        backgroundSize: "100% 100%",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
         opacity: 0.4,
