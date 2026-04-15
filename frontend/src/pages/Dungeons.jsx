@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import {
   Skull, Flame, Snowflake, Zap, Shield, Swords,
@@ -13,6 +14,7 @@ import PartyActivityNotifier from "@/components/game/PartyActivityNotifier";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 
 const DUNGEONS = [
   {
@@ -143,7 +145,51 @@ export default function Dungeons({ character, onCharacterUpdate }) {
   const [activeSession, setActiveSession] = useState(null);
   const [joinId, setJoinId] = useState("");
   const [showJoin, setShowJoin] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const { toast } = useToast();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
+
+  // Fetch dungeon entry info (entries remaining, reset cost)
+  const { data: entryInfo, refetch: refetchEntries } = useQuery({
+    queryKey: ["dungeonEntries", character?.id],
+    queryFn: async () => {
+      const res = await base44.functions.invoke("dungeonAction", {
+        action: "get_entries",
+        characterId: character.id,
+      });
+      return res;
+    },
+    enabled: !!character?.id,
+    staleTime: 120_000,
+  });
+  // Alias for compatibility
+  const entryStatus = entryInfo ? {
+    entriesLeft: entryInfo.entries_remaining,
+    maxEntries: entryInfo.max_entries,
+    windowRemaining: entryInfo.window_resets_at ? Math.max(0, new Date(entryInfo.window_resets_at).getTime() - Date.now()) : 0,
+  } : null;
+  const refetchEntryStatus = refetchEntries;
+
+  const handleResetEntries = async () => {
+    setResetting(true);
+    try {
+      const res = await base44.functions.invoke("dungeonAction", {
+        action: "reset_entries",
+        characterId: character.id,
+      });
+      if (res?.success) {
+        onCharacterUpdate({ ...character, gems: (character.gems || 0) - (res.gems_spent || 500) });
+        refetchEntries();
+        toast({ title: `Dungeon entries reset! (${res.gems_spent} gems spent)`, duration: 2000 });
+      } else {
+        toast({ title: res?.error || "Failed to reset", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: e.message, variant: "destructive" });
+    } finally {
+      setResetting(false);
+    }
+  };
 
   // Get current party
   const { data: partyData } = useQuery({
@@ -152,11 +198,11 @@ export default function Dungeons({ character, onCharacterUpdate }) {
       const led = await base44.entities.Party.filter({ leader_id: character.id });
       const active = led.find(p => p.status !== 'disbanded');
       if (active) return active;
-      const all = await base44.entities.Party.list('-updated_date', 50);
+      const all = await base44.entities.Party.list('-updated_date', 20);
       return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
     },
     enabled: !!character?.id,
-    refetchInterval: 15000,
+    staleTime: 120_000,
   });
 
   // Broadcast party activity when entering dungeon
@@ -182,11 +228,13 @@ export default function Dungeons({ character, onCharacterUpdate }) {
         characterId: character.id,
         dungeonId: dungeon.id,
       });
-      if (res.data?.success) {
-        setActiveSession(res.data.session);
-        await broadcastDungeonEntry(res.data.session.id, dungeon.id, dungeon.name);
+      if (res?.success) {
+        setActiveSession(res.session);
+        refetchEntries();
+        refetchEntryStatus();
+        await broadcastDungeonEntry(res.session.id, dungeon.id, dungeon.name);
       } else {
-        toast({ title: res.data?.error || "Failed to create session", variant: "destructive" });
+        toast({ title: res?.error || "Failed to create session", variant: "destructive" });
       }
     } catch (e) {
       toast({ title: e.message, variant: "destructive" });
@@ -204,12 +252,12 @@ export default function Dungeons({ character, onCharacterUpdate }) {
         characterId: character.id,
         sessionId: joinId.trim(),
       });
-      if (res.data?.success) {
-        setActiveSession(res.data.session);
+      if (res?.success) {
+        setActiveSession(res.session);
         setShowJoin(false);
         setJoinId("");
       } else {
-        toast({ title: res.data?.error || "Session not found", variant: "destructive" });
+        toast({ title: res?.error || "Session not found", variant: "destructive" });
       }
     } catch (e) {
       toast({ title: e.message, variant: "destructive" });
@@ -227,10 +275,10 @@ export default function Dungeons({ character, onCharacterUpdate }) {
         characterId: character.id,
         sessionId,
       });
-      if (res.data?.success) {
-        setActiveSession(res.data.session);
+      if (res?.success) {
+        setActiveSession(res.session);
       } else {
-        toast({ title: res.data?.error || "Could not join", variant: "destructive" });
+        toast({ title: res?.error || "Could not join", variant: "destructive" });
       }
     } catch (e) {
       toast({ title: e.message, variant: "destructive" });
@@ -267,18 +315,46 @@ export default function Dungeons({ character, onCharacterUpdate }) {
             <Skull className="w-5 h-5 text-destructive" /> Dungeons
           </h2>
           <p className="text-xs text-muted-foreground">Real-time party boss encounters with exclusive loot</p>
+          {entryStatus && (
+            <p className="text-xs mt-1">
+              <span className={entryStatus.entriesLeft > 0 ? "text-green-400" : "text-red-400"}>
+                Entries: {entryStatus.entriesLeft}/{entryStatus.maxEntries}
+              </span>
+              {entryStatus.entriesLeft === 0 && entryStatus.windowRemaining > 0 && (
+                <span className="text-yellow-400 ml-2">
+                  Resets in {Math.ceil(entryStatus.windowRemaining / 60000)}m
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => setShowJoin(v => !v)}
-          >
-            <LogIn className="w-3.5 h-3.5" /> Join Session
-          </Button>
+          <PixelButton variant="ok" label="JOIN SESSION" onClick={() => setShowJoin(v => !v)} />
         </div>
       </div>
+
+      {/* Entry Count & Reset */}
+      {entryInfo && (
+        <div className="bg-card/50 border border-border rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-sm">
+              <span className="font-semibold">{entryInfo.entries_remaining ?? "?"}</span>
+              <span className="text-muted-foreground">/{entryInfo.max_entries ?? 5} entries remaining</span>
+            </div>
+            {entryInfo.entries_remaining === 0 && (
+              <Badge variant="outline" className="text-destructive border-destructive/30 text-xs">Limit reached</Badge>
+            )}
+          </div>
+          {entryInfo.entries_remaining < (entryInfo.max_entries ?? 5) && (
+            <PixelButton
+              variant="ok"
+              label={`RESET (${entryInfo.reset_cost ?? 500} GEMS)`}
+              onClick={handleResetEntries}
+              disabled={resetting || (character.gems || 0) < (entryInfo.reset_cost ?? 500)}
+            />
+          )}
+        </div>
+      )}
 
       {/* Join by session ID */}
       <AnimatePresence>
@@ -296,9 +372,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
               className="h-8 text-xs flex-1"
               onKeyDown={e => e.key === 'Enter' && handleJoin()}
             />
-            <Button size="sm" onClick={handleJoin} disabled={loading} className="h-8 text-xs">
-              {loading ? "..." : "Join"}
-            </Button>
+            <PixelButton variant="ok" label={loading ? "..." : "JOIN"} onClick={handleJoin} disabled={loading} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -398,16 +472,16 @@ export default function Dungeons({ character, onCharacterUpdate }) {
 
                     {/* Actions */}
                     <div className="flex gap-2 flex-wrap">
-                      <Button
+                      <PixelButton
+                        variant="ok"
+                        label={loading ? "CREATING..." : "SOLO RUN"}
                         onClick={(e) => { e.stopPropagation(); handleCreate(dungeon); }}
                         disabled={loading}
-                        className="flex-1 gap-1.5"
-                        variant="outline"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" /> {loading ? "Creating..." : "Solo Run"}
-                      </Button>
+                      />
                       {partyData && partyData.members?.length > 1 && (
-                        <Button
+                        <PixelButton
+                          variant="ok"
+                          label={loading ? "..." : `INVITE PARTY (${partyData.members.length})`}
                           onClick={async (e) => {
                             e.stopPropagation();
                             setLoading(true);
@@ -417,8 +491,8 @@ export default function Dungeons({ character, onCharacterUpdate }) {
                                 characterId: character.id,
                                 dungeonId: dungeon.id,
                               });
-                              if (res.data?.success) {
-                                const sess = res.data.session;
+                              if (res?.success) {
+                                const sess = res.session;
                                 setActiveSession(sess);
                                 // Broadcast to all party members
                                 if (partyData?.id) {
@@ -433,7 +507,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
                                   toast({ title: `Dungeon invite sent to ${partyData.members.length - 1} party member(s)!`, duration: 3000 });
                                 }
                               } else {
-                                toast({ title: res.data?.error || "Failed to create", variant: "destructive" });
+                                toast({ title: res?.error || "Failed to create", variant: "destructive" });
                               }
                             } catch (err) {
                               toast({ title: err.message, variant: "destructive" });
@@ -442,10 +516,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
                             }
                           }}
                           disabled={loading}
-                          className="flex-1 gap-1.5 bg-secondary hover:bg-secondary/90"
-                        >
-                          <Users className="w-3.5 h-3.5" /> {loading ? "..." : `Invite Party (${partyData.members.length})`}
-                        </Button>
+                        />
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground text-center">

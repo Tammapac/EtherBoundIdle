@@ -1,62 +1,92 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { supabaseSync } from "@/lib/supabaseSync";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Trophy, Medal, Swords, Coins, Crown, Lock, Trash2, Edit, Backpack, Check, X
+  Trophy, Medal, Swords, Coins, Crown, Lock, Trash2, Edit, Backpack, Check, X, UserPlus
 } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
+import { getItemSprite, getItemIcon } from "@/lib/itemIcons";
 import RoleBadge from "@/components/game/RoleBadge";
 
-export default function Leaderboard() {
+import { useEffect } from "react";
+import { RARITY_CONFIG } from "@/lib/gameData";
+import { SLOT_LABELS } from "@/lib/equipmentSystem";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+
+export default function Leaderboard({ character }) {
   const [selectedChar, setSelectedChar] = useState(null);
+  const [selectedCharItems, setSelectedCharItems] = useState([]);
   const [editStats, setEditStats] = useState(null);
   const [tempStats, setTempStats] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
+  const [friendRequestSent, setFriendRequestSent] = useState({});
   const queryClient = useQueryClient();
+  const pollInterval = useSmartPolling(POLL_INTERVALS.BACKGROUND);
+
+  // Fetch equipped items when a character is selected
+  useEffect(() => {
+    if (!selectedChar?.id) { setSelectedCharItems([]); return; }
+    base44.entities.Item.filter({ owner_id: selectedChar.id, equipped: true })
+      .then(items => setSelectedCharItems(items))
+      .catch(() => setSelectedCharItems([]));
+  }, [selectedChar?.id]);
+
+  const sendFriendRequestMutation = useMutation({
+    mutationFn: async (targetChar) => {
+      await base44.entities.FriendRequest.create({
+        from_character_id: character.id,
+        from_name: character.name,
+        from_class: character.class,
+        from_level: character.level,
+        to_character_id: targetChar.id,
+        to_name: targetChar.name,
+        status: "pending",
+      });
+    },
+    onSuccess: (_, targetChar) => {
+      setFriendRequestSent(prev => ({ ...prev, [targetChar.id]: true }));
+    },
+  });
 
   const { data: characters = [], isLoading } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: async () => {
-      if (supabaseSync.isEnabled()) {
-        const players = await supabaseSync.fetchAllServerPlayers();
-        if (players.length > 0) return players;
-      }
-      return base44.entities.Character.list("-level", 50);
+      // Use dedicated leaderboard endpoint (Character.list only returns own chars)
+      const res = await base44.functions.invoke("getLeaderboard", { type: "level" });
+      return res?.leaderboard || [];
     },
-    refetchInterval: 30000,
+    staleTime: 120000,
   });
 
-  const { data: userRoles = {} } = useQuery({
-    queryKey: ["userRolesMap"],
+  const { data: playerRoles = {} } = useQuery({
+    queryKey: ["playerRolesMap"],
     queryFn: async () => {
-      const res = await base44.functions.invoke("getAllUsers", {});
-      const users = res.data?.users || [];
-      const map = {};
-      users.forEach(u => { if (u.email) map[u.email] = u.role; });
-      return map;
+      const res = await base44.functions.invoke("getPlayerRoles", {});
+      return res || {};
     },
+    staleTime: 120000,
   });
 
   useQuery({
     queryKey: ["currentUser"],
     queryFn: async () => {
       const response = await base44.functions.invoke("getCurrentUser", {});
-      setCurrentUser(response.data);
-      return response.data;
+      setCurrentUser(response);
+      return response;
     },
   });
 
   const managePlayerMutation = useMutation({
     mutationFn: (data) => base44.functions.invoke("managePlayer", data),
     onSuccess: (response) => {
-      if (response.data?.data) {
-        setSelectedChar(prev => prev ? { ...prev, ...response.data.data } : null);
+      if (response) {
+        setSelectedChar(prev => prev ? { ...prev, ...response } : null);
       }
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
     },
@@ -65,8 +95,8 @@ export default function Leaderboard() {
   const updateStatsMutation = useMutation({
     mutationFn: (data) => base44.functions.invoke("managePlayer", data),
     onSuccess: (response) => {
-      if (response.data?.data) {
-        setSelectedChar(prev => prev ? { ...prev, ...response.data.data } : null);
+      if (response) {
+        setSelectedChar(prev => prev ? { ...prev, ...response } : null);
       }
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
       setEditStats(null);
@@ -82,30 +112,31 @@ export default function Leaderboard() {
     <div className="space-y-2 mt-3">
       {list.slice(0, 20).map((char, idx) => {
         const cls = CLASSES[char.class];
-        const charRole = userRoles[char.created_by];
+        const charRole = playerRoles[char.created_by]?.role;
         const medals = [
           <Crown key="g" className="w-5 h-5 text-yellow-400" />,
           <Medal key="s" className="w-5 h-5 text-gray-300" />,
           <Medal key="b" className="w-5 h-5 text-orange-400" />,
         ];
-        const isClickable = currentUser?.role === "superadmin";
         return (
           <motion.div
             key={char.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: idx * 0.03 }}
-            onClick={() => isClickable && setSelectedChar(char)}
-            className={`bg-card border rounded-xl p-3 flex items-center gap-3 transition-all ${
+            onClick={() => setSelectedChar(char)}
+            className={`bg-card border rounded-xl p-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-muted/50 ${
               idx < 3 ? "border-primary/30" : "border-border"
-            } ${isClickable ? "cursor-pointer hover:bg-muted/50" : ""}`}
+            }`}
           >
             <div className="w-8 text-center">
               {idx < 3 ? medals[idx] : <span className="text-sm text-muted-foreground font-medium">#{idx + 1}</span>}
             </div>
+            <img src={`/sprites/class_${char.class || "warrior"}.png`} alt={char.class} className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold truncate">{char.name}</span>
+                {char.title && <Badge variant="outline" className="text-[10px] text-accent border-accent/30">{char.title}</Badge>}
                 <RoleBadge role={charRole} />
                 <Badge variant="outline" className={`text-xs ${cls?.color || ""}`}>
                   {cls?.name || char.class}
@@ -153,9 +184,9 @@ export default function Leaderboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Character Detail Modal */}
+      {/* Character Detail Modal — public profile for all, admin tools for superadmin */}
       <AnimatePresence>
-        {selectedChar && currentUser?.role === "superadmin" && (
+        {selectedChar && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -179,8 +210,8 @@ export default function Leaderboard() {
                 </div>
               </div>
 
-              {/* Character Info */}
-              <div className="mb-6 p-3 bg-muted/50 rounded-lg grid grid-cols-2 gap-3 text-sm">
+              {/* Character Info — visible to all */}
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg grid grid-cols-3 gap-3 text-sm">
                 <div>
                   <p className="text-xs text-muted-foreground">Level</p>
                   <p className="font-semibold">{selectedChar.level}</p>
@@ -190,25 +221,73 @@ export default function Leaderboard() {
                   <p className="font-semibold capitalize">{selectedChar.class}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Gold</p>
-                  <p className="font-semibold">{selectedChar.gold?.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Gems</p>
-                  <p className="font-semibold">{selectedChar.gems}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Kills</p>
-                  <p className="font-semibold">{selectedChar.total_kills}</p>
-                </div>
-                <div>
                   <p className="text-xs text-muted-foreground">HP</p>
                   <p className="font-semibold">{selectedChar.hp}/{selectedChar.max_hp}</p>
                 </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Gold</p>
+                  <p className="font-semibold">{(selectedChar.gold || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Kills</p>
+                  <p className="font-semibold">{(selectedChar.total_kills || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Damage</p>
+                  <p className="font-semibold">{(selectedChar.total_damage || 0).toLocaleString()}</p>
+                </div>
               </div>
 
-              {/* Edit Stats */}
-              {editStats ? (
+              {/* Stats — visible to all */}
+              <div className="mb-4 p-3 bg-muted/50 rounded-lg grid grid-cols-3 gap-3 text-sm">
+                {["strength", "dexterity", "intelligence", "vitality", "luck"].map(stat => (
+                  <div key={stat}>
+                    <p className="text-xs text-muted-foreground capitalize">{stat}</p>
+                    <p className="font-semibold">{selectedChar[stat] || 0}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Friend Request Button — for non-self characters */}
+              {character && selectedChar.id !== character.id && (
+                <div className="mb-4">
+                  <PixelButton
+                    variant="ok"
+                    label={friendRequestSent[selectedChar.id] ? "REQUEST SENT" : "SEND FRIEND REQUEST"}
+                    disabled={friendRequestSent[selectedChar.id] || sendFriendRequestMutation.isPending}
+                    onClick={() => sendFriendRequestMutation.mutate(selectedChar)}
+                  />
+                </div>
+              )}
+
+              {/* Equipment — visible to all */}
+              {selectedCharItems.length > 0 && (
+                <div className="mb-4 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Equipped Items</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {selectedCharItems.map(item => {
+                      const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
+                      const slotLabel = SLOT_LABELS[item.slot] || item.slot || "";
+                      return (
+                        <div key={item.id} className={`flex items-center gap-1.5 p-1.5 rounded ${rarity?.bg || "bg-muted/30"} ${rarity?.border || "border-border"} border`}>
+                          {getItemSprite(item) ? (
+                            <img src={getItemSprite(item)} alt="" className="w-8 h-8 sprite-outline" style={{ imageRendering: "pixelated" }} />
+                          ) : (
+                            <span className="text-sm">{item.icon || "⚔️"}</span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-xs font-medium truncate ${rarity?.color || "text-foreground"}`}>{item.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{slotLabel}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Admin Tools — superadmin only */}
+              {currentUser?.role !== "superadmin" ? null : editStats ? (
                 <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-lg space-y-3">
                   <p className="text-sm font-semibold">Edit Stats</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -225,9 +304,9 @@ export default function Leaderboard() {
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      className="flex-1 gap-1"
+                    <PixelButton
+                      variant="ok"
+                      label="SAVE"
                       onClick={() => {
                         updateStatsMutation.mutate({
                           action: "update_stats",
@@ -236,22 +315,18 @@ export default function Leaderboard() {
                         });
                       }}
                       disabled={updateStatsMutation.isPending}
-                    >
-                      <Check className="w-3 h-3" /> Save
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 gap-1"
+                    />
+                    <PixelButton
+                      variant="cancel"
+                      label="CANCEL"
                       onClick={() => { setEditStats(null); setTempStats({}); }}
-                    >
-                      <X className="w-3 h-3" /> Cancel
-                    </Button>
+                    />
                   </div>
                 </div>
               ) : null}
 
-              {/* Actions */}
+              {/* Admin Actions — superadmin only */}
+              {currentUser?.role === "superadmin" && (
               <div className="space-y-2 mb-6">
                 <Button
                   variant="outline"
@@ -265,18 +340,25 @@ export default function Leaderboard() {
                 <details className="group">
                   <summary className="flex items-center justify-between p-2 rounded-lg border border-border hover:bg-muted cursor-pointer">
                     <span className="flex items-center gap-2 text-sm font-medium">
-                      <Backpack className="w-3.5 h-3.5" /> Inventory
+                      <Backpack className="w-3.5 h-3.5" /> Equipment ({selectedCharItems.length} items)
                     </span>
                     <span className="group-open:rotate-180 transition-transform">▼</span>
                   </summary>
-                  <div className="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs text-muted-foreground">
-                    {selectedChar.equipment ? (
-                      <div className="p-2 bg-muted/50 rounded">
-                        <p className="font-semibold mb-1">Equipment:</p>
-                        <p>{JSON.stringify(selectedChar.equipment)}</p>
-                      </div>
-                    ) : (
-                      <p className="p-2 text-center">No inventory data</p>
+                  <div className="mt-2 max-h-60 overflow-y-auto space-y-1 text-xs">
+                    {selectedCharItems.length > 0 ? selectedCharItems.map(item => {
+                      const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
+                      const slotLabel = SLOT_LABELS[item.slot] || item.slot || "?";
+                      return (
+                        <div key={item.id} className={`p-2 rounded flex items-center gap-2 ${rarity?.bg || "bg-muted/50"} border ${rarity?.border || "border-border"}`}>
+                          <span className="text-sm flex-shrink-0">{item.icon || "⚔️"}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-semibold truncate ${rarity?.color || "text-foreground"}`}>{item.name}</p>
+                            <p className="text-muted-foreground">{slotLabel} {item.level ? `Lv.${item.level}` : ""}</p>
+                          </div>
+                        </div>
+                      );
+                    }) : (
+                      <p className="p-2 text-center text-muted-foreground">No equipment data</p>
                     )}
                   </div>
                 </details>
@@ -307,10 +389,9 @@ export default function Leaderboard() {
                   <Trash2 className="w-3.5 h-3.5" /> Delete Character
                 </Button>
               </div>
+              )}
 
-              <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedChar(null)}>
-                Close
-              </Button>
+              <PixelButton variant="cancel" label="CLOSE" onClick={() => setSelectedChar(null)} />
             </motion.div>
           </motion.div>
         )}

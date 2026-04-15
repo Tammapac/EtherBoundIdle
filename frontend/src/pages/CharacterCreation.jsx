@@ -1,27 +1,14 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { apiFetch } from "../api/client";
 import { useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import { Shield, Sparkles, Target, Swords, ChevronRight } from "lucide-react";
 import { CLASSES } from "@/lib/gameData";
-import {
-  calculateFinalStats,
-  CLASS_BASE_HP,
-  CLASS_BASE_MP,
-  HP_PER_LEVEL,
-  MP_PER_LEVEL,
-  VIT_TO_HP,
-  INT_TO_MP,
-} from "@/lib/statSystem";
-
-const CLASS_ICONS = {
-  warrior: Shield,
-  mage: Sparkles,
-  ranger: Target,
-  rogue: Swords,
-};
+import { calculateFinalStats, CLASS_BASE_HP, CLASS_BASE_MP, HP_PER_LEVEL, MP_PER_LEVEL, VIT_TO_HP, INT_TO_MP } from "@/lib/statSystem";
+import { CLASS_SPRITE_URLS } from "@/lib/pixelSprites";
 
 export default function CharacterCreation({ onCreated }) {
   const [name, setName] = useState("");
@@ -30,22 +17,13 @@ export default function CharacterCreation({ onCreated }) {
   const createMutation = useMutation({
     mutationFn: async () => {
       try {
-        const me = await base44.auth.me();
-        if (!me) throw new Error("Not authenticated");
-
         const cls = CLASSES[selectedClass];
-
-        const baseHp =
-          (CLASS_BASE_HP[selectedClass] || 100) +
-          cls.baseStats.vitality * VIT_TO_HP;
-
-        const baseMp =
-          (CLASS_BASE_MP[selectedClass] || 50) +
-          cls.baseStats.intelligence * INT_TO_MP;
-
-        const result = await base44.entities.Character.create({
+        const baseHp = (CLASS_BASE_HP[selectedClass] || 100) + cls.baseStats.vitality * VIT_TO_HP;
+        const baseMp = (CLASS_BASE_MP[selectedClass] || 50) + cls.baseStats.intelligence * INT_TO_MP;
+	const char = await apiFetch("/entities/Character", {
+    	method: "POST",
+  	body: JSON.stringify({
           name,
-          created_by: localStorage.getItem("eb_session_id"),
           class: selectedClass,
           level: 1,
           exp: 0,
@@ -70,20 +48,15 @@ export default function CharacterCreation({ onCreated }) {
           daily_quests_completed: 0,
           weekly_quests_completed: 0,
           last_idle_claim: new Date().toISOString(),
-        });
-
-        const char = Array.isArray(result)
-          ? result[0]
-          : result?.data?.[0] || result;
-
+ 	}),
+       });
         return char;
       } catch (err) {
         console.error("Failed to create character:", err);
         throw err;
       }
     },
-
-    onSuccess: (char) => onCreated(char), // 🔥 sauber
+    onSuccess: (char) => onCreated(char),
   });
 
   return (
@@ -95,18 +68,14 @@ export default function CharacterCreation({ onCreated }) {
       >
         <div className="text-center mb-10">
           <h1 className="font-orbitron text-4xl md:text-5xl font-bold text-primary tracking-wider mb-3">
-            EtherBound Idle
+            IDLE REALM
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Create your hero and begin your adventure
-          </p>
+          <p className="text-muted-foreground text-lg">Create your hero and begin your adventure</p>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-6 md:p-8 glow-cyan">
           <div className="mb-6">
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">
-              Character Name
-            </label>
+            <label className="text-sm font-medium text-muted-foreground mb-2 block">Character Name</label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -117,12 +86,10 @@ export default function CharacterCreation({ onCreated }) {
           </div>
 
           <div className="mb-8">
-            <label className="text-sm font-medium text-muted-foreground mb-3 block">
-              Choose Your Class
-            </label>
+            <label className="text-sm font-medium text-muted-foreground mb-3 block">Choose Your Class</label>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(CLASSES).map(([key, cls]) => {
-                const Icon = CLASS_ICONS[key];
+                const spriteUrl = CLASS_SPRITE_URLS[key] || CLASS_SPRITE_URLS.warrior;
                 const active = selectedClass === key;
                 return (
                   <motion.button
@@ -137,24 +104,15 @@ export default function CharacterCreation({ onCreated }) {
                     }`}
                   >
                     <div className="flex items-center gap-3 mb-2">
-                      <div
-                        className={`p-2 rounded-lg ${active ? "bg-primary/20" : "bg-muted"}`}
-                      >
-                        <Icon className={`w-5 h-5 ${cls.color}`} />
+                      <div className={`p-1 rounded-lg ${active ? "bg-primary/20" : "bg-muted"} overflow-hidden`}>
+                        <img src={spriteUrl} alt={key} className="w-8 h-8" style={{ imageRendering: "pixelated" }} />
                       </div>
-                      <span className={`font-bold ${cls.color}`}>
-                        {cls.name}
-                      </span>
+                      <span className={`font-bold ${cls.color}`}>{cls.name}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {cls.description}
-                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{cls.description}</p>
                     <div className="flex gap-2 mt-3 flex-wrap">
                       {Object.entries(cls.baseStats).map(([stat, val]) => (
-                        <span
-                          key={stat}
-                          className="text-xs bg-muted px-2 py-0.5 rounded"
-                        >
+                        <span key={stat} className="text-xs bg-muted px-2 py-0.5 rounded">
                           {stat.slice(0, 3).toUpperCase()} {val}
                         </span>
                       ))}
@@ -165,17 +123,14 @@ export default function CharacterCreation({ onCreated }) {
             </div>
           </div>
 
-          <Button
-            size="lg"
-            className="w-full h-12 font-orbitron text-base tracking-wider"
-            disabled={
-              !name.trim() || !selectedClass || createMutation.isPending
-            }
-            onClick={() => createMutation.mutate()}
-          >
-            {createMutation.isPending ? "Creating..." : "Begin Adventure"}
-            <ChevronRight className="w-5 h-5 ml-2" />
-          </Button>
+          <div className="flex justify-center">
+            <PixelButton
+              variant="ok"
+              label={createMutation.isPending ? "CREATING..." : "BEGIN ADVENTURE"}
+              disabled={!name.trim() || !selectedClass || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            />
+          </div>
         </div>
       </motion.div>
     </div>

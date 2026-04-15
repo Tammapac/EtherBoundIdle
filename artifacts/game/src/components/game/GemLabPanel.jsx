@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Gem, Zap, Gauge, TrendingUp, Clock, Coins } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -171,14 +172,14 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
         <div className="bg-card/50 border border-border rounded-lg p-3">
           <p className="text-xs text-muted-foreground">Pending</p>
           <p className="font-bold text-lg text-secondary">{metrics.pendingGems ?? 0}</p>
-          <Button
-            size="xs"
-            className="mt-1 h-6 text-xs w-full"
-            onClick={() => claimMutation.mutate()}
-            disabled={metrics.pendingGems === 0 || claimMutation.isPending}
-          >
-            Claim
-          </Button>
+          <div className="flex justify-center mt-1">
+            <PixelButton
+              variant="ok"
+              label="CLAIM"
+              onClick={() => claimMutation.mutate()}
+              disabled={metrics.pendingGems === 0 || claimMutation.isPending}
+            />
+          </div>
         </div>
         <div className="bg-card/50 border border-border rounded-lg p-3">
           <p className="text-xs text-muted-foreground">Total Produced</p>
@@ -222,16 +223,14 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
           <p className="text-xs text-muted-foreground">
             +5% gems/cycle per level
           </p>
-          <Button
-            size="sm"
-            variant={(character?.gold || 0) >= metrics.nextProdCost ? "default" : "outline"}
-            onClick={() => upgradeMutation.mutate("production")}
-            disabled={upgradeMutation.isPending || (character?.gold || 0) < metrics.nextProdCost}
-            className="w-full h-7 text-xs gap-1"
-          >
-            <Coins className="w-3 h-3" />
-            {(metrics.nextProdCost ?? 0).toLocaleString()}
-          </Button>
+          <div className="flex justify-center">
+            <PixelButton
+              variant="ok"
+              label={`${(metrics.nextProdCost ?? 0).toLocaleString()} G`}
+              onClick={() => upgradeMutation.mutate("production")}
+              disabled={upgradeMutation.isPending || (character?.gold || 0) < metrics.nextProdCost}
+            />
+          </div>
         </motion.div>
 
         {/* Speed */}
@@ -246,16 +245,14 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
           <p className="text-xs text-muted-foreground">
             -10% cycle time per level
           </p>
-          <Button
-            size="sm"
-            variant={(character?.gold || 0) >= metrics.nextSpeedCost ? "default" : "outline"}
-            onClick={() => upgradeMutation.mutate("speed")}
-            disabled={upgradeMutation.isPending || (character?.gold || 0) < metrics.nextSpeedCost}
-            className="w-full h-7 text-xs gap-1"
-          >
-            <Coins className="w-3 h-3" />
-            {(metrics.nextSpeedCost ?? 0).toLocaleString()}
-          </Button>
+          <div className="flex justify-center">
+            <PixelButton
+              variant="ok"
+              label={`${(metrics.nextSpeedCost ?? 0).toLocaleString()} G`}
+              onClick={() => upgradeMutation.mutate("speed")}
+              disabled={upgradeMutation.isPending || (character?.gold || 0) < metrics.nextSpeedCost}
+            />
+          </div>
         </motion.div>
 
         {/* Efficiency */}
@@ -270,16 +267,14 @@ export default function GemLabPanel({ character, onCharacterUpdate }) {
           <p className="text-xs text-muted-foreground">
             +10% gem multiplier per level
           </p>
-          <Button
-            size="sm"
-            variant={(character?.gold || 0) >= metrics.nextEffCost ? "default" : "outline"}
-            onClick={() => upgradeMutation.mutate("efficiency")}
-            disabled={upgradeMutation.isPending || (character?.gold || 0) < metrics.nextEffCost}
-            className="w-full h-7 text-xs gap-1"
-          >
-            <Coins className="w-3 h-3" />
-            {(metrics.nextEffCost ?? 0).toLocaleString()}
-          </Button>
+          <div className="flex justify-center">
+            <PixelButton
+              variant="ok"
+              label={`${(metrics.nextEffCost ?? 0).toLocaleString()} G`}
+              onClick={() => upgradeMutation.mutate("efficiency")}
+              disabled={upgradeMutation.isPending || (character?.gold || 0) < metrics.nextEffCost}
+            />
+          </div>
         </motion.div>
       </div>
 

@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { UserPlus, UserMinus, Star, StarOff, Ban, Check, X, Search, Wifi, WifiOff } from "lucide-react";
+import { UserPlus, UserMinus, Star, StarOff, Ban, Check, X, Search, Wifi, WifiOff, MessageCircle, ArrowLeftRight, Users } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { CLASSES } from "@/lib/gameData";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+import PixelButton from "@/components/game/PixelButton";
 
 const STATUS_COLOR = {
   online: "bg-green-500",
@@ -22,58 +25,81 @@ const STATUS_LABEL = {
   offline: "Offline",
 };
 
-export default function FriendPanel({ character }) {
+export default function FriendPanel({ character, onWhisper }) {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const qc = useQueryClient();
+  const socialPollInterval = useSmartPolling(POLL_INTERVALS.SOCIAL);
+  const bgPollInterval = useSmartPolling(POLL_INTERVALS.BACKGROUND);
 
   const { data: friends = [] } = useQuery({
     queryKey: ["friends", character.id],
-    queryFn: () => base44.entities.Friendship.filter({ character_id: character.id }),
-    refetchInterval: 30000,
+    queryFn: () => base44.entities.Friendship.filter({ character_id: character.id }, undefined, 50),
+    staleTime: 60000,
   });
 
   const { data: presences = [] } = useQuery({
     queryKey: ["presences"],
-    queryFn: () => base44.entities.Presence.list("-last_seen", 100),
-    refetchInterval: 30000,
+    queryFn: () => base44.entities.Presence.list("-last_seen", 30),
+    refetchInterval: socialPollInterval,
+    staleTime: 60000,
   });
 
   const { data: incomingRequests = [] } = useQuery({
     queryKey: ["friend_requests_in", character.id],
-    queryFn: () => base44.entities.FriendRequest.filter({ to_character_id: character.id, status: "pending" }),
-    refetchInterval: 15000,
+    queryFn: () => base44.entities.FriendRequest.filter({ to_character_id: character.id, status: "pending" }, undefined, 20),
+    refetchInterval: socialPollInterval,
+    staleTime: POLL_INTERVALS.SOCIAL,
   });
 
   const { data: outgoingRequests = [] } = useQuery({
     queryKey: ["friend_requests_out", character.id],
-    queryFn: () => base44.entities.FriendRequest.filter({ from_character_id: character.id, status: "pending" }),
-    refetchInterval: 15000,
+    queryFn: () => base44.entities.FriendRequest.filter({ from_character_id: character.id, status: "pending" }, undefined, 20),
+    staleTime: 60000,
   });
 
-  // Real-time subscription for friend requests
-  useEffect(() => {
-    const unsub = base44.entities.FriendRequest.subscribe((event) => {
-      if (event.type === "create" || event.type === "update") {
-        qc.invalidateQueries({ queryKey: ["friend_requests_in", character.id] });
-        qc.invalidateQueries({ queryKey: ["friend_requests_out", character.id] });
-      }
-    });
-    return unsub;
-  }, [character.id, qc]);
+  // Polling already handles friend requests (15s) and friends (30s) — no-op subscribe removed
 
-  // Real-time subscription for friendships
-  useEffect(() => {
-    const unsub = base44.entities.Friendship.subscribe((event) => {
-      qc.invalidateQueries({ queryKey: ["friends", character.id] });
-    });
-    return unsub;
-  }, [character.id, qc]);
+  // Fetch live character data for all friends to get up-to-date names/levels/classes
+  const friendIds = friends.map(f => f.friend_id).filter(Boolean);
+  const { data: friendChars = [] } = useQuery({
+    queryKey: ["friendChars", ...friendIds],
+    queryFn: async () => {
+      if (friendIds.length === 0) return [];
+      const results = await Promise.all(
+        friendIds.map(id => base44.entities.Character.get(id).catch(() => null))
+      );
+      return results.filter(Boolean);
+    },
+    enabled: friendIds.length > 0,
+    refetchInterval: bgPollInterval,
+    staleTime: POLL_INTERVALS.BACKGROUND,
+  });
+  const friendCharMap = Object.fromEntries(friendChars.map(c => [c.id, c]));
 
   const presenceMap = Object.fromEntries(presences.map(p => [p.character_id, p]));
 
-  const activeFriends = friends.filter(f => !f.is_blocked);
+  // Enrich friends with live character data
+  const enrichedFriends = friends.map(f => {
+    const liveChar = friendCharMap[f.friend_id];
+    return {
+      ...f,
+      friend_name: liveChar?.name || f.friend_name || "Unknown",
+      friend_class: liveChar?.class || f.friend_class || "warrior",
+      friend_level: liveChar?.level || f.friend_level || "?",
+    };
+  });
+
+  // Deduplicate by friend_id (in case of duplicate friendship records)
+  const seenFriendIds = new Set();
+  const activeFriends = enrichedFriends.filter(f => {
+    if (f.is_blocked) return false;
+    if (seenFriendIds.has(f.friend_id)) return false;
+    seenFriendIds.add(f.friend_id);
+    return true;
+  });
   const sorted = [...activeFriends].sort((a, b) => {
     if (a.is_favorite && !b.is_favorite) return -1;
     if (!a.is_favorite && b.is_favorite) return 1;
@@ -106,23 +132,29 @@ export default function FriendPanel({ character }) {
   const acceptMutation = useMutation({
     mutationFn: async (req) => {
       await base44.entities.FriendRequest.update(req.id, { status: "accepted" });
-      // Create both sides of friendship
-      await Promise.all([
-        base44.entities.Friendship.create({
+      // Check if friendship already exists before creating
+      const existingMy = await base44.entities.Friendship.filter({ character_id: character.id, friend_id: req.from_character_id });
+      const existingTheir = await base44.entities.Friendship.filter({ character_id: req.from_character_id, friend_id: character.id });
+      const creates = [];
+      if (existingMy.length === 0) {
+        creates.push(base44.entities.Friendship.create({
           character_id: character.id,
           friend_id: req.from_character_id,
           friend_name: req.from_name,
           friend_class: req.from_class,
           friend_level: req.from_level,
-        }),
-        base44.entities.Friendship.create({
+        }));
+      }
+      if (existingTheir.length === 0) {
+        creates.push(base44.entities.Friendship.create({
           character_id: req.from_character_id,
           friend_id: character.id,
           friend_name: character.name,
           friend_class: character.class,
           friend_level: character.level,
-        }),
-      ]);
+        }));
+      }
+      if (creates.length > 0) await Promise.all(creates);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["friend_requests_in", character.id] });
@@ -158,8 +190,8 @@ export default function FriendPanel({ character }) {
   const handleSearch = async () => {
     if (!search.trim()) return;
     setSearching(true);
-    const results = await base44.entities.Character.filter({ name: search.trim() });
-    setSearchResults(results.filter(c => c.id !== character.id));
+    const results = await base44.functions.invoke("lookupPlayerByName", { name: search.trim() });
+    setSearchResults((results || []).filter(c => c.id !== character.id));
     setSearching(false);
   };
 
@@ -190,22 +222,41 @@ export default function FriendPanel({ character }) {
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
-                      <span className={`text-sm font-bold ${cls?.color}`}>{f.friend_name[0]}</span>
+                      <span className={`text-sm font-bold ${cls?.color}`}>{(f.friend_name || "?")[0]}</span>
                     </div>
                     <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${STATUS_COLOR[status]}`} />
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold">{f.friend_name}</p>
+                      <p className="text-sm font-semibold">{f.friend_name || "Unknown"}</p>
                       {f.is_favorite && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Lv.{f.friend_level} {cls?.name} · <span className="capitalize">{STATUS_LABEL[status]}</span>
+                      Lv.{f.friend_level || "?"} {cls?.name || "Unknown"} · <span className="capitalize">{STATUS_LABEL[status]}</span>
                       {presence?.current_zone && status !== "offline" && ` · ${presence.current_zone.replace(/_/g, " ")}`}
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onWhisper?.(f.friend_name)} title="Whisper">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                    window.dispatchEvent(new CustomEvent("eb-trade", { detail: { friendId: f.friend_id, friendName: f.friend_name } }));
+                  }} title="Trade">
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={async () => {
+                    try {
+                      const result = await base44.functions.invoke("manageParty", { action: "invite", characterId: character.id, targetCharacterId: f.friend_id });
+                      toast({ title: "Party Invite", description: result?.message || `Invited ${f.friend_name} to your party.` });
+                      window.dispatchEvent(new CustomEvent("eb-party-invite-sent"));
+                    } catch (err) {
+                      toast({ title: "Party Invite Failed", description: err.message || "Could not send invite.", variant: "destructive" });
+                    }
+                  }} title="Party Invite">
+                    <Users className="w-3.5 h-3.5" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleFavMutation.mutate(f)} title="Toggle Favorite">
                     {f.is_favorite ? <StarOff className="w-3.5 h-3.5 text-yellow-400" /> : <Star className="w-3.5 h-3.5" />}
                   </Button>
@@ -231,12 +282,8 @@ export default function FriendPanel({ character }) {
                 <p className="text-xs text-muted-foreground">Lv.{req.from_level} {CLASSES[req.from_class]?.name}</p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="h-8 gap-1" onClick={() => acceptMutation.mutate(req)}>
-                  <Check className="w-3.5 h-3.5" /> Accept
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => declineMutation.mutate(req)}>
-                  <X className="w-3.5 h-3.5" /> Decline
-                </Button>
+                <PixelButton variant="ok" label="ACCEPT" onClick={() => acceptMutation.mutate(req)} />
+                <PixelButton variant="cancel" label="DECLINE" onClick={() => declineMutation.mutate(req)} />
               </div>
             </div>
           ))}
@@ -265,15 +312,12 @@ export default function FriendPanel({ character }) {
                   <p className="text-sm font-semibold">{c.name}</p>
                   <p className="text-xs text-muted-foreground">Lv.{c.level} {CLASSES[c.class]?.name}</p>
                 </div>
-                <Button
-                  size="sm"
+                <PixelButton
+                  variant="ok"
+                  label={alreadyFriend ? "FRIENDS" : requested ? "SENT" : "ADD"}
                   disabled={alreadyFriend || requested || sendRequestMutation.isPending}
                   onClick={() => sendRequestMutation.mutate(c)}
-                  className="gap-1"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  {alreadyFriend ? "Friends" : requested ? "Sent" : "Add"}
-                </Button>
+                />
               </div>
             );
           })}
@@ -284,15 +328,13 @@ export default function FriendPanel({ character }) {
 
         {/* Blocked */}
         <TabsContent value="blocked" className="space-y-2 mt-3">
-          {friends.filter(f => f.is_blocked).length === 0 && (
+          {enrichedFriends.filter(f => f.is_blocked).length === 0 && (
             <p className="text-center text-muted-foreground text-sm py-8">No blocked players.</p>
           )}
-          {friends.filter(f => f.is_blocked).map(f => (
+          {enrichedFriends.filter(f => f.is_blocked).map(f => (
             <div key={f.id} className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
-              <p className="text-sm">{f.friend_name}</p>
-              <Button variant="outline" size="sm" onClick={() => base44.entities.Friendship.update(f.id, { is_blocked: false }).then(() => qc.invalidateQueries({ queryKey: ["friends", character.id] }))}>
-                Unblock
-              </Button>
+              <p className="text-sm">{f.friend_name || "Unknown"}</p>
+              <PixelButton variant="ok" label="UNBLOCK" onClick={() => base44.entities.Friendship.update(f.id, { is_blocked: false }).then(() => qc.invalidateQueries({ queryKey: ["friends", character.id] }))} />
             </div>
           ))}
         </TabsContent>

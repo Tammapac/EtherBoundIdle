@@ -9,6 +9,7 @@ import { UserPlus, UserMinus, Star, StarOff, Ban, Check, X, Search, Wifi, WifiOf
 import { useToast } from "@/components/ui/use-toast";
 import { CLASSES } from "@/lib/gameData";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+import PixelButton from "@/components/game/PixelButton";
 
 const STATUS_COLOR = {
   online: "bg-green-500",
@@ -281,12 +282,8 @@ export default function FriendPanel({ character, onWhisper }) {
                 <p className="text-xs text-muted-foreground">Lv.{req.from_level} {CLASSES[req.from_class]?.name}</p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="h-8 gap-1" onClick={() => acceptMutation.mutate(req)}>
-                  <Check className="w-3.5 h-3.5" /> Accept
-                </Button>
-                <Button variant="outline" size="sm" className="h-8 gap-1" onClick={() => declineMutation.mutate(req)}>
-                  <X className="w-3.5 h-3.5" /> Decline
-                </Button>
+                <PixelButton variant="ok" label="ACCEPT" onClick={() => acceptMutation.mutate(req)} />
+                <PixelButton variant="cancel" label="DECLINE" onClick={() => declineMutation.mutate(req)} />
               </div>
             </div>
           ))}
@@ -315,15 +312,12 @@ export default function FriendPanel({ character, onWhisper }) {
                   <p className="text-sm font-semibold">{c.name}</p>
                   <p className="text-xs text-muted-foreground">Lv.{c.level} {CLASSES[c.class]?.name}</p>
                 </div>
-                <Button
-                  size="sm"
+                <PixelButton
+                  variant="ok"
+                  label={alreadyFriend ? "FRIENDS" : requested ? "SENT" : "ADD"}
                   disabled={alreadyFriend || requested || sendRequestMutation.isPending}
                   onClick={() => sendRequestMutation.mutate(c)}
-                  className="gap-1"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  {alreadyFriend ? "Friends" : requested ? "Sent" : "Add"}
-                </Button>
+                />
               </div>
             );
           })}
@@ -340,9 +334,7 @@ export default function FriendPanel({ character, onWhisper }) {
           {enrichedFriends.filter(f => f.is_blocked).map(f => (
             <div key={f.id} className="bg-card border border-border rounded-lg p-3 flex items-center justify-between">
               <p className="text-sm">{f.friend_name || "Unknown"}</p>
-              <Button variant="outline" size="sm" onClick={() => base44.entities.Friendship.update(f.id, { is_blocked: false }).then(() => qc.invalidateQueries({ queryKey: ["friends", character.id] }))}>
-                Unblock
-              </Button>
+              <PixelButton variant="ok" label="UNBLOCK" onClick={() => base44.entities.Friendship.update(f.id, { is_blocked: false }).then(() => qc.invalidateQueries({ queryKey: ["friends", character.id] }))} />
             </div>
           ))}
         </TabsContent>

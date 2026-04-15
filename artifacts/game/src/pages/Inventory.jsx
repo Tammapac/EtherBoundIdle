@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -668,16 +669,12 @@ export default function Inventory({ character, onCharacterUpdate }) {
           <Backpack className="w-5 h-5 text-primary" /> Inventory
         </h2>
         {sellableCount > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
+          <PixelButton
+            variant="ok"
+            label={`SELL ALL${filter !== "all" ? " " + filter.charAt(0).toUpperCase() + filter.slice(1) + "S" : ""} (${sellableCount} · ${sellableItems.reduce((s, i) => s + (i.sell_price || 5), 0)}G)`}
             onClick={() => sellAllMutation.mutate()}
             disabled={sellAllMutation.isPending}
-            className="gap-1.5"
-          >
-            <Coins className="w-3.5 h-3.5" />
-            Sell All {filter !== "all" ? filter.charAt(0).toUpperCase() + filter.slice(1) + "s" : ""} ({sellableCount} · {sellableItems.reduce((s, i) => s + (i.sell_price || 5), 0)}g)
-          </Button>
+          />
         )}
       </div>
 
@@ -809,53 +806,45 @@ export default function Inventory({ character, onCharacterUpdate }) {
                       )}
                       {!selectedItem._isCurrency && SLOT_ORDER.includes(selectedItem.type) && (
                         selectedItem.equipped ? (
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => unequipMutation.mutate(selectedItem)}>
-                            Unequip
-                          </Button>
+                          <PixelButton variant="cancel" label="UNEQUIP" onClick={() => unequipMutation.mutate(selectedItem)} />
                         ) : (
-                          <Button
-                            size="sm"
-                            className="flex-1 gap-1"
+                          <PixelButton
+                            variant="ok"
+                            label={!levelOk ? `REQ. LV.${selectedItem.level_req}` : !classCheck.allowed ? "WRONG CLASS" : "EQUIP"}
                             disabled={!canEquip}
                             onClick={() => equipMutation.mutate(selectedItem)}
-                            title={!canEquip ? equipReason : ""}
-                          >
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                            {!levelOk ? `Req. Lv.${selectedItem.level_req}` : !classCheck.allowed ? "Wrong Class" : "Equip"}
-                          </Button>
+                          />
                         )
                       )}
                       {selectedItem.type === "consumable" && (() => {
                         const selExtra = selectedItem.extraData || selectedItem.extra_data || {};
                         const isPetEgg = selExtra.consumableType === "pet_egg" || selExtra.consumableType === "pet_egg_shiny";
                         return isPetEgg ? (
-                          <Button
-                            size="sm"
-                            className="flex-1 gap-1 bg-amber-600 hover:bg-amber-700"
+                          <PixelButton
+                            variant="ok"
+                            label="HATCH IN PETS"
                             onClick={() => { setSelectedItem(null); navigate("/pets"); }}
-                          >
-                            <Egg className="w-3.5 h-3.5" /> Hatch in Pets
-                          </Button>
+                          />
                         ) : (
-                          <Button
-                            size="sm"
-                            className="flex-1 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                          <PixelButton
+                            variant="ok"
+                            label="USE"
                             disabled={useItemMutation.isPending}
                             onClick={() => useItemMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}
-                          >
-                            <Sparkles className="w-3.5 h-3.5" /> Use
-                          </Button>
+                          />
                         );
                       })()}
                       {!selectedItem._isCurrency && (
-                        <Button variant="destructive" size="sm" onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}>
-                          <Coins className="w-3.5 h-3.5 mr-1" /> Sell {selectedItem.stackIds ? "1" : ""} ({selectedItem.sell_price || 5}g)
-                        </Button>
+                        <PixelButton
+                          variant="ok"
+                          label={`SELL${selectedItem.stackIds ? " ×1" : ""} (${selectedItem.sell_price || 5}G)`}
+                          onClick={() => sellMutation.mutate(selectedItem.stackIds ? selectedItem.stackIds[0] : selectedItem.id)}
+                        />
                       )}
                     </div>
-                    <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => setSelectedItem(null)}>
-                      Close
-                    </Button>
+                    <div className="mt-2">
+                      <PixelButton variant="cancel" label="CLOSE" onClick={() => setSelectedItem(null)} />
+                    </div>
                   </>
                 );
               })()}

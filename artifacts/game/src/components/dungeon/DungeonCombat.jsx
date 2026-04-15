@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Zap, LogOut, Crown, Skull, Clock, User } from "lucide-react";
 import { SKILLS, CLASSES } from "@/lib/gameData";
@@ -206,9 +207,7 @@ export default function DungeonCombat({ session: initialSession, character, onLe
             </div>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={doLeave} className="gap-1 text-muted-foreground">
-          <LogOut className="w-3.5 h-3.5" /> Leave
-        </Button>
+        <PixelButton variant="cancel" label="LEAVE" onClick={doLeave} />
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-4 p-4">
@@ -315,9 +314,7 @@ export default function DungeonCombat({ session: initialSession, character, onLe
                 <p className="text-xs text-muted-foreground">Share Session ID with party:</p>
                 <code className="text-xs bg-muted px-2 py-1 rounded block break-all select-all">{session.id}</code>
                 {isLeader && (
-                  <Button size="sm" className="w-full gap-1.5" onClick={doStart} disabled={loading}>
-                    <Swords className="w-3.5 h-3.5" /> Start Battle
-                  </Button>
+                  <PixelButton variant="ok" label="START BATTLE" onClick={doStart} disabled={loading} />
                 )}
                 {!isLeader && (
                   <p className="text-xs text-center text-muted-foreground">Waiting for leader to start...</p>
@@ -335,37 +332,16 @@ export default function DungeonCombat({ session: initialSession, character, onLe
               <p className={`text-xs font-semibold ${isMyTurn ? "text-primary" : "text-muted-foreground"}`}>
                 {isMyTurn ? "⚡ YOUR TURN — Act now!" : `⏳ ${currentTurnMember?.name}'s turn...`}
               </p>
-              <Button
-                size="sm"
-                className="w-full gap-1.5"
-                disabled={!isMyTurn || loading}
-                onClick={() => doAction('attack')}
-              >
-                <Swords className="w-3.5 h-3.5" /> Basic Attack
-              </Button>
-              {charSkills.map(skill => {
-                const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
-                const skillColor = elem ? `border-current/30 ${elem.color}` : "border-secondary/40 text-secondary";
-                return (
-                  <Button
-                    key={skill.id}
-                    size="sm"
-                    variant="outline"
-                    className={`w-full gap-1.5 hover:bg-muted/30 hover:scale-105 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 transition-all duration-200 ${skillColor}`}
-                    disabled={!isMyTurn || loading}
-                    onClick={() => doAction('skill', skill.id)}
-                  >
-                    {(() => {
-                      const folder = getSkillSpriteFolder(skill.id);
-                      return folder
-                        ? <img src={`/sprites/skills/${folder}/${skill.id}.png`} alt={skill.name} style={{ width: 24, height: 24, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
-                        : <span className="text-sm">{elem?.icon || <Zap className="w-3.5 h-3.5" />}</span>;
-                    })()}
-                    {skill.name}
-                    <span className="text-xs opacity-60 ml-auto">({skill.mp}MP)</span>
-                  </Button>
-                );
-              })}
+              <PixelButton variant="ok" label="BASIC ATTACK" onClick={() => doAction('attack')} disabled={!isMyTurn || loading} />
+              {charSkills.map(skill => (
+                <PixelButton
+                  key={skill.id}
+                  variant="ok"
+                  label={`${skill.name.toUpperCase()} (${skill.mp}MP)`}
+                  onClick={() => doAction('skill', skill.id)}
+                  disabled={!isMyTurn || loading}
+                />
+              ))}
               {isMyTurn && (
                 <p className="text-xs text-center text-muted-foreground">Auto-attack in 5s if idle</p>
               )}
@@ -394,9 +370,7 @@ export default function DungeonCombat({ session: initialSession, character, onLe
                   </div>
                 );
               })()}
-              <Button size="sm" variant="outline" className="w-full" onClick={doLeave}>
-                Return to Dungeons
-              </Button>
+              <PixelButton variant="cancel" label="RETURN TO DUNGEONS" onClick={doLeave} />
             </div>
           )}
 

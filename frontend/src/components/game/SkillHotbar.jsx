@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Lock, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
 import { base44 } from "@/api/base44Client";
 import PixelButton from "@/components/game/PixelButton";
@@ -90,9 +89,7 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
               <PixelButton variant="cancel" onClick={() => { setIsEditing(false); setLocalHotbar(character?.hotbar_skills || []); }} />
             </>
           ) : (
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setIsEditing(true)}>
-              Edit Hotbar
-            </Button>
+            <PixelButton variant="ok" label="EDIT HOTBAR" onClick={() => setIsEditing(true)} />
           )}
         </div>
       </div>

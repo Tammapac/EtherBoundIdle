@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Zap, Star, Lock, CheckCircle2, Sparkles, Flame } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -374,9 +375,7 @@ function SkillPreview({ skill, skills, learnedSkills, skillPoints, charLevel, on
       {learned ? (
         <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs w-full justify-center py-1">Learned</Badge>
       ) : canLearn ? (
-        <Button size="sm" className="w-full h-9 text-sm gap-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold" onClick={() => onLearn(skill)} disabled={isPending}>
-          <Zap className="w-4 h-4" /> Learn — {skill.cost} SP
-        </Button>
+        <PixelButton variant="ok" label={`LEARN — ${skill.cost} SP`} onClick={() => onLearn(skill)} disabled={isPending} />
       ) : !levelOk ? (
         <p className="text-xs text-red-400 text-center font-bold">Requires Lv.{skill.levelReq}</p>
       ) : !prereqMet ? (

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skull, Swords, Trophy, Timer, Flame } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import PixelButton from "@/components/game/PixelButton";
 
 const PET_SPECIES_ICONS = { Wolf:"🐺", Phoenix:"🔥", Dragon:"🐉", Turtle:"🐢", Cat:"🐱", Owl:"🦉", Slime:"🫧", Fairy:"🧚", Serpent:"🐍", Golem:"🪨" };
 const PET_EVO_SUFFIX = ["", "⭐", "👑"];
@@ -69,18 +70,19 @@ export default function GuildBoss({ guild, myMemberEntry, character, onAttack, o
               />
             </div>
 
-            <Button
+            <PixelButton
+              variant="ok"
+              label={
+                timeLeftSec <= 0
+                  ? "BOSS EXPIRED"
+                  : bossCooldown && !bossCooldown.ready
+                    ? bossCooldown.windowFormatted.toUpperCase()
+                    : "ATTACK BOSS"
+              }
+              className="w-full"
               onClick={onAttack}
               disabled={isAttacking || hp <= 0 || timeLeftSec <= 0 || (bossCooldown && !bossCooldown.ready)}
-              className="w-full gap-2 bg-destructive hover:bg-destructive/90"
-            >
-              <Swords className="w-4 h-4" />
-              {timeLeftSec <= 0
-                ? "Boss Expired"
-                : bossCooldown && !bossCooldown.ready
-                  ? bossCooldown.windowFormatted
-                  : "Attack Boss"}
-            </Button>
+            />
             <p className="text-xs text-muted-foreground text-center mt-2">
               Your damage today: <span className="text-red-400 font-semibold">{myDmgToday.toLocaleString()}</span>
               {bossCooldown && (
@@ -150,9 +152,7 @@ export default function GuildBoss({ guild, myMemberEntry, character, onAttack, o
             Next Raid: Lv.{(guild.boss_kills || 0) + 1} | Bosses defeated: {guild.boss_kills || 0}
           </p>
           {canActivate && (
-            <Button onClick={onActivate} className="gap-2">
-              <Flame className="w-4 h-4" /> Activate Raid Lv.{(guild.boss_kills || 0) + 1}
-            </Button>
+            <PixelButton variant="ok" label={`ACTIVATE RAID LV.${(guild.boss_kills || 0) + 1}`} onClick={onActivate} />
           )}
         </div>
       )}

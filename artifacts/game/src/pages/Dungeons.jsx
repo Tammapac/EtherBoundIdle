@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import {
   Skull, Flame, Snowflake, Zap, Shield, Swords,
@@ -328,14 +329,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
           )}
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-xs"
-            onClick={() => setShowJoin(v => !v)}
-          >
-            <LogIn className="w-3.5 h-3.5" /> Join Session
-          </Button>
+          <PixelButton variant="ok" label="JOIN SESSION" onClick={() => setShowJoin(v => !v)} />
         </div>
       </div>
 
@@ -352,16 +346,12 @@ export default function Dungeons({ character, onCharacterUpdate }) {
             )}
           </div>
           {entryInfo.entries_remaining < (entryInfo.max_entries ?? 5) && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-xs"
+            <PixelButton
+              variant="ok"
+              label={`RESET (${entryInfo.reset_cost ?? 500} GEMS)`}
               onClick={handleResetEntries}
               disabled={resetting || (character.gems || 0) < (entryInfo.reset_cost ?? 500)}
-            >
-              <Gem className="w-3.5 h-3.5 text-primary" />
-              Reset ({entryInfo.reset_cost ?? 500} Gems)
-            </Button>
+            />
           )}
         </div>
       )}
@@ -382,9 +372,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
               className="h-8 text-xs flex-1"
               onKeyDown={e => e.key === 'Enter' && handleJoin()}
             />
-            <Button size="sm" onClick={handleJoin} disabled={loading} className="h-8 text-xs">
-              {loading ? "..." : "Join"}
-            </Button>
+            <PixelButton variant="ok" label={loading ? "..." : "JOIN"} onClick={handleJoin} disabled={loading} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -484,16 +472,16 @@ export default function Dungeons({ character, onCharacterUpdate }) {
 
                     {/* Actions */}
                     <div className="flex gap-2 flex-wrap">
-                      <Button
+                      <PixelButton
+                        variant="ok"
+                        label={loading ? "CREATING..." : "SOLO RUN"}
                         onClick={(e) => { e.stopPropagation(); handleCreate(dungeon); }}
                         disabled={loading}
-                        className="flex-1 gap-1.5"
-                        variant="outline"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" /> {loading ? "Creating..." : "Solo Run"}
-                      </Button>
+                      />
                       {partyData && partyData.members?.length > 1 && (
-                        <Button
+                        <PixelButton
+                          variant="ok"
+                          label={loading ? "..." : `INVITE PARTY (${partyData.members.length})`}
                           onClick={async (e) => {
                             e.stopPropagation();
                             setLoading(true);
@@ -528,10 +516,7 @@ export default function Dungeons({ character, onCharacterUpdate }) {
                             }
                           }}
                           disabled={loading}
-                          className="flex-1 gap-1.5 bg-secondary hover:bg-secondary/90"
-                        >
-                          <Users className="w-3.5 h-3.5" /> {loading ? "..." : `Invite Party (${partyData.members.length})`}
-                        </Button>
+                        />
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground text-center">

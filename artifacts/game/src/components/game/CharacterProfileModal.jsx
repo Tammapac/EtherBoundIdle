@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -318,9 +319,14 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
                 })}
               </div>
               {totalPending > 0 && (
-                <Button className="w-full mt-3" size="sm" onClick={() => statMutation.mutate()} disabled={statMutation.isPending}>
-                  Confirm ({totalPending} points)
-                </Button>
+                <div className="flex justify-center mt-3">
+                  <PixelButton
+                    variant="ok"
+                    label={`CONFIRM (${totalPending} PTS)`}
+                    onClick={() => statMutation.mutate()}
+                    disabled={statMutation.isPending}
+                  />
+                </div>
               )}
             </div>
 
@@ -513,9 +519,9 @@ export default function CharacterProfileModal({ character, onCharacterUpdate, on
             </div>
 
             {/* Logout */}
-            <Button variant="outline" className="w-full" onClick={() => logout()}>
-              Logout
-            </Button>
+            <div className="flex justify-center">
+              <PixelButton variant="cancel" label="LOGOUT" onClick={() => logout()} />
+            </div>
           </div>
         </motion.div>
       </motion.div>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -345,13 +346,12 @@ function PathChoiceScreen({ session, element, rewards, loading, autoFight, doAct
               </div>
             </div>
 
-            <Button
+            <PixelButton
+              variant="ok"
+              label={loading ? "LOADING..." : `ENTER FIELD ${fieldNumber + 1} (${pathChoice === "risk" ? "RISK" : "SAFE"})`}
               onClick={handleConfirm}
               disabled={!canConfirm || loading}
-              className={`w-full ${pathChoice === "risk" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
-            >
-              {loading ? "Loading..." : `Enter Field ${fieldNumber + 1} (${pathChoice === "risk" ? "Risk" : "Safe"})`}
-            </Button>
+            />
           </div>
         )}
 
@@ -488,7 +488,7 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
             {rewards.boss_stones > 0 && <div className="flex justify-between"><span className="text-red-400">Boss Stones</span><span>+{rewards.boss_stones}</span></div>}
             {(rewards.loot || []).length > 0 && <div className="pt-2 border-t border-white/10"><span className="text-amber-300 text-sm font-semibold">Loot:</span> {rewards.loot.join(", ")}</div>}
           </div>
-          <Button onClick={handleLeave} className="bg-red-600 hover:bg-red-700 w-full">Leave The Fields</Button>
+          <PixelButton variant="cancel" label="LEAVE THE FIELDS" onClick={handleLeave} />
         </motion.div>
       </div>
     );
@@ -527,9 +527,7 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
             <Button size="sm" variant={autoFight ? "destructive" : "outline"} onClick={() => setAutoFight(!autoFight)} className="h-7 text-xs">
               {autoFight ? "Stop" : "Auto"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={handleLeave} className="h-7 text-xs text-red-400 hover:text-red-300">
-              <LogOut className="w-3 h-3 mr-1" /> Leave
-            </Button>
+            <PixelButton variant="cancel" label="LEAVE" onClick={handleLeave} />
           </div>
         </div>
 
@@ -594,9 +592,7 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
 
         {session?.status === "waiting" && (
           <div className="text-center p-4">
-            <Button onClick={() => doAction("start")} className="bg-green-600 hover:bg-green-700">
-              <Play className="w-4 h-4 mr-2" /> Start Battle
-            </Button>
+            <PixelButton variant="ok" label="START BATTLE" onClick={() => doAction("start")} />
           </div>
         )}
 
@@ -641,38 +637,22 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
         {/* Action buttons (below players) */}
         {session?.status === "combat" && me?.alive && me?.hp > 0 && (
           <div className="flex gap-1 flex-wrap bg-black/60 backdrop-blur-sm border border-white/10 p-2">
-            <Button size="sm" onClick={() => doAction("attack", { targetEnemyId: selectedTarget })} disabled={loading} className="bg-red-600 hover:bg-red-700 h-8 text-xs">
-              <Swords className="w-3 h-3 mr-1" /> Attack
-            </Button>
+            <PixelButton variant="ok" label="ATTACK" onClick={() => doAction("attack", { targetEnemyId: selectedTarget })} disabled={loading} />
             {mySkills.map(skill => (
-              <Button key={skill.id} size="sm" variant="outline" onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} className="h-8 text-xs flex items-center gap-1 hover:scale-105 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 transition-all duration-200" title={skill.description}>
-                {(() => {
-                  const folder = getSkillSpriteFolder(skill.id);
-                  return folder
-                    ? <img src={`/sprites/skills/${folder}/${skill.id}.png`} alt={skill.name} style={{ width: 18, height: 18, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
-                    : null;
-                })()}
-                {skill.name}
-              </Button>
+              <PixelButton key={skill.id} variant="ok" label={skill.name.toUpperCase()} onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} />
             ))}
             {character?.class === "warrior" && (
-              <Button size="sm" variant="outline" onClick={() => doAction("aggro")} disabled={loading} className="h-8 text-xs border-orange-500/50 text-orange-400">
-                <Shield className="w-3 h-3 mr-1" /> Taunt
-              </Button>
+              <PixelButton variant="ok" label="TAUNT" onClick={() => doAction("aggro")} disabled={loading} />
             )}
             {character?.class === "mage" && (
               <>
                 {members.filter(m => m.characterId !== character.id && m.alive && m.hp > 0 && m.hp < m.max_hp).map(m => (
-                  <Button key={m.characterId} size="sm" variant="outline" onClick={() => doAction("heal_ally", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-green-500/50 text-green-400">
-                    <Heart className="w-3 h-3 mr-1" /> Heal {m.name}
-                  </Button>
+                  <PixelButton key={m.characterId} variant="ok" label={`HEAL ${m.name.toUpperCase()}`} onClick={() => doAction("heal_ally", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} />
                 ))}
               </>
             )}
             {members.filter(m => (m.characterId || m.character_id) !== character.id && (!m.alive || m.hp <= 0)).map(m => (
-              <Button key={`rev-${m.characterId || m.character_id}`} size="sm" variant="outline" onClick={() => doAction("revive", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} className="h-8 text-xs border-cyan-500/50 text-cyan-400">
-                <RefreshCw className="w-3 h-3 mr-1" /> Revive {m.name} {m.reviveTimer > 0 ? `(${m.reviveTimer}/3)` : ""}
-              </Button>
+              <PixelButton key={`rev-${m.characterId || m.character_id}`} variant="ok" label={`REVIVE ${m.name.toUpperCase()}${m.reviveTimer > 0 ? ` (${m.reviveTimer}/3)` : ""}`} onClick={() => doAction("revive", { targetCharacterId: m.characterId || m.character_id })} disabled={loading} />
             ))}
           </div>
         )}
@@ -780,9 +760,7 @@ export default function Fields({ character, onCharacterUpdate }) {
 
         {/* Enter Button */}
         <div className="text-center">
-          <Button onClick={enterFields} size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-lg px-8 py-6 shadow-lg shadow-green-900/30">
-            <Swords className="w-5 h-5 mr-2" /> Enter The Fields
-          </Button>
+          <PixelButton variant="ok" label="ENTER THE FIELDS" onClick={enterFields} />
         </div>
 
         {/* Active Sessions to Join */}
@@ -801,9 +779,7 @@ export default function Fields({ character, onCharacterUpdate }) {
                         <p className="text-xs text-muted-foreground">{s.members.map(m => m.name).join(", ")} ({s.memberCount}/{s.maxPlayers})</p>
                       </div>
                     </div>
-                    <Button size="sm" onClick={() => joinSession(s.id)} disabled={s.memberCount >= s.maxPlayers}>
-                      <LogIn className="w-3 h-3 mr-1" /> Join
-                    </Button>
+                    <PixelButton variant="ok" label="JOIN" onClick={() => joinSession(s.id)} disabled={s.memberCount >= s.maxPlayers} />
                   </div>
                 );
               })}

@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Gem, Coins, Sparkles, TrendingUp } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -34,7 +35,7 @@ export default function GoldTransmutation({ character, onCharacterUpdate }) {
   const transmuteMutation = useMutation({
     mutationFn: async () => {
       const response = await base44.functions.invoke('transmuteGold', {});
-      return response.data;
+      return response;
     },
     onSuccess: (data) => {
       if (data.success) {
@@ -125,39 +126,28 @@ export default function GoldTransmutation({ character, onCharacterUpdate }) {
           </div>
 
           {/* Mode Selection */}
-          <div className="flex gap-2">
-            <button
+          <div className="flex gap-2 justify-center">
+            <PixelButton
+              variant={spendingMode === "single" ? "ok" : "cancel"}
+              label={`SPEND ${nextCost.toLocaleString()} GOLD`}
               onClick={() => setSpendingMode("single")}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                spendingMode === "single"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Spend {nextCost.toLocaleString()} Gold
-            </button>
-            <button
+            />
+            <PixelButton
+              variant={spendingMode === "max" ? "ok" : "cancel"}
+              label={`SPEND ALL (${maxTransmutations}X)`}
               onClick={() => setSpendingMode("max")}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                spendingMode === "max"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              Spend All ({maxTransmutations}x)
-            </button>
+            />
           </div>
 
           {/* Action Button */}
-          <Button
-            onClick={handleTransmute}
-            disabled={!canAfford || transmuteMutation.isPending}
-            className="w-full gap-2 bg-purple-600 hover:bg-purple-700"
-          >
-            <Sparkles className="w-4 h-4" />
-            {transmuteMutation.isPending ? "Transmuting..." : "Transmute Gold"}
-            <Gem className="w-4 h-4" />
-          </Button>
+          <div className="flex justify-center">
+            <PixelButton
+              variant="ok"
+              label={transmuteMutation.isPending ? "TRANSMUTING..." : "TRANSMUTE GOLD"}
+              onClick={handleTransmute}
+              disabled={!canAfford || transmuteMutation.isPending}
+            />
+          </div>
 
           {/* Cost Progression */}
           <div className="bg-muted/30 rounded-lg p-3 text-xs space-y-1">

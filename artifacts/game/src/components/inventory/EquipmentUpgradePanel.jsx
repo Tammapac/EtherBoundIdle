@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -300,14 +299,12 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                   ✓ Safe upgrade (no risk)
                 </div>
 
-                <Button
+                <PixelButton
+                   variant="ok"
+                   label={safeMutation.isPending ? "UPGRADING..." : `UPGRADE LV.${currentUpgrade + 1}`}
                    onClick={() => safeMutation.mutate()}
                    disabled={safeMutation.isPending || (character.gold || 0) < goldCost}
-                   className="w-full bg-green-600 hover:bg-green-700 gap-2"
-                 >
-                   {safeMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                   {safeMutation.isPending ? "Upgrading..." : `Upgrade Level ${currentUpgrade + 1}`}
-                 </Button>
+                 />
               </>
             )}
           </motion.div>
@@ -367,13 +364,12 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                 </div>
 
                 {!confirmStar ? (
-                  <Button
+                  <PixelButton
+                    variant="ok"
+                    label={`UPGRADE TO ⭐${currentStar + 1}`}
                     onClick={() => setConfirmStar(true)}
                     disabled={starMutation.isPending || (character.gems || 0) < gemCost}
-                    className="w-full bg-yellow-600 hover:bg-yellow-700 gap-2"
-                  >
-                    <Zap className="w-4 h-4" /> Upgrade to ⭐{currentStar + 1}
-                  </Button>
+                  />
                 ) : (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -430,13 +426,12 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                 </div>
 
                 {!confirmAwaken ? (
-                  <Button
+                  <PixelButton
+                    variant="ok"
+                    label="AWAKEN"
                     onClick={() => setConfirmAwaken(true)}
                     disabled={awakenMutation.isPending || (character.gems || 0) < 5000}
-                    className="w-full bg-cyan-600 hover:bg-cyan-700 gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" /> Awaken
-                  </Button>
+                  />
                 ) : (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -458,9 +453,7 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
         )}
       </div>
 
-      <Button variant="ghost" size="sm" className="w-full" onClick={onClose}>
-        Close
-      </Button>
+      <PixelButton variant="cancel" label="CLOSE" onClick={onClose} />
     </motion.div>
   );
 }

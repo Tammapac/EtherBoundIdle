@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, TrendingUp, Zap, Shield, Gem, Timer } from "lucide-react";
+import PixelButton from "@/components/game/PixelButton";
 
 const SHOP_ITEMS = [
   { id: "exp_scroll", name: "EXP Scroll", desc: "+50% EXP for 1 hour", cost: 100, icon: TrendingUp, color: "text-green-400", minGuildLevel: 1, durationMs: 60 * 60 * 1000, cooldownMs: 2 * 60 * 60 * 1000 },
@@ -86,14 +87,13 @@ export default function GuildShop({ guild, onBuy, isBuying, characterId }) {
                   Cooldown: {formatTime(cooldown)}
                 </div>
               ) : (
-                <Button
-                  size="sm"
-                  className="w-full text-xs"
+                <PixelButton
+                  variant="ok"
+                  label={`BUY (${item.cost}T)`}
+                  className="w-full"
                   disabled={locked || !canAfford || isBuying}
                   onClick={() => handleBuy(item)}
-                >
-                  {item.cost} Tokens
-                </Button>
+                />
               )}
             </div>
           );

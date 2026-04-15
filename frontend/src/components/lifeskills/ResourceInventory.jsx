@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Coins } from "lucide-react";
+import PixelButton from "@/components/game/PixelButton";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -93,8 +92,9 @@ const ORE_SELL_PRICE = {
 };
 
 const RARITY_ORDER = ["shiny","mythic","legendary","epic","rare","uncommon","common"];
-const CATEGORIES = ["ores", "bars", "forged", "fish", "food", "herbs", "potions", "crafted"];
+const CATEGORIES = ["all", "ores", "bars", "forged", "fish", "food", "herbs", "potions", "crafted"];
 const CATEGORY_LABELS = {
+  all:     "📦 All",
   ores:    "⛏️ Ores",
   bars:    "🔩 Bars",
   forged:  "⚔️ Forged",
@@ -106,7 +106,7 @@ const CATEGORY_LABELS = {
 };
 
 export default function ResourceInventory({ resources, character, onCharacterUpdate, onResourcesChange }) {
-  const [activeCategory, setActiveCategory] = useState("ores");
+  const [activeCategory, setActiveCategory] = useState("all");
   const [selling, setSelling] = useState(null); // resource id being sold
   const { toast } = useToast();
 
@@ -118,6 +118,7 @@ export default function ResourceInventory({ resources, character, onCharacterUpd
     const meta = RESOURCE_META[r.resource_type];
     const cat = meta?.category || "crafted";
     if (byCategory[cat]) byCategory[cat].push(r);
+    byCategory["all"].push(r);
   });
 
   CATEGORIES.forEach(c => {
@@ -227,24 +228,18 @@ export default function ResourceInventory({ resources, character, onCharacterUpd
                 {/* Sell buttons — only for ores */}
                 {isOre && (
                   <div className="flex gap-1 mt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 h-6 text-[10px] gap-1 px-1"
+                    <PixelButton
+                      variant="ok"
+                      label={`×1 (${price}G)`}
                       disabled={isSelling || res.quantity < 1}
                       onClick={() => handleSellOne(res)}
-                    >
-                      <Coins className="w-2.5 h-2.5" /> ×1 ({price}g)
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="flex-1 h-6 text-[10px] gap-1 px-1"
+                    />
+                    <PixelButton
+                      variant="ok"
+                      label={`SELL ALL (${(price * res.quantity).toLocaleString()}G)`}
                       disabled={isSelling || res.quantity < 1}
                       onClick={() => handleSellAll(res)}
-                    >
-                      <Coins className="w-2.5 h-2.5" /> All ({(price * res.quantity).toLocaleString()}g)
-                    </Button>
+                    />
                   </div>
                 )}
               </div>

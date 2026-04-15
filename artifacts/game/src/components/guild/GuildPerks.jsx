@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Coins, Zap, Clock } from "lucide-react";
+import PixelButton from "@/components/game/PixelButton";
 
 const PERKS = [
   { key: "exp_boost", label: "EXP Boost", icon: TrendingUp, color: "text-green-400", desc: "+5% EXP per level", buffKey: "exp_bonus", baseCost: 500 },
@@ -38,14 +39,12 @@ export default function GuildPerks({ guild, myRole, onUpgrade, isUpgrading }) {
                 <Badge variant="outline" className="text-xs">Lv.{level}/{MAX_LEVEL}</Badge>
               </div>
               {!maxed && canManage(myRole) && (
-                <Button
-                  size="sm"
+                <PixelButton
+                  variant="ok"
+                  label={`UPGRADE (${cost}T)`}
                   disabled={!canAfford || isUpgrading || maxed}
                   onClick={() => onUpgrade(perk, level)}
-                  className="text-xs h-7 gap-1"
-                >
-                  Upgrade ({cost} <span className="text-purple-300">tokens</span>)
-                </Button>
+                />
               )}
               {maxed && <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">MAX</Badge>}
             </div>

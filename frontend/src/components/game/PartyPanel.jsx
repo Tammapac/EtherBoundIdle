@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { supabaseSync } from "@/lib/supabaseSync";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,17 +8,25 @@ import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import PlayerProfileModal from "@/components/game/PlayerProfileModal";
 import { REGIONS } from "@/lib/gameData";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
+import { CLASS_SPRITE_URLS } from "@/lib/pixelSprites";
+import PixelButton from "@/components/game/PixelButton";
+
+// Direct GET fetch for party data — avoids POST cache invalidation cascade
+async function fetchMyParty(characterId) {
+  const res = await fetch(`/api/functions/getMyParty?characterId=${encodeURIComponent(characterId)}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) return null;
+  return json.data ?? json ?? null;
+}
 
 const CLASS_COLORS = {
   warrior: "text-red-400", mage: "text-blue-400",
   ranger: "text-green-400", rogue: "text-purple-400"
 };
-
-const CLASS_ICONS = {
-  warrior: "⚔️", mage: "🔮", ranger: "🏹", rogue: "🗡️"
-};
-
-const useSupabase = supabaseSync.isEnabled();
 
 export default function PartyPanel({ character }) {
   const [minimized, setMinimized] = useState(true);
@@ -30,76 +37,75 @@ export default function PartyPanel({ character }) {
   const [memberDetails, setMemberDetails] = useState({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // Polling is now a fallback — primary updates come via socket "party:update" event
+  const partyPollInterval = useSmartPolling(30000);
+  const invitePollInterval = useSmartPolling(30000);
 
   const { data: partyData } = useQuery({
     queryKey: ["party", character?.id],
-    queryFn: async () => {
-      if (useSupabase) {
-        return await supabaseSync.getPartyForCharacter(character.id);
-      }
-      const led = await base44.entities.Party.filter({ leader_id: character.id });
-      const active = led.find(p => p.status !== 'disbanded');
-      if (active) return active;
-      const all = await base44.entities.Party.list('-updated_date', 50);
-      return all.find(p => p.status !== 'disbanded' && p.members?.some(m => m.character_id === character.id)) || null;
-    },
+    queryFn: () => fetchMyParty(character.id),
     enabled: !!character?.id,
-    refetchInterval: 8000,
+    staleTime: 5000,
+    refetchInterval: partyPollInterval,
+    refetchOnWindowFocus: "always",
   });
 
   useEffect(() => {
-    if (!partyData?.members?.length) return;
+    if (!partyData?.members?.length || minimized) return;
     const fetchDetails = async () => {
-      const updates = {};
-      const levels = {};
-      await Promise.all(partyData.members.map(async (m) => {
-        if (m.character_id === character.id) return;
-        try {
-          if (useSupabase) {
-            const charData = await supabaseSync.getCharacterById(m.character_id);
-            if (charData) {
-              levels[m.character_id] = charData.level;
-              updates[m.character_id] = { level: charData.level, current_region: charData.current_region, class: charData.class };
-            }
-          } else {
-            const chars = await base44.entities.Character.filter({ id: m.character_id });
-            if (chars[0]) {
-              levels[m.character_id] = chars[0].level;
-              updates[m.character_id] = { level: chars[0].level, current_region: chars[0].current_region, class: chars[0].class };
-            }
-          }
-        } catch {}
-      }));
-      setLiveLevels(levels);
-      setMemberDetails(updates);
+      const otherIds = partyData.members.filter(m => m.character_id !== character.id).map(m => m.character_id);
+      if (otherIds.length === 0) return;
+      try {
+        const res = await base44.functions.invoke("getPublicProfiles", { characterIds: otherIds });
+        const profiles = res?.profiles || [];
+        const updates = {};
+        const levels = {};
+        for (const p of profiles) {
+          levels[p.id] = p.level;
+          updates[p.id] = { level: p.level, current_region: p.current_region, class: p.class };
+        }
+        setLiveLevels(levels);
+        setMemberDetails(updates);
+      } catch {}
     };
     fetchDetails();
-    const interval = setInterval(fetchDetails, 15000);
+    const interval = setInterval(fetchDetails, 60000);
     return () => clearInterval(interval);
   }, [partyData?.id, partyData?.members?.map(m => m.character_id).sort().join(',')]);
 
   const { data: pendingInvites = [] } = useQuery({
     queryKey: ["partyInvites", character?.id],
     queryFn: async () => {
-      if (useSupabase) {
-        return await supabaseSync.getPendingInvites(character.id);
-      }
       return base44.entities.PartyInvite.filter({ to_character_id: character.id, status: 'pending' });
     },
     enabled: !!character?.id,
-    refetchInterval: 5000,
+    staleTime: 10000,
+    refetchInterval: invitePollInterval,
   });
 
   const invalidateParty = () => {
-    queryClient.invalidateQueries({ queryKey: ["party"] });
-    queryClient.invalidateQueries({ queryKey: ["partyInvites"] });
+    queryClient.invalidateQueries({ queryKey: ["party"], refetchType: "all" });
+    queryClient.invalidateQueries({ queryKey: ["partyInvites"], refetchType: "all" });
+    // Double-tap: refetch again after 1.5s to bypass any stale GET cache
+    setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["party"] });
+      queryClient.refetchQueries({ queryKey: ["partyInvites"] });
+    }, 1500);
   };
+
+  // Listen for party invite events from FriendPanel — open panel when invite sent
+  useEffect(() => {
+    const handler = () => {
+      setMinimized(false);
+      setExpanded(true);
+      invalidateParty();
+    };
+    window.addEventListener("eb-party-invite-sent", handler);
+    return () => window.removeEventListener("eb-party-invite-sent", handler);
+  }, []);
 
   const mutation = useMutation({
     mutationFn: async (payload) => {
-      if (useSupabase) {
-        return await handleSupabasePartyAction(payload);
-      }
       return base44.functions.invoke("manageParty", { characterId: character.id, ...payload });
     },
     onSuccess: invalidateParty,
@@ -108,77 +114,6 @@ export default function PartyPanel({ character }) {
       toast({ title: msg, variant: "destructive" });
     },
   });
-
-  const handleSupabasePartyAction = async (payload) => {
-    const { action, partyId, targetCharacterId, targetName, inviteId } = payload;
-
-    if (action === 'create') {
-      const party = await supabaseSync.createParty(character.id, character.name, character.class, character.level);
-      if (!party) throw new Error("Failed to create party");
-      return { data: { success: true, party } };
-    }
-
-    if (action === 'invite') {
-      let resolvedTargetId = targetCharacterId;
-      if (targetName) {
-        const found = await supabaseSync.fetchPlayerByName(targetName);
-        if (!found) throw new Error(`Player "${targetName}" not found`);
-        resolvedTargetId = found.id;
-      }
-      if (!resolvedTargetId) throw new Error("No target specified");
-      if (resolvedTargetId === character.id) throw new Error("Cannot invite yourself");
-      const invite = await supabaseSync.createPartyInvite(partyId, character.id, character.name, resolvedTargetId);
-      if (!invite) throw new Error("Failed to send invite");
-      return { data: { success: true, invite } };
-    }
-
-    if (action === 'accept') {
-      const inv = await supabaseSync.getInviteById(inviteId);
-      if (!inv || inv.status !== 'pending') throw new Error("Invite not found or expired");
-      if (inv.to_character_id !== character.id) throw new Error("This invite is not for you");
-      const party = await supabaseSync.getPartyById(inv.party_id);
-      if (!party || party.status === 'disbanded') throw new Error("Party no longer exists");
-      const members = party.members || [];
-      if (members.length >= (party.max_members || 6)) {
-        await supabaseSync.updateInviteStatus(inviteId, 'declined');
-        throw new Error("Party is full");
-      }
-      if (members.some(m => m.character_id === character.id)) {
-        await supabaseSync.updateInviteStatus(inviteId, 'accepted');
-        return { data: { success: true } };
-      }
-      members.push({ character_id: character.id, name: character.name, class: character.class, level: character.level });
-      await supabaseSync.updateParty(inv.party_id, { members });
-      await supabaseSync.updateInviteStatus(inviteId, 'accepted');
-      return { data: { success: true } };
-    }
-
-    if (action === 'decline') {
-      const inv = await supabaseSync.getInviteById(inviteId);
-      if (inv && inv.to_character_id !== character.id) throw new Error("This invite is not for you");
-      await supabaseSync.updateInviteStatus(inviteId, 'declined');
-      return { data: { success: true } };
-    }
-
-    if (action === 'leave') {
-      const party = await supabaseSync.getPartyById(partyId);
-      if (!party) return { data: { success: true } };
-      const members = (party.members || []).filter(m => m.character_id !== character.id);
-      if (members.length === 0) {
-        await supabaseSync.updateParty(partyId, { status: 'disbanded', members: [] });
-      } else {
-        const updates = { members };
-        if (party.leader_id === character.id && members.length > 0) {
-          updates.leader_id = members[0].character_id;
-          updates.leader_name = members[0].name;
-        }
-        await supabaseSync.updateParty(partyId, updates);
-      }
-      return { data: { success: true } };
-    }
-
-    return { data: { success: true } };
-  };
 
   const isPlayerInParty = partyData && partyData.status !== 'disbanded' && partyData.members?.some(m => m.character_id === character.id);
   const isLeader = partyData?.leader_id === character.id;
@@ -194,7 +129,31 @@ export default function PartyPanel({ character }) {
     },
   });
   const handleLeave = () => mutation.mutate({ action: 'leave', partyId: partyData.id });
-  const handleAccept = (invite) => mutation.mutate({ action: 'accept', inviteId: invite.id });
+  const handleAccept = (invite) => mutation.mutate({ action: 'accept', inviteId: invite.id }, {
+    onSuccess: (data) => {
+      setMinimized(false);
+      setExpanded(true);
+      toast({ title: "Joined the party!", duration: 2000 });
+      // If the server returned the party data, set it directly in cache
+      if (data?.party) {
+        const mapped = {
+          id: data.party.id,
+          leader_id: data.party.leaderId || data.party.leader_id,
+          leader_name: data.party.leaderName || data.party.leader_name,
+          members: data.party.members,
+          status: data.party.status,
+          max_members: data.party.maxMembers || data.party.max_members,
+          extra_data: data.party.extraData || data.party.extra_data,
+        };
+        queryClient.setQueryData(["party", character?.id], mapped);
+      }
+      // Also refetch to be safe
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["party"] });
+        queryClient.refetchQueries({ queryKey: ["partyInvites"] });
+      }, 500);
+    },
+  });
   const handleDecline = (invite) => mutation.mutate({ action: 'decline', inviteId: invite.id });
 
   const handleInvite = () => {
@@ -233,6 +192,30 @@ export default function PartyPanel({ character }) {
             setProfileTarget(null);
           } : undefined}
         />
+      )}
+
+      {/* Show invite popups even when panel is minimized */}
+      {minimized && pendingInvites.length > 0 && (
+        <div className="fixed right-3 top-20 z-40 w-56 space-y-2">
+          <AnimatePresence>
+            {pendingInvites.map(inv => (
+              <motion.div
+                key={inv.id}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 40 }}
+                className="bg-card border-2 border-primary/50 rounded-xl p-3 shadow-lg shadow-primary/10"
+              >
+                <p className="text-xs font-semibold text-primary mb-1">Party Invite!</p>
+                <p className="text-xs text-muted-foreground mb-2">{inv.from_name || inv.from_character_name} invites you</p>
+                <div className="flex gap-1.5">
+                  <PixelButton variant="ok" label="ACCEPT" className="flex-1" onClick={() => handleAccept(inv)} />
+                  <PixelButton variant="cancel" label="DECLINE" className="flex-1" onClick={() => handleDecline(inv)} />
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       )}
 
       <div className="fixed right-0 top-1/2 -translate-y-1/2 z-30 flex items-center">
@@ -275,14 +258,10 @@ export default function PartyPanel({ character }) {
                     className="mb-2 bg-card border border-primary/50 rounded-xl p-3 shadow-lg shadow-primary/10"
                   >
                     <p className="text-xs font-semibold text-primary mb-1">Party Invite!</p>
-                    <p className="text-xs text-muted-foreground mb-2">{inv.from_name} invites you</p>
+                    <p className="text-xs text-muted-foreground mb-2">{inv.from_name || inv.from_character_name} invites you</p>
                     <div className="flex gap-1.5">
-                      <Button size="sm" className="flex-1 h-7 text-xs bg-green-600 hover:bg-green-700" onClick={() => handleAccept(inv)}>
-                        <Check className="w-3 h-3 mr-1" /> Accept
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleDecline(inv)}>
-                        <X className="w-3 h-3 mr-1" /> Decline
-                      </Button>
+                      <PixelButton variant="ok" label="ACCEPT" className="flex-1" onClick={() => handleAccept(inv)} />
+                      <PixelButton variant="cancel" label="DECLINE" className="flex-1" onClick={() => handleDecline(inv)} />
                     </div>
                   </motion.div>
                 ))}
@@ -327,14 +306,13 @@ export default function PartyPanel({ character }) {
                         {!isPlayerInParty ? (
                           <>
                             <p className="text-xs text-muted-foreground text-center py-1">No party yet</p>
-                            <Button
-                              size="sm"
-                              className="w-full h-8 text-xs gap-1.5 bg-primary hover:bg-primary/80"
+                            <PixelButton
+                              variant="ok"
+                              label="CREATE PARTY"
+                              className="w-full"
                               onClick={handleCreate}
                               disabled={mutation.isPending}
-                            >
-                              <UserPlus className="w-3.5 h-3.5" /> Create Party
-                            </Button>
+                            />
                             <p className="text-[10px] text-muted-foreground text-center">
                               Earn +5% XP & +10% Gold per member
                             </p>
@@ -358,7 +336,7 @@ export default function PartyPanel({ character }) {
                                   >
                                     <div className="flex items-center gap-1.5">
                                       {m.character_id === partyData.leader_id && <Crown className="w-3 h-3 text-accent flex-shrink-0" />}
-                                      <span className="text-sm">{CLASS_ICONS[memberClass] || "⚔️"}</span>
+                                      <img src={CLASS_SPRITE_URLS[memberClass] || CLASS_SPRITE_URLS.warrior} alt={memberClass} className="w-6 h-6" style={{ imageRendering: "pixelated" }} />
                                       <span className={`font-medium truncate ${CLASS_COLORS[memberClass] || "text-foreground"}`}>
                                         {m.name}
                                       </span>
@@ -399,14 +377,12 @@ export default function PartyPanel({ character }) {
                               </div>
                             )}
 
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full h-7 text-xs gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                            <PixelButton
+                              variant="cancel"
+                              label="LEAVE PARTY"
+                              className="w-full"
                               onClick={handleLeave}
-                            >
-                              <LogOut className="w-3 h-3" /> Leave Party
-                            </Button>
+                            />
                           </>
                         )}
                       </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -11,11 +11,7 @@ import {
 } from "lucide-react";
 import { RARITY_CONFIG } from "@/lib/gameData";
 import { idleEngine } from "@/lib/idleEngine";
-
-const TYPE_ICONS = {
-  weapon: Sword, armor: Shield, helmet: Crown, boots: Footprints,
-  ring: CircleDot, amulet: Gem, consumable: FlaskConical, material: Package
-};
+import { getItemIcon, getItemSprite } from "@/lib/itemIcons";
 
 function formatTimeLeft(nextRefreshAt) {
   if (!nextRefreshAt) return "";
@@ -24,6 +20,26 @@ function formatTimeLeft(nextRefreshAt) {
   const h = Math.floor(diff / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
   return `${h}h ${m}m`;
+}
+
+function getPurchasedIds(charId) {
+  try {
+    const data = JSON.parse(localStorage.getItem(`shop_purchased_${charId}`) || "{}");
+    const ROTATION_MS = 4 * 60 * 60 * 1000;
+    const currentSeed = Math.floor(Date.now() / ROTATION_MS);
+    if (data.seed !== currentSeed) return new Set();
+    return new Set(data.ids || []);
+  } catch { return new Set(); }
+}
+function addPurchasedId(charId, itemId) {
+  try {
+    const ROTATION_MS = 4 * 60 * 60 * 1000;
+    const currentSeed = Math.floor(Date.now() / ROTATION_MS);
+    const data = JSON.parse(localStorage.getItem(`shop_purchased_${charId}`) || "{}");
+    const ids = data.seed === currentSeed ? (data.ids || []) : [];
+    ids.push(itemId);
+    localStorage.setItem(`shop_purchased_${charId}`, JSON.stringify({ seed: currentSeed, ids }));
+  } catch {}
 }
 
 export default function Shop({ character, onCharacterUpdate }) {
@@ -40,21 +56,19 @@ export default function Shop({ character, onCharacterUpdate }) {
       const res = await base44.functions.invoke("getShopRotation", {
         characterId: character.id, forceRefresh
       });
-      if (res.data?.success === false && res.data?.error) {
-        toast({ title: res.data.error, variant: "destructive" });
-        return;
+      if (res?.gemsSpent > 0) {
+        // Force refresh was used — clear purchase cache so new items show
+        localStorage.removeItem(`shop_purchased_${character.id}`);
+        const newGems = (character.gems || 0) - res.gemsSpent;
+        onCharacterUpdate({ ...character, gems: newGems });
+        toast({ title: `Stock refreshed! (${res.gemsSpent} gems spent)`, duration: 2000 });
       }
-      if (res.data?.success) {
-        setShopItems(res.data.items || []);
-        setNextRefreshAt(res.data.nextRefreshAt);
-        if (res.data.gemsSpent > 0) {
-          const newGems = (character.gems || 0) - res.data.gemsSpent;
-          onCharacterUpdate({ ...character, gems: newGems });
-          toast({ title: `Stock refreshed! (${res.data.gemsSpent} gems spent)`, duration: 2000 });
-        }
-      }
+      const purchased = getPurchasedIds(character.id);
+      setShopItems((res?.items || []).filter(i => !purchased.has(i.id)));
+      setNextRefreshAt(res?.refreshes_at || res?.nextRefreshAt || null);
     } catch (e) {
       console.error(e);
+      toast({ title: "Could not load shop", variant: "destructive" });
     } finally {
       setLoadingShop(false);
     }
@@ -67,7 +81,7 @@ export default function Shop({ character, onCharacterUpdate }) {
     const interval = setInterval(() => {
       const tl = formatTimeLeft(nextRefreshAt);
       setTimeLeft(tl);
-      if (tl === "Refreshing...") loadShop(true);
+      if (tl === "Refreshing...") loadShop(false);
     }, 1000);
     setTimeLeft(formatTimeLeft(nextRefreshAt));
     return () => clearInterval(interval);
@@ -89,18 +103,28 @@ export default function Shop({ character, onCharacterUpdate }) {
       await base44.entities.Item.create({
         name: shopItem.name,
         type: shopItem.type,
+        subtype: shopItem.subtype || null,
         rarity: shopItem.rarity,
         stats: shopItem.stats,
         item_level: shopItem.item_level,
+        level_req: shopItem.level_req || Math.max(1, (shopItem.item_level || 1) - 2),
         owner_id: character.id,
         sell_price: shopItem.sell_price || Math.floor(shopItem.buy_price * 0.3),
         buy_price: shopItem.buy_price,
         description: shopItem.description || `Purchased from the rotating shop`,
+        extra_data: {
+          ...(shopItem.subtype ? { subtype: shopItem.subtype } : {}),
+          ...(shopItem.rune_slots ? { rune_slots: shopItem.rune_slots } : {}),
+          ...(shopItem.proc_effects ? { proc_effects: shopItem.proc_effects } : {}),
+        },
       });
       const newGold = (character.gold || 0) - shopItem.buy_price;
       await base44.entities.Character.update(character.id, { gold: newGold });
       onCharacterUpdate({ ...character, gold: newGold });
+      addPurchasedId(character.id, shopItem.id);
+      setShopItems(prev => prev.filter(i => i.id !== shopItem.id));
       queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
       toast({ title: `Purchased ${shopItem.name}!`, duration: 1000 });
     },
   });
@@ -129,16 +153,12 @@ export default function Shop({ character, onCharacterUpdate }) {
 
       {/* Refresh button */}
       <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
+        <PixelButton
+          variant="ok"
+          label={loadingShop ? "REFRESHING..." : "REFRESH STOCK (5💎)"}
           onClick={() => loadShop(true)}
           disabled={loadingShop}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loadingShop ? "animate-spin" : ""}`} />
-          Refresh Stock (<Gem className="w-3 h-3 inline" /> 5)
-        </Button>
+        />
       </div>
 
       {loadingShop ? (
@@ -151,8 +171,9 @@ export default function Shop({ character, onCharacterUpdate }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {shopItems.map((item, idx) => {
             const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
-            const Icon = TYPE_ICONS[item.type] || ShoppingBag;
-            const canAfford = (character?.gold || 0) >= item.buy_price;
+            const Icon = getItemIcon(item);
+            const price = item.buy_price || item.price || 0;
+            const canAfford = (character?.gold || 0) >= price;
 
             return (
               <motion.div
@@ -162,8 +183,12 @@ export default function Shop({ character, onCharacterUpdate }) {
                 transition={{ delay: idx * 0.05 }}
                 className={`bg-card border rounded-xl p-4 flex items-start gap-4 ${rarity.border}`}
               >
-                <div className={`p-2.5 rounded-lg ${rarity.bg} flex-shrink-0`}>
-                  <Icon className={`w-5 h-5 ${rarity.color}`} />
+                <div className={`p-3 rounded-lg ${rarity.bg} flex-shrink-0 overflow-hidden`}>
+                  {getItemSprite(item) ? (
+                    <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
+                  ) : (
+                    <Icon className={`w-10 h-10 ${rarity.color}`} />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -173,6 +198,11 @@ export default function Shop({ character, onCharacterUpdate }) {
                     </Badge>
                     {item.item_level && (
                       <Badge variant="outline" className="text-xs">iLv.{item.item_level}</Badge>
+                    )}
+                    {item.rune_slots > 0 && (
+                      <Badge variant="outline" className="text-xs text-purple-400 border-purple-400/30 gap-0.5">
+                        <Gem className="w-2.5 h-2.5" /> {item.rune_slots} slot{item.rune_slots > 1 ? "s" : ""}
+                      </Badge>
                     )}
                   </div>
                   {item.description && (
@@ -186,15 +216,12 @@ export default function Shop({ character, onCharacterUpdate }) {
                     ))}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant={canAfford ? "default" : "outline"}
+                <PixelButton
+                  variant="ok"
+                  label={`BUY (${price.toLocaleString()}G)`}
                   disabled={!canAfford || buyMutation.isPending}
-                  onClick={() => buyMutation.mutate(item)}
-                  className="shrink-0 gap-1"
-                >
-                  <Coins className="w-3.5 h-3.5" /> {item.buy_price.toLocaleString()}
-                </Button>
+                  onClick={() => buyMutation.mutate({ ...item, buy_price: price })}
+                />
               </motion.div>
             );
           })}

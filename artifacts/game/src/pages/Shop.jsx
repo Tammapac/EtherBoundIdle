@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -153,16 +153,12 @@ export default function Shop({ character, onCharacterUpdate }) {
 
       {/* Refresh button */}
       <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs"
+        <PixelButton
+          variant="ok"
+          label={loadingShop ? "REFRESHING..." : "REFRESH STOCK (5💎)"}
           onClick={() => loadShop(true)}
           disabled={loadingShop}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loadingShop ? "animate-spin" : ""}`} />
-          Refresh Stock (<Gem className="w-3 h-3 inline" /> 5)
-        </Button>
+        />
       </div>
 
       {loadingShop ? (
@@ -220,15 +216,12 @@ export default function Shop({ character, onCharacterUpdate }) {
                     ))}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant={canAfford ? "default" : "outline"}
+                <PixelButton
+                  variant="ok"
+                  label={`BUY (${price.toLocaleString()}G)`}
                   disabled={!canAfford || buyMutation.isPending}
                   onClick={() => buyMutation.mutate({ ...item, buy_price: price })}
-                  className="shrink-0 gap-1"
-                >
-                  <Coins className="w-3.5 h-3.5" /> {price.toLocaleString()}
-                </Button>
+                />
               </motion.div>
             );
           })}

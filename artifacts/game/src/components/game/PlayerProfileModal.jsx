@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { base44 } from "@/api/base44Client";
 import { X, Shield, Swords, Crown, Footprints, CircleDot, Gem, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { RARITY_CONFIG, CLASSES } from "@/lib/gameData";
 import { calculateFinalStats } from "@/lib/statSystem";
@@ -80,9 +81,7 @@ export default function PlayerProfileModal({ characterId, characterName, onClose
           </div>
           <div className="flex gap-2 items-center">
             {onInviteToParty && (
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs h-7" onClick={onInviteToParty}>
-                <UserPlus className="w-3 h-3" /> Invite
-              </Button>
+              <PixelButton variant="ok" label="INVITE" onClick={onInviteToParty} />
             )}
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />

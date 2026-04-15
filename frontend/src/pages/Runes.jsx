@@ -446,7 +446,7 @@ export default function Runes({ character, onCharacterUpdate }) {
                     <Badge variant="outline" className="text-[9px]">Lv.{selectedRune.level || 1}/7</Badge>
                   </div>
                 </div>
-                <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedRune(null)}>Close</Button>
+                <PixelButton variant="cancel" label="CLOSE" onClick={() => setSelectedRune(null)} />
               </div>
 
               {/* Stats */}
@@ -503,45 +503,36 @@ export default function Runes({ character, onCharacterUpdate }) {
                   const dustNeeded = DUST_COST[lvl];
                   const hasDust = (dust[dustType] || 0) >= dustNeeded;
                   return (
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs bg-amber-600 hover:bg-amber-500 gap-1"
+                    <PixelButton
+                      variant="ok"
+                      label={`UPGRADE (${dustNeeded} ${DUST_INFO[dustType]?.label})`}
                       disabled={upgradeMutation.isPending || !hasDust}
                       onClick={() => upgradeMutation.mutate(selectedRune.id)}
-                    >
-                      <ArrowUpCircle className="w-3.5 h-3.5" />
-                      Upgrade ({dustNeeded} {DUST_INFO[dustType]?.label})
-                    </Button>
+                    />
                   );
                 })()}
 
                 {/* Salvage (only if not socketed) */}
                 {!selectedRune.itemId && !selectedRune.item_id && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 gap-1"
+                  <PixelButton
+                    variant="cancel"
+                    label="SALVAGE FOR DUST"
                     onClick={() => setConfirmModal({
                       title: "Salvage Rune",
                       message: `Destroy ${selectedRune.name} for dust?`,
                       onConfirm: () => { salvageMutation.mutate(selectedRune.id); setConfirmModal(null); },
                       variant: "destructive",
                     })}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Salvage for Dust
-                  </Button>
+                  />
                 )}
 
                 {/* Unsocket */}
                 {(selectedRune.itemId || selectedRune.item_id) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs gap-1"
+                  <PixelButton
+                    variant="cancel"
+                    label="UNEQUIP"
                     onClick={() => unsocketMutation.mutate(selectedRune.id)}
-                  >
-                    Unsocket
-                  </Button>
+                  />
                 )}
               </div>
             </div>
@@ -691,13 +682,11 @@ export default function Runes({ character, onCharacterUpdate }) {
                 ))}
               </div>
             )}
-            <Button
-              size="sm"
-              className={upgradeResult.success ? "bg-amber-600 hover:bg-amber-500" : "bg-gray-700 hover:bg-gray-600"}
+            <PixelButton
+              variant="ok"
+              label="CONTINUE"
               onClick={() => { setUpgradeResult(null); setSelectedRune(upgradeResult.rune || selectedRune); }}
-            >
-              Continue
-            </Button>
+            />
           </motion.div>
         </div>
       )}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Progress } from "@/components/ui/progress";
-import { Play, Square, TrendingUp, Zap, Coins, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingUp, Zap, Coins, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const SKILL_META = {
@@ -31,10 +32,28 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
   const speedCost  = skill.speed_upgrade_cost || 50;
   const xpBoostCost = skill.xp_boost_upgrade_cost || skill.luck_upgrade_cost || 80;
 
-  // Sync from server whenever skill data refreshes
+  // Sync from server whenever skill data refreshes — but only reset gather bar
+  // when the skill was just started or when the server reports a lower value
+  // (level-up reset). This prevents the bar from jumping back on tab switch.
+  const prevSkillId = useRef(skill.id);
   useEffect(() => {
-    setLiveGather(skill.gather_progress || 0);
-    setLiveExp(skill.exp || 0);
+    if (prevSkillId.current !== skill.id) {
+      // Different skill, hard sync
+      setLiveGather(skill.gather_progress || 0);
+      setLiveExp(skill.exp || 0);
+      prevSkillId.current = skill.id;
+    } else {
+      // Same skill — only update exp (server authoritative for level-ups)
+      // and reset gather bar only if server reports it below current local value
+      // (meaning a cycle completed server-side and bar was reset)
+      setLiveExp(skill.exp || 0);
+      setLiveGather(prev => {
+        const serverVal = skill.gather_progress || 0;
+        // If server progress is less than local, a cycle completed — sync to server
+        if (serverVal < prev - 10) return serverVal;
+        return prev;
+      });
+    }
     lastTickTime.current = Date.now();
     tickPending.current  = false;
   }, [skill.id, skill.gather_progress, skill.exp]);
@@ -164,13 +183,9 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
       {/* Action Buttons */}
       <div className="flex gap-2">
         {skill.is_active ? (
-          <Button size="sm" variant="destructive" className="flex-1 gap-1.5" onClick={() => onStop(skill.skill_type)} disabled={loading}>
-            <Square className="w-3 h-3" /> Stop
-          </Button>
+          <PixelButton variant="cancel" label="STOP" onClick={() => onStop(skill.skill_type)} disabled={loading} />
         ) : (
-          <Button size="sm" variant="outline" className={`flex-1 gap-1.5 ${meta.color}`} onClick={() => onStart(skill.skill_type)} disabled={loading}>
-            <Play className="w-3 h-3" /> Start
-          </Button>
+          <PixelButton variant="ok" label="START" onClick={() => onStart(skill.skill_type)} disabled={loading} />
         )}
         <Button size="sm" variant="ghost" className="gap-1 px-2" onClick={() => setShowUpgrades(v => !v)}>
           <TrendingUp className="w-3.5 h-3.5" />
@@ -197,10 +212,12 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
                   </div>
                   <p className="text-xs text-muted-foreground">-8% cycle time per level</p>
                 </div>
-                <Button size="sm" className="gap-1 h-7 text-xs" disabled={loading || speedLvl >= 10} onClick={() => onUpgrade(skill.skill_type, 'speed')}>
-                  <Coins className="w-3 h-3" />
-                  {speedLvl < 10 ? speedCost.toLocaleString() : "MAX"}
-                </Button>
+                <PixelButton
+                  variant="ok"
+                  label={speedLvl < 10 ? `UPGRADE (${speedCost.toLocaleString()}G)` : "MAX"}
+                  disabled={loading || speedLvl >= 10}
+                  onClick={() => onUpgrade(skill.skill_type, 'speed')}
+                />
               </div>
 
               <div className="flex items-center justify-between bg-muted/40 rounded-lg p-2">
@@ -212,10 +229,12 @@ export default function SkillCard({ skill, onStart, onStop, onTick, onUpgrade, l
                   </div>
                   <p className="text-xs text-muted-foreground">+10% XP gain per level</p>
                 </div>
-                <Button size="sm" variant="secondary" className="gap-1 h-7 text-xs" disabled={loading || xpBoostLvl >= 10} onClick={() => onUpgrade(skill.skill_type, 'xp_boost')}>
-                  <Coins className="w-3 h-3" />
-                  {xpBoostLvl < 10 ? xpBoostCost.toLocaleString() : "MAX"}
-                </Button>
+                <PixelButton
+                  variant="ok"
+                  label={xpBoostLvl < 10 ? `UPGRADE (${xpBoostCost.toLocaleString()}G)` : "MAX"}
+                  disabled={loading || xpBoostLvl >= 10}
+                  onClick={() => onUpgrade(skill.skill_type, 'xp_boost')}
+                />
               </div>
             </div>
           </motion.div>

@@ -1,32 +1,18 @@
 import React, { useState } from "react";
 
-const FILLS = {
-  ok: "/sprites/ui/buttons/btn_gold.png",
-  cancel: "/sprites/ui/buttons/btn_blue.png",
-  danger: "/sprites/ui/buttons/btn_red.png",
-};
-
-const DEFAULT_LABELS = {
-  ok: "OKAY",
-  cancel: "CANCEL",
-  danger: "DELETE",
-};
-
 /**
- * PixelButton — pixel art button with frame sprite + colored fill + pixel font text.
- * variant: "ok" (gold) | "cancel" (blue) | "danger" (red)
- * label: custom text, defaults to variant name
+ * PixelButton — pixel art button using 9-slice border-image frames.
+ * variant: "ok" (gold frame, navy text) | "cancel" (dark frame, golden text)
+ * Scales to fit any text length via border-image stretching.
  */
-export default function PixelButton({ variant = "ok", label, onClick, disabled, className = "" }) {
+export default function PixelButton({ variant = "ok", label, onClick, disabled, className = "", style: extraStyle }) {
   const [hovered, setHovered] = useState(false);
-  const fillSrc = FILLS[variant] || FILLS.ok;
-  const text = label || DEFAULT_LABELS[variant] || "OK";
 
-  // Frame is 73x14 native, scaled ~2.5x → 180x34
-  const btnWidth = 130;
-  const btnHeight = 34;
-  const insetX = 10;
-  const insetY = 10;
+  const isGold = variant === "ok";
+  const frameSrc = isGold
+    ? "/sprites/ui/buttons/btn_gold.png"
+    : "/sprites/ui/buttons/btn_dark.png";
+  const textColor = isGold ? "#1a1a3a" : "#f0c850";
 
   return (
     <button
@@ -34,73 +20,34 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
       disabled={disabled}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`relative inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
       style={{
-        background: "none",
-        border: "none",
-        padding: 0,
+        borderImage: `url('${frameSrc}') 3 / 6px`,
+        borderStyle: "solid",
+        imageRendering: "pixelated",
+        background: "transparent",
+        padding: "4px 14px",
+        minHeight: 34,
         cursor: disabled ? "not-allowed" : "pointer",
-        width: btnWidth,
-        height: btnHeight,
         transform: hovered && !disabled ? "scale(1.05)" : "scale(1)",
-        filter: hovered && !disabled ? "brightness(1.25)" : "none",
+        filter: hovered && !disabled ? "brightness(1.2)" : "none",
         transition: "transform 150ms ease, filter 150ms ease",
+        ...extraStyle,
       }}
     >
-      {/* Dark background behind fill */}
-      <div
-        style={{
-          position: "absolute",
-          left: insetX,
-          right: insetX,
-          top: insetY,
-          bottom: insetY,
-          background: "#080b18",
-        }}
-      />
-      {/* Colored fill — full width */}
-      <div
-        style={{
-          position: "absolute",
-          left: insetX,
-          right: insetX,
-          top: insetY,
-          bottom: insetY,
-          backgroundImage: `url('${fillSrc}')`,
-          backgroundSize: "100% 100%",
-          imageRendering: "pixelated",
-        }}
-      />
-      {/* Frame overlay */}
-      <img
-        src="/sprites/ui/buttons/btn_frame.png"
-        alt=""
-        draggable={false}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          imageRendering: "pixelated",
-          pointerEvents: "none",
-        }}
-      />
-      {/* Pixel font text */}
       <span
         style={{
-          position: "relative",
-          zIndex: 1,
           fontFamily: "'Press Start 2P', monospace",
           fontSize: 8,
-          letterSpacing: "0.5px",
-          color: "#1a1a2e",
-          textShadow: "0 1px 0 rgba(255,255,255,0.2)",
+          lineHeight: 1,
+          color: textColor,
           pointerEvents: "none",
           userSelect: "none",
           textTransform: "uppercase",
+          whiteSpace: "nowrap",
         }}
       >
-        {text}
+        {label || (isGold ? "OKAY" : "CANCEL")}
       </span>
     </button>
   );
