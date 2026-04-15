@@ -351,7 +351,7 @@ export default function DungeonCombat({ session: initialSession, character, onLe
                     key={skill.id}
                     size="sm"
                     variant="outline"
-                    className={`w-full gap-1.5 hover:bg-muted/30 ${skillColor}`}
+                    className={`w-full gap-1.5 hover:bg-muted/30 hover:scale-105 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 transition-all duration-200 ${skillColor}`}
                     disabled={!isMyTurn || loading}
                     onClick={() => doAction('skill', skill.id)}
                   >

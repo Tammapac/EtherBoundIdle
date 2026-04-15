@@ -108,9 +108,9 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
           return (
             <div
               key={i}
-              className={`relative w-12 h-12 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-all ${
+              className={`relative w-12 h-12 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-all duration-200 ${
                 skill
-                  ? `border-primary/60 bg-primary/10 ${elem?.color || "text-foreground"}`
+                  ? `border-primary/60 bg-primary/10 ${elem?.color || "text-foreground"} hover:scale-110 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary`
                   : "border-border/50 bg-muted/20 text-muted-foreground/40"
               }`}
             >
@@ -134,12 +134,12 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
                   key={skill.id}
                   disabled={full}
                   onClick={() => toggleSkill(skill.id)}
-                  className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                  className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all duration-200 ${
                     on
-                      ? "border-primary/60 bg-primary/15 text-primary"
+                      ? "border-primary/60 bg-primary/15 text-primary hover:scale-105 hover:shadow-[0_0_10px_rgba(139,92,246,0.3)]"
                       : full
                         ? "border-border opacity-40 cursor-not-allowed"
-                        : "border-border hover:border-primary/40 hover:bg-muted/40"
+                        : "border-border hover:border-primary/40 hover:bg-muted/40 hover:scale-105 hover:shadow-[0_0_10px_rgba(139,92,246,0.3)]"
                   }`}
                 >
                   <SkillSprite skill={skill} size={28} />

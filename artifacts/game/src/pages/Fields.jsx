@@ -645,7 +645,7 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
               <Swords className="w-3 h-3 mr-1" /> Attack
             </Button>
             {mySkills.map(skill => (
-              <Button key={skill.id} size="sm" variant="outline" onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} className="h-8 text-xs flex items-center gap-1" title={skill.description}>
+              <Button key={skill.id} size="sm" variant="outline" onClick={() => doAction("skill", { skillId: skill.id, targetEnemyId: selectedTarget })} disabled={loading} className="h-8 text-xs flex items-center gap-1 hover:scale-105 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 transition-all duration-200" title={skill.description}>
                 {(() => {
                   const folder = getSkillSpriteFolder(skill.id);
                   return folder

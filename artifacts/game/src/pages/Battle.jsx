@@ -1567,7 +1567,7 @@ export default function Battle({ character, onCharacterUpdate }) {
                 disabled={disabled}
                 onClick={() => doPlayerAttack(skill)}
                 title={`${skill.description}\n${skill.mp}MP · CD: ${skill.cooldown}T${elemBonus > 0 ? `\n+${elemBonus}% ${elem?.label} bonus` : ""}`}
-                className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] ${buffColor}`}
+                className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 hover:scale-110 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200 min-w-[52px] ${buffColor}`}
               >
                 {(() => {
                   const folder = getSkillSpriteFolder(skill.id);
