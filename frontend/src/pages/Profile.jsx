@@ -1,17 +1,21 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import PixelButton from "@/components/game/PixelButton";
 import {
   User, Shield, Swords, Heart, Zap,
-  Clover, Star, Plus, Minus, TrendingUp, Coins, Gem, ShieldCheck
+  Clover, Star, Plus, Minus, TrendingUp, Coins, Gem, ShieldCheck, RotateCcw
 } from "lucide-react";
 import HealthBar from "@/components/game/HealthBar";
 import CombatStatsPanel from "@/components/game/CombatStatsPanel";
+import SetCollectionPanel from "@/components/game/SetCollectionPanel";
 import { CLASSES, calculateIdleRewards, SKILLS } from "@/lib/gameData";
 import { calculateFinalStats } from "@/lib/statSystem";
+import { formatGold } from "@/lib/formatGold";
 
 const STAT_CONFIG = [
   { key: "strength", label: "Strength", icon: Swords, color: "text-red-400" },
@@ -22,6 +26,7 @@ const STAT_CONFIG = [
 ];
 
 export default function Profile({ character, onCharacterUpdate }) {
+  const { logout } = useAuth();
   const [pendingStats, setPendingStats] = useState({});
   const [pendingSkills, setPendingSkills] = useState({});
 
@@ -68,14 +73,22 @@ export default function Profile({ character, onCharacterUpdate }) {
   const totalSkillsPending = Object.values(pendingSkills).reduce((s, v) => s + v, 0);
   const availableSkillPoints = (character?.skill_points || 0) - totalSkillsPending;
 
-  const addStat = (key) => {
-    if (availablePoints <= 0) return;
-    setPendingStats(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+  const addStat = (key, amount = 1) => {
+    setPendingStats(prev => {
+      const currentTotal = Object.values(prev).reduce((s, v) => s + v, 0);
+      const remaining = (character?.stat_points || 0) - currentTotal;
+      const actualAdd = Math.min(amount, remaining);
+      if (actualAdd <= 0) return prev;
+      return { ...prev, [key]: (prev[key] || 0) + actualAdd };
+    });
   };
 
-  const removeStat = (key) => {
-    if (!pendingStats[key] || pendingStats[key] <= 0) return;
-    setPendingStats(prev => ({ ...prev, [key]: prev[key] - 1 }));
+  const removeStat = (key, amount = 1) => {
+    setPendingStats(prev => {
+      const current = prev[key] || 0;
+      if (current <= 0) return prev;
+      return { ...prev, [key]: Math.max(0, current - amount) };
+    });
   };
 
   const addSkill = (skillId) => {
@@ -88,11 +101,22 @@ export default function Profile({ character, onCharacterUpdate }) {
     setPendingSkills(prev => ({ ...prev, [skillId]: prev[skillId] - 1 }));
   };
 
+  const resetStatsMutation = useMutation({
+    mutationFn: async (resetType) => {
+      const res = await base44.functions.invoke("resetStatPoints", { characterId: character.id, resetType });
+      if (res?.success) {
+        onCharacterUpdate({ ...character, ...res.character, gems: res.gemsRemaining });
+        setPendingStats({});
+        setPendingSkills({});
+      }
+      return res;
+    },
+  });
+
   const { data: equippedItems = [] } = useQuery({
-    queryKey: ["items", character?.id],
-    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id }),
+    queryKey: ["equippedItems", character?.id],
+    queryFn: () => base44.entities.Item.filter({ owner_id: character?.id, equipped: true }),
     enabled: !!character?.id,
-    select: (data) => data.filter(i => i.equipped),
   });
 
   if (!character) return null;
@@ -119,8 +143,8 @@ export default function Profile({ character, onCharacterUpdate }) {
       {/* Character Card */}
       <div className="bg-card border border-border rounded-xl p-5 rpg-frame">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center">
-            <Shield className="w-8 h-8 text-primary" />
+          <div className="w-16 h-16 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden">
+            <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-14 h-14" style={{ imageRendering: "pixelated" }} />
           </div>
           <div>
             <h3 className="font-bold text-2xl">{character.name}</h3>
@@ -142,7 +166,7 @@ export default function Profile({ character, onCharacterUpdate }) {
           </div>
           <div className="text-center p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground">Gold</p>
-            <p className="font-bold text-lg text-accent">{(character.gold || 0).toLocaleString()}</p>
+            <p className="font-bold text-lg text-accent">{formatGold(character.gold || 0)}</p>
           </div>
           <div className="text-center p-3 bg-muted/50 rounded-lg">
             <p className="text-xs text-muted-foreground">Gems</p>
@@ -151,8 +175,8 @@ export default function Profile({ character, onCharacterUpdate }) {
         </div>
 
         <div className="space-y-2">
-          <HealthBar current={character.hp || character.max_hp} max={character.max_hp} color="bg-red-500" label="HP" />
-          <HealthBar current={character.mp || character.max_mp} max={character.max_mp} color="bg-blue-500" label="MP" />
+          <HealthBar current={derived.maxHp} max={derived.maxHp} color="bg-red-500" label="HP" />
+          <HealthBar current={derived.maxMp} max={derived.maxMp} color="bg-blue-500" label="MP" />
           <HealthBar current={character.exp} max={character.exp_to_next} color="bg-primary" label="EXP" />
         </div>
       </div>
@@ -175,9 +199,7 @@ export default function Profile({ character, onCharacterUpdate }) {
             <span className="text-sm text-accent">+{idleRewards.gold.toLocaleString()} Gold</span>
             <span className="text-sm text-muted-foreground">{idleRewards.kills} Kills</span>
           </div>
-          <Button size="sm" onClick={() => claimIdleMutation.mutate()} disabled={claimIdleMutation.isPending}>
-            Claim Rewards
-          </Button>
+          <PixelButton variant="ok" label="CLAIM REWARDS" onClick={() => claimIdleMutation.mutate()} disabled={claimIdleMutation.isPending} />
         </motion.div>
       )}
 
@@ -189,20 +211,33 @@ export default function Profile({ character, onCharacterUpdate }) {
         <CombatStatsPanel derived={derived} character={character} />
       </div>
 
+      {/* Set Collection */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h3 className="font-semibold mb-3 flex items-center gap-2">
+          <Shield className="w-4 h-4 text-yellow-400" /> Set Collection
+        </h3>
+        <SetCollectionPanel
+          equippedItems={equippedItems}
+          allItems={allCharItems}
+          characterClass={character.class}
+        />
+      </div>
+
       {/* Attributes */}
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Attributes</h3>
           <Badge variant="outline" className="text-primary border-primary/30">
-            {availablePoints} points available
+            {availablePoints} pts available (Shift+Click=10)
           </Badge>
         </div>
         <div className="space-y-1">
           {STAT_CONFIG.map(({ key, label, icon: Icon, color }) => {
-            const baseVal = base[key] || 0;
+            const baseVal = character[key] || (key === "luck" ? 5 : 10);
             const gearBonus = equipBonus[key] || 0;
-            const finalVal = total[key] || 0;
             const pending = pendingStats[key] || 0;
+            // Calculate directly to avoid stale total from calculateFinalStats
+            const finalVal = baseVal + gearBonus + pending;
             return (
               <div key={key} className="flex items-center gap-3 py-1">
                 <div className="flex-1">
@@ -226,13 +261,43 @@ export default function Profile({ character, onCharacterUpdate }) {
                   </div>
                 </div>
                 {(character.stat_points || 0) > 0 && (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeStat(key)} disabled={!pendingStats[key]}>
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => addStat(key)} disabled={availablePoints <= 0}>
-                      <Plus className="w-3 h-3" />
-                    </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      className="h-7 w-7 flex items-center justify-center rounded bg-red-900/50 text-red-300 hover:bg-red-800 disabled:opacity-30"
+                      onClick={(e) => removeStat(key, e.shiftKey ? 10 : 1)}
+                      disabled={!pendingStats[key]}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={pending}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        const val = Math.max(0, Math.min(parseInt(raw) || 0, availablePoints + pending));
+                        setPendingStats(prev => ({ ...prev, [key]: val }));
+                      }}
+                      className="w-10 h-7 text-center text-xs rounded px-1 font-mono"
+                      style={{ backgroundColor: '#1e293b', color: '#e2e8f0', border: '1px solid #475569' }}
+                    />
+                    <button
+                      type="button"
+                      className="h-7 w-7 flex items-center justify-center rounded bg-green-900/50 text-green-300 hover:bg-green-800 disabled:opacity-30"
+                      onClick={(e) => addStat(key, e.shiftKey ? 10 : 1)}
+                      disabled={availablePoints <= 0}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      className="h-7 px-2 text-xs rounded bg-cyan-900/50 text-cyan-300 hover:bg-cyan-800 disabled:opacity-30"
+                      onClick={() => addStat(key, availablePoints)}
+                      disabled={availablePoints <= 0}
+                    >
+                      MAX
+                    </button>
                   </div>
                 )}
               </div>
@@ -246,10 +311,15 @@ export default function Profile({ character, onCharacterUpdate }) {
           </p>
         )}
         {totalPending > 0 && (
-          <Button className="w-full mt-4" onClick={() => statMutation.mutate()} disabled={statMutation.isPending}>
-            Confirm Stat Allocation ({totalPending} points)
-          </Button>
+          <PixelButton variant="ok" label={`CONFIRM STAT ALLOCATION (${totalPending} POINTS)`} onClick={() => statMutation.mutate()} disabled={statMutation.isPending} className="w-full mt-4" />
         )}
+        <PixelButton
+          variant="cancel"
+          label="RESET STATS (100 💎)"
+          onClick={() => resetStatsMutation.mutate("stats")}
+          disabled={resetStatsMutation.isPending}
+          className="w-full mt-2"
+        />
       </div>
 
       {/* Skills */}
@@ -294,7 +364,7 @@ export default function Profile({ character, onCharacterUpdate }) {
           })}
         </div>
         {totalSkillsPending > 0 && (
-          <Button className="w-full mt-4" onClick={() => {
+          <PixelButton variant="ok" label={`CONFIRM SKILL ALLOCATION (${totalSkillsPending} POINTS)`} onClick={() => {
             const newSkills = character.skills ? [...character.skills] : [];
             for (const [skillId, count] of Object.entries(pendingSkills)) {
               for (let i = 0; i < count; i++) {
@@ -303,16 +373,19 @@ export default function Profile({ character, onCharacterUpdate }) {
             }
             saveMutation.mutate({ skills: newSkills, skill_points: availableSkillPoints });
             setPendingSkills({});
-          }} disabled={saveMutation.isPending}>
-            Confirm Skill Allocation ({totalSkillsPending} points)
-          </Button>
+          }} disabled={saveMutation.isPending} className="w-full mt-4" />
         )}
+        <PixelButton
+          variant="cancel"
+          label="RESET SKILLS (50 💎)"
+          onClick={() => resetStatsMutation.mutate("skills")}
+          disabled={resetStatsMutation.isPending}
+          className="w-full mt-2"
+        />
       </div>
 
       {/* Logout */}
-      <Button variant="outline" className="w-full" onClick={() => base44.auth.logout()}>
-        Logout
-      </Button>
+      <PixelButton variant="cancel" label="LOGOUT" onClick={() => logout()} className="w-full" />
     </div>
   );
 }

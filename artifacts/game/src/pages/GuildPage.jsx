@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -530,16 +531,12 @@ export default function GuildPage({ character, onCharacterUpdate }) {
                   <p className="text-xs text-muted-foreground">Lv.{guild.level} • {guild.member_count}/{guild.max_members || 20} Members</p>
                   {guild.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{guild.description}</p>}
                 </div>
-                <Button
-                  size="sm"
+                <PixelButton
+                  variant="ok"
+                  label={(guild.members?.length || 0) >= (guild.max_members || 20) ? "FULL" : "JOIN"}
                   onClick={() => joinMutation.mutate(guild)}
                   disabled={joinMutation.isPending || (guild.members?.length || 0) >= (guild.max_members || 20)}
-                  className="gap-1 flex-shrink-0"
-                  title={(guild.members?.length || 0) >= (guild.max_members || 20) ? "Guild is full" : "Join guild"}
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  {(guild.members?.length || 0) >= (guild.max_members || 20) ? "Full" : "Join"}
-                </Button>
+                />
               </motion.div>
             ))}
             {filteredGuilds.length === 0 && (
@@ -568,13 +565,13 @@ export default function GuildPage({ character, onCharacterUpdate }) {
                 <span>Your Gold: <span className="text-accent font-semibold">{character.gold || 0}</span></span>
               </div>
               {createMutation.isError && <p className="text-destructive text-sm">{createMutation.error?.message}</p>}
-              <Button
+              <PixelButton
+                variant="ok"
+                label="CREATE GUILD (500 GOLD)"
                 onClick={() => createMutation.mutate()}
                 disabled={!guildName.trim() || !guildTag.trim() || (character.gold || 0) < 500 || createMutation.isPending}
-                className="w-full gap-2"
-              >
-                <Plus className="w-4 h-4" /> Create Guild (500 Gold)
-              </Button>
+                className="w-full"
+              />
             </div>
           </TabsContent>
         </Tabs>

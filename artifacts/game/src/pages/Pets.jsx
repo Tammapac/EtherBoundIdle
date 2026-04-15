@@ -333,8 +333,8 @@ function ConfirmModal({ modal, onClose }) {
             </h3>
             <p className="text-sm text-gray-300 mb-5 whitespace-pre-line leading-relaxed">{modal.message}</p>
             <div className="flex gap-3 justify-end">
-              <PixelButton variant="cancel" onClick={onClose} />
-              <PixelButton variant="ok" onClick={() => { modal.onConfirm(); onClose(); }} />
+              <PixelButton variant="cancel" label="CANCEL" onClick={onClose} />
+              <PixelButton variant="ok" label="CONFIRM" onClick={() => { modal.onConfirm(); onClose(); }} />
             </div>
           </div>
         </motion.div>

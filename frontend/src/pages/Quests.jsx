@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,13 +12,33 @@ import {
   ScrollText, CheckCircle, Coins, Star, Gem, Clock, Calendar, Sparkles
 } from "lucide-react";
 
+function DailyTimer({ expiresAt }) {
+  const [timeLeft, setTimeLeft] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const diff = new Date(expiresAt) - Date.now();
+      if (diff <= 0) { setTimeLeft("Expired"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setTimeLeft(`${h}h ${m}m`);
+    };
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+  return <span className="text-xs text-muted-foreground ml-1">{timeLeft}</span>;
+}
+
 export default function Quests({ character, onCharacterUpdate }) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("daily");
+  const pollInterval = useSmartPolling(POLL_INTERVALS.GAME_STATE);
 
   const { data: quests = [], isLoading } = useQuery({
     queryKey: ["quests", character?.id],
     queryFn: () => base44.entities.Quest.filter({ character_id: character?.id }),
+    refetchInterval: pollInterval,
+    staleTime: POLL_INTERVALS.GAME_STATE,
     enabled: !!character?.id,
   });
 
@@ -28,24 +50,16 @@ export default function Quests({ character, onCharacterUpdate }) {
       .catch(() => {});
   }, [character?.id]);
 
-  // Subscribe to quest updates in real-time
-  useEffect(() => {
-    if (!character?.id) return;
-    const unsub = base44.entities.Quest.subscribe((event) => {
-      if (event.data?.character_id === character.id) {
-        queryClient.invalidateQueries({ queryKey: ["quests", character.id] });
-      }
-    });
-    return unsub;
-  }, [character?.id]);
+  // Polling handles real-time updates via refetchInterval above
 
   const claimMutation = useMutation({
     mutationFn: async (quest) => {
       await base44.entities.Quest.update(quest.id, { status: "claimed" });
+      const rewards = quest.reward || {};
       const updates = {};
-      if (quest.rewards?.exp) updates.exp = (character.exp || 0) + quest.rewards.exp;
-      if (quest.rewards?.gold) updates.gold = (character.gold || 0) + quest.rewards.gold;
-      if (quest.rewards?.gems) updates.gems = (character.gems || 0) + quest.rewards.gems;
+      if (rewards.exp) updates.exp = (character.exp || 0) + rewards.exp;
+      if (rewards.gold) updates.gold = (character.gold || 0) + rewards.gold;
+      if (rewards.gems) updates.gems = (character.gems || 0) + rewards.gems;
       if (Object.keys(updates).length > 0) {
         await base44.entities.Character.update(character.id, updates);
         onCharacterUpdate({ ...character, ...updates });
@@ -54,18 +68,20 @@ export default function Quests({ character, onCharacterUpdate }) {
     },
   });
 
-  // Filter quests by type
-  const dailyQuests = quests.filter(q => q.is_daily && (q.status === "active" || q.status === "completed"));
-  const weeklyQuests = quests.filter(q => !q.is_daily && q.type === "weekly" && (q.status === "active" || q.status === "completed"));
-  const storyQuests = quests.filter(q => q.type === "story" && (q.status === "active" || q.status === "completed"));
+  const sortByCompleted = (a, b) => (b.status === "completed" ? 1 : 0) - (a.status === "completed" ? 1 : 0);
+  const dailyQuests = quests.filter(q => q.type === "daily" && (q.status === "active" || q.status === "completed")).sort(sortByCompleted);
+  const weeklyQuests = quests.filter(q => q.type === "weekly" && (q.status === "active" || q.status === "completed")).sort(sortByCompleted);
+  const storyQuests = quests.filter(q => q.type === "story" && (q.status === "active" || q.status === "completed")).sort(sortByCompleted);
 
   const QuestCard = ({ quest, idx }) => {
-    const pct = quest.target_count > 0 ? Math.min(100, (quest.current_count / quest.target_count) * 100) : 0;
-    const isComplete = quest.status === "completed" || quest.current_count >= quest.target_count;
+    const targetCount = quest.target || 1;
+    const currentCount = quest.progress || 0;
+    const rewards = quest.reward || {};
+    const pct = targetCount > 0 ? Math.min(100, (currentCount / targetCount) * 100) : 0;
+    const isComplete = quest.status === "completed" || currentCount >= targetCount;
 
-    // Objective type icon
     const getObjectiveIcon = () => {
-      switch (quest.objective_type) {
+      switch (quest.type) {
         case 'mining': return '⛏️';
         case 'fishing': return '🎣';
         case 'herbalism': return '🌿';
@@ -90,10 +106,13 @@ export default function Quests({ character, onCharacterUpdate }) {
             <div className="flex items-center gap-2">
               <span className="text-lg">{getObjectiveIcon()}</span>
               <h3 className="font-semibold">{quest.title}</h3>
-              {quest.is_daily && (
+              {quest.type === "daily" && (
                 <Badge variant="secondary" className="text-xs gap-1 flex items-center">
-                  <Clock className="w-3 h-3" /> Daily
+                  <Clock className="w-3 h-3" /> Infinite
                 </Badge>
+              )}
+              {quest.expires_at && (
+                <DailyTimer expiresAt={quest.expires_at} />
               )}
               {quest.type === "weekly" && (
                 <Badge variant="outline" className="text-xs gap-1 flex items-center">
@@ -108,38 +127,36 @@ export default function Quests({ character, onCharacterUpdate }) {
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-muted-foreground">Progress</span>
                 <span className="text-foreground font-semibold">
-                  {quest.current_count}/{quest.target_count}
+                  {currentCount}/{targetCount}
                 </span>
               </div>
               <Progress value={pct} className="h-2" />
             </div>
             <div className="flex gap-2 mt-2 flex-wrap">
-              {quest.rewards?.exp && (
+              {rewards.exp && (
                 <span className="text-xs text-primary flex items-center gap-1">
-                  <Star className="w-3 h-3" /> {quest.rewards.exp} EXP
+                  <Star className="w-3 h-3" /> {rewards.exp} EXP
                 </span>
               )}
-              {quest.rewards?.gold && (
+              {rewards.gold && (
                 <span className="text-xs text-accent flex items-center gap-1">
-                  <Coins className="w-3 h-3" /> {quest.rewards.gold} Gold
+                  <Coins className="w-3 h-3" /> {rewards.gold} Gold
                 </span>
               )}
-              {quest.rewards?.gems && (
+              {rewards.gems && (
                 <span className="text-xs text-secondary flex items-center gap-1">
-                  <Gem className="w-3 h-3" /> {quest.rewards.gems} Gems
+                  <Gem className="w-3 h-3" /> {rewards.gems} Gems
                 </span>
               )}
             </div>
           </div>
           {isComplete && quest.status !== "claimed" && (
-            <Button
-              size="sm"
-              onClick={() => claimMutation.mutate(quest)}
+            <PixelButton
+              variant="ok"
+              label="CLAIM"
+              onClick={() => claimMutation.mutate({ ...quest, reward: rewards })}
               disabled={claimMutation.isPending}
-              className="gap-1 shrink-0 bg-primary hover:bg-primary/90"
-            >
-              <CheckCircle className="w-3.5 h-3.5" /> Claim
-            </Button>
+            />
           )}
           {quest.status === "claimed" && (
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
@@ -169,7 +186,7 @@ export default function Quests({ character, onCharacterUpdate }) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="daily" className="gap-1 flex items-center justify-center">
-            <Clock className="w-4 h-4" /> Daily
+            <Clock className="w-4 h-4" /> Infinite
             {dailyQuests.filter(q => q.status !== "claimed").length > 0 && (
               <span className="ml-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
                 {dailyQuests.filter(q => q.status !== "claimed").length}

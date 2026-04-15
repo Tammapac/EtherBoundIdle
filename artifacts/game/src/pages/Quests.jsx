@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSmartPolling, POLL_INTERVALS } from "@/hooks/useSmartPolling";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -150,14 +151,12 @@ export default function Quests({ character, onCharacterUpdate }) {
             </div>
           </div>
           {isComplete && quest.status !== "claimed" && (
-            <Button
-              size="sm"
+            <PixelButton
+              variant="ok"
+              label="CLAIM"
               onClick={() => claimMutation.mutate({ ...quest, reward: rewards })}
               disabled={claimMutation.isPending}
-              className="gap-1 shrink-0 bg-primary hover:bg-primary/90"
-            >
-              <CheckCircle className="w-3.5 h-3.5" /> Claim
-            </Button>
+            />
           )}
           {quest.status === "claimed" && (
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30">

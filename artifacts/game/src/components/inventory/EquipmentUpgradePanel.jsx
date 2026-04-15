@@ -380,8 +380,8 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                       💀 Are you ABSOLUTELY SURE?
                     </div>
                     <div className="flex gap-3 justify-center">
-                      <PixelButton variant="cancel" onClick={() => setConfirmStar(false)} />
-                      <PixelButton variant="ok" onClick={() => starMutation.mutate()} disabled={starMutation.isPending} />
+                      <PixelButton variant="cancel" label="CANCEL" onClick={() => setConfirmStar(false)} />
+                      <PixelButton variant="ok" label="UPGRADE" onClick={() => starMutation.mutate()} disabled={starMutation.isPending} />
                     </div>
                   </motion.div>
                 )}
@@ -442,8 +442,8 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                       ✨ Confirm awakening?
                     </div>
                     <div className="flex gap-3 justify-center">
-                      <PixelButton variant="cancel" onClick={() => setConfirmAwaken(false)} />
-                      <PixelButton variant="ok" onClick={() => awakenMutation.mutate()} disabled={awakenMutation.isPending} />
+                      <PixelButton variant="cancel" label="CANCEL" onClick={() => setConfirmAwaken(false)} />
+                      <PixelButton variant="ok" label="AWAKEN" onClick={() => awakenMutation.mutate()} disabled={awakenMutation.isPending} />
                     </div>
                   </motion.div>
                 )}

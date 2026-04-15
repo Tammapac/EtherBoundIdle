@@ -575,11 +575,10 @@ export default function Runes({ character, onCharacterUpdate }) {
             if (count === 0) return null;
             const colors = { common: "text-gray-400", uncommon: "text-green-400", rare: "text-blue-400", epic: "text-purple-400", legendary: "text-yellow-400", mythic: "text-red-400" };
             return (
-              <Button
+              <PixelButton
                 key={r}
-                size="sm"
-                variant="outline"
-                className={`h-6 text-[10px] px-2 ${colors[r]} border-current/30 hover:bg-current/10 gap-1`}
+                variant="cancel"
+                label={`SALVAGE ALL ${r.toUpperCase()} (${count})`}
                 onClick={() => setConfirmModal({
                   title: `Salvage All ${r.charAt(0).toUpperCase() + r.slice(1)} Runes`,
                   message: `Salvage ${count} unsocketed ${r} runes for dust? This cannot be undone!`,
@@ -587,9 +586,7 @@ export default function Runes({ character, onCharacterUpdate }) {
                   variant: "destructive",
                 })}
                 disabled={salvageAllMutation.isPending}
-              >
-                <Trash2 className="w-2.5 h-2.5" /> Salvage All {r} ({count})
-              </Button>
+              />
             );
           })}
         </div>
@@ -623,8 +620,8 @@ export default function Runes({ character, onCharacterUpdate }) {
             <h3 className="font-bold text-lg mb-2 text-white">{confirmModal.title}</h3>
             <p className="text-sm text-gray-400 mb-4">{confirmModal.message}</p>
             <div className="flex gap-3 justify-center">
-              <PixelButton variant="cancel" onClick={() => setConfirmModal(null)} />
-              <PixelButton variant="ok" onClick={confirmModal.onConfirm} />
+              <PixelButton variant="cancel" label="CANCEL" onClick={() => setConfirmModal(null)} />
+              <PixelButton variant="ok" label="CONFIRM" onClick={confirmModal.onConfirm} />
             </div>
           </motion.div>
         </div>

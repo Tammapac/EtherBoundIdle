@@ -6,6 +6,7 @@ import {
   Shield, Calendar, Zap, Loader2, CheckCircle2, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Input } from "@/components/ui/input";
 import { base44 } from "@/api/base44Client";
 
@@ -167,10 +168,10 @@ export default function GameConfig() {
     const load = async () => {
       try {
         const res = await base44.functions.invoke('gameConfigManager', {});
-        if (res.data?.success) {
-          setConfig(JSON.parse(JSON.stringify(res.data.config)));
-          setOriginalConfig(JSON.parse(JSON.stringify(res.data.config)));
-          setConfigId(res.data.id);
+        if (res?.success) {
+          setConfig(JSON.parse(JSON.stringify(res.config)));
+          setOriginalConfig(JSON.parse(JSON.stringify(res.config)));
+          setConfigId(res.id);
         }
       } catch (e) {
         console.error("Failed to load config:", e);
@@ -202,8 +203,8 @@ export default function GameConfig() {
         config,
         id: configId,
       });
-      if (res.data?.success) {
-        setConfigId(res.data.id);
+      if (res?.success) {
+        setConfigId(res.id);
         setOriginalConfig(JSON.parse(JSON.stringify(config)));
         setChanged(false);
         setStatus("saved");
@@ -251,18 +252,13 @@ export default function GameConfig() {
               <AlertCircle className="w-3.5 h-3.5" /> Fehler
             </span>
           )}
-          <Button variant="outline" size="sm" onClick={handleReset} disabled={!changed} className="gap-1.5">
-            <RotateCcw className="w-3.5 h-3.5" /> Reset
-          </Button>
-          <Button
-            size="sm"
+          <PixelButton variant="cancel" label="RESET" onClick={handleReset} disabled={!changed} />
+          <PixelButton
+            variant="ok"
+            label={saving ? "SAVING..." : changed ? "SAVE *" : "SAVED"}
             onClick={handleSave}
             disabled={saving || !changed}
-            className="gap-1.5"
-          >
-            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            {saving ? "Speichern..." : changed ? "Speichern *" : "Gespeichert"}
-          </Button>
+          />
         </div>
       </div>
 
@@ -297,13 +293,8 @@ export default function GameConfig() {
           >
             <div className="bg-card border border-primary/50 rounded-xl px-5 py-3 flex items-center gap-4 shadow-2xl">
               <span className="text-sm text-muted-foreground">Ungespeicherte Änderungen</span>
-              <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5">
-                <RotateCcw className="w-3.5 h-3.5" /> Verwerfen
-              </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
-                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                Speichern
-              </Button>
+              <PixelButton variant="cancel" label="DISCARD" onClick={handleReset} />
+              <PixelButton variant="ok" label={saving ? "SAVING..." : "SAVE"} onClick={handleSave} disabled={saving} />
             </div>
           </motion.div>
         )}

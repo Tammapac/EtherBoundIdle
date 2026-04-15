@@ -190,7 +190,7 @@ export default function WorldMap({ character, onCharacterUpdate }) {
                 />
               </div>
               <div className="flex justify-center">
-                <PixelButton variant="cancel" onClick={() => setTravelConfirm(null)} />
+                <PixelButton variant="cancel" label="CANCEL" onClick={() => setTravelConfirm(null)} />
               </div>
             </motion.div>
           </motion.div>

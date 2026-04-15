@@ -13,6 +13,7 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
     ? "/sprites/ui/buttons/btn_gold.png"
     : "/sprites/ui/buttons/btn_dark.png";
   const textColor = isGold ? "#1a1a3a" : "#f0c850";
+  const bgColor = isGold ? "#f0c850" : "#1e1d3a";
 
   return (
     <button
@@ -25,7 +26,7 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
         borderImage: `url('${frameSrc}') 3 / 6px`,
         borderStyle: "solid",
         imageRendering: "pixelated",
-        background: "transparent",
+        background: bgColor,
         padding: "4px 14px",
         minHeight: 34,
         cursor: disabled ? "not-allowed" : "pointer",

@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import PixelButton from "@/components/game/PixelButton";
 import {
   User, Shield, Swords, Heart, Zap,
   Clover, Star, Plus, Minus, TrendingUp, Coins, Gem, ShieldCheck, RotateCcw
@@ -198,9 +199,7 @@ export default function Profile({ character, onCharacterUpdate }) {
             <span className="text-sm text-accent">+{idleRewards.gold.toLocaleString()} Gold</span>
             <span className="text-sm text-muted-foreground">{idleRewards.kills} Kills</span>
           </div>
-          <Button size="sm" onClick={() => claimIdleMutation.mutate()} disabled={claimIdleMutation.isPending}>
-            Claim Rewards
-          </Button>
+          <PixelButton variant="ok" label="CLAIM REWARDS" onClick={() => claimIdleMutation.mutate()} disabled={claimIdleMutation.isPending} />
         </motion.div>
       )}
 
@@ -312,20 +311,15 @@ export default function Profile({ character, onCharacterUpdate }) {
           </p>
         )}
         {totalPending > 0 && (
-          <Button className="w-full mt-4" onClick={() => statMutation.mutate()} disabled={statMutation.isPending}>
-            Confirm Stat Allocation ({totalPending} points)
-          </Button>
+          <PixelButton variant="ok" label={`CONFIRM STAT ALLOCATION (${totalPending} POINTS)`} onClick={() => statMutation.mutate()} disabled={statMutation.isPending} className="w-full mt-4" />
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full mt-2 gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+        <PixelButton
+          variant="cancel"
+          label="RESET STATS (100 💎)"
           onClick={() => resetStatsMutation.mutate("stats")}
           disabled={resetStatsMutation.isPending}
-        >
-          <RotateCcw className="w-3 h-3" />
-          Reset Stats (100 <Gem className="w-3 h-3 inline" />)
-        </Button>
+          className="w-full mt-2"
+        />
       </div>
 
       {/* Skills */}
@@ -370,7 +364,7 @@ export default function Profile({ character, onCharacterUpdate }) {
           })}
         </div>
         {totalSkillsPending > 0 && (
-          <Button className="w-full mt-4" onClick={() => {
+          <PixelButton variant="ok" label={`CONFIRM SKILL ALLOCATION (${totalSkillsPending} POINTS)`} onClick={() => {
             const newSkills = character.skills ? [...character.skills] : [];
             for (const [skillId, count] of Object.entries(pendingSkills)) {
               for (let i = 0; i < count; i++) {
@@ -379,26 +373,19 @@ export default function Profile({ character, onCharacterUpdate }) {
             }
             saveMutation.mutate({ skills: newSkills, skill_points: availableSkillPoints });
             setPendingSkills({});
-          }} disabled={saveMutation.isPending}>
-            Confirm Skill Allocation ({totalSkillsPending} points)
-          </Button>
+          }} disabled={saveMutation.isPending} className="w-full mt-4" />
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full mt-2 gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+        <PixelButton
+          variant="cancel"
+          label="RESET SKILLS (50 💎)"
           onClick={() => resetStatsMutation.mutate("skills")}
           disabled={resetStatsMutation.isPending}
-        >
-          <RotateCcw className="w-3 h-3" />
-          Reset Skills (50 <Gem className="w-3 h-3 inline" />)
-        </Button>
+          className="w-full mt-2"
+        />
       </div>
 
       {/* Logout */}
-      <Button variant="outline" className="w-full" onClick={() => logout()}>
-        Logout
-      </Button>
+      <PixelButton variant="cancel" label="LOGOUT" onClick={() => logout()} className="w-full" />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useUnifiedProgression } from "@/hooks/useUnifiedProgression";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Progress } from "@/components/ui/progress";
 import { Leaf, Play, Square, Coins } from "lucide-react";
 import { motion } from "framer-motion";
@@ -102,25 +103,21 @@ export default function LifeSkillsRefactored({ character, onCharacterUpdate }) {
 
             {/* Action Button */}
             {activeSkill === skill.type ? (
-              <Button
-                size="sm"
-                variant="destructive"
-                className="w-full gap-1.5"
+              <PixelButton
+                variant="cancel"
+                label="STOP"
                 onClick={handleStop}
                 disabled={isLoading || isStopping}
-              >
-                <Square className="w-3 h-3" /> Stop
-              </Button>
+                className="w-full"
+              />
             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full gap-1.5"
+              <PixelButton
+                variant="ok"
+                label="START"
                 onClick={() => handleStart(skill.type)}
                 disabled={isLoading || isStarting === skill.type || (activeSkill !== null)}
-              >
-                <Play className="w-3 h-3" /> Start
-              </Button>
+                className="w-full"
+              />
             )}
           </motion.div>
         ))}

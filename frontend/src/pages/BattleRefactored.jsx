@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useUnifiedProgression } from "@/hooks/useUnifiedProgression";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import {
-  Swords, Skull, Heart, Shield, Zap,
+  Swords, Skull, Heart, Zap,
 } from "lucide-react";
 import HealthBar from "@/components/game/HealthBar";
 import { REGIONS, ENEMIES, CLASSES } from "@/lib/gameData";
@@ -101,7 +102,7 @@ export default function BattleRefactored({ character, onCharacterUpdate }) {
         <motion.div className="bg-card border border-border rounded-xl p-4 space-y-3">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-primary" />
+              <img src={`/sprites/class_${displayChar.class || "warrior"}.png`} alt={displayChar.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
             <div>
               <p className="font-bold">{displayChar.name}</p>
@@ -138,9 +139,7 @@ export default function BattleRefactored({ character, onCharacterUpdate }) {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p className="mb-3">No enemy</p>
-              <Button onClick={spawnEnemy} disabled={isLoading}>
-                Spawn Enemy
-              </Button>
+              <PixelButton variant="ok" label="SPAWN ENEMY" onClick={spawnEnemy} disabled={isLoading} />
             </div>
           )}
         </motion.div>
@@ -148,15 +147,13 @@ export default function BattleRefactored({ character, onCharacterUpdate }) {
 
       {/* Attack Button */}
       <div className="flex gap-2">
-        <Button
-          size="lg"
-          className="flex-1 gap-2"
+        <PixelButton
+          variant="ok"
+          label={isAttacking ? "ATTACKING..." : "ATTACK"}
           onClick={handleAttack}
           disabled={!combatActive || isAttacking || isLoading}
-        >
-          <Swords className="w-4 h-4" />
-          {isAttacking ? "Attacking..." : "Attack"}
-        </Button>
+          className="flex-1"
+        />
       </div>
 
       {/* Battle Log */}

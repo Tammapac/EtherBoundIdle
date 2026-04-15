@@ -292,22 +292,16 @@ function PathChoiceScreen({ session, element, rewards, loading, autoFight, doAct
 
         {/* Path selection */}
         <div className="grid grid-cols-2 gap-4">
-          <button
+          <PixelButton
+            variant="ok"
+            label="SAFE PATH"
             onClick={() => { setPathChoice("safe"); setSelectedBuffs([]); setSelectedDebuffs([]); }}
-            className={`p-3 border-2 transition-all text-center space-y-1 cursor-pointer ${pathChoice === "safe" ? "bg-blue-600/30 border-blue-400" : "bg-blue-600/10 border-blue-500/30 hover:border-blue-400"}`}
-          >
-            <ShieldCheck className="w-8 h-8 text-blue-400 mx-auto" />
-            <p className="font-bold text-blue-400 text-sm">Safe Path</p>
-            <p className="text-[10px] text-muted-foreground">Pick 1 buff + 1 debuff</p>
-          </button>
-          <button
+          />
+          <PixelButton
+            variant="cancel"
+            label="RISK PATH"
             onClick={() => { setPathChoice("risk"); setSelectedBuffs([]); setSelectedDebuffs([]); }}
-            className={`p-3 border-2 transition-all text-center space-y-1 cursor-pointer ${pathChoice === "risk" ? "bg-red-600/30 border-red-400" : "bg-red-600/10 border-red-500/30 hover:border-red-400"}`}
-          >
-            <AlertTriangle className="w-8 h-8 text-red-400 mx-auto" />
-            <p className="font-bold text-red-400 text-sm">Risk Path</p>
-            <p className="text-[10px] text-muted-foreground">Pick 2 buffs + 2 debuffs, better rewards</p>
-          </button>
+          />
         </div>
 
         {/* Modifier selection */}

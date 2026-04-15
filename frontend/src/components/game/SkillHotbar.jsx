@@ -85,8 +85,8 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
         <div className="flex gap-1.5">
           {isEditing ? (
             <>
-              <PixelButton variant="ok" onClick={saveHotbar} disabled={saving} />
-              <PixelButton variant="cancel" onClick={() => { setIsEditing(false); setLocalHotbar(character?.hotbar_skills || []); }} />
+              <PixelButton variant="ok" label="SAVE" onClick={saveHotbar} disabled={saving} />
+              <PixelButton variant="cancel" label="CANCEL" onClick={() => { setIsEditing(false); setLocalHotbar(character?.hotbar_skills || []); }} />
             </>
           ) : (
             <PixelButton variant="ok" label="EDIT HOTBAR" onClick={() => setIsEditing(true)} />

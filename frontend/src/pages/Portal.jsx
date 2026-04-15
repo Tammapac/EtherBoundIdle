@@ -333,14 +333,12 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
             </div>
           )}
           <div className="flex flex-wrap gap-1.5">
-            <button
+            <PixelButton
+              variant="ok"
+              label="ATTACK"
               onClick={() => doAction("attack")}
               disabled={loading || (isGroup && !isMyTurn)}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-violet-600/30 border-violet-500/50 hover:bg-violet-600/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px]"
-            >
-              <Swords className="w-3.5 h-3.5 text-foreground" />
-              <span className="text-[9px] font-medium leading-none">Attack</span>
-            </button>
+            />
             {charSkills.map(skill => {
               const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
               const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
@@ -466,8 +464,8 @@ function PortalCombat({ session: initialSession, character, onLeave }) {
                 </div>
               )}
               <div className="flex gap-3 justify-center">
-                <PixelButton variant="cancel" onClick={() => setShowLeaveConfirm(false)} />
-                <PixelButton variant="ok" onClick={doLeave} />
+                <PixelButton variant="cancel" label="CANCEL" onClick={() => setShowLeaveConfirm(false)} />
+                <PixelButton variant="ok" label="LEAVE" onClick={doLeave} />
               </div>
             </motion.div>
           </motion.div>

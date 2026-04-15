@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useUnifiedProgression } from "@/hooks/useUnifiedProgression";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import {
@@ -138,9 +139,7 @@ export default function BattleRefactored({ character, onCharacterUpdate }) {
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p className="mb-3">No enemy</p>
-              <Button onClick={spawnEnemy} disabled={isLoading}>
-                Spawn Enemy
-              </Button>
+              <PixelButton variant="ok" label="SPAWN ENEMY" onClick={spawnEnemy} disabled={isLoading} />
             </div>
           )}
         </motion.div>
@@ -148,15 +147,13 @@ export default function BattleRefactored({ character, onCharacterUpdate }) {
 
       {/* Attack Button */}
       <div className="flex gap-2">
-        <Button
-          size="lg"
-          className="flex-1 gap-2"
+        <PixelButton
+          variant="ok"
+          label={isAttacking ? "ATTACKING..." : "ATTACK"}
           onClick={handleAttack}
           disabled={!combatActive || isAttacking || isLoading}
-        >
-          <Swords className="w-4 h-4" />
-          {isAttacking ? "Attacking..." : "Attack"}
-        </Button>
+          className="flex-1"
+        />
       </div>
 
       {/* Battle Log */}

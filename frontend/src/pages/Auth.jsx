@@ -121,20 +121,18 @@ export default function Auth() {
 
         <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6 md:p-8 shadow-lg shadow-cyan-500/5">
           <div className="flex gap-2 mb-6">
-            <Button
-              variant={mode === "login" ? "default" : "ghost"}
-              className={`flex-1 font-orbitron tracking-wider transition-all ${mode === "login" ? "shadow-md shadow-primary/20" : ""}`}
+            <PixelButton
+              variant="ok"
+              label="LOGIN"
               onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
-            >
-              Login
-            </Button>
-            <Button
-              variant={mode === "register" ? "default" : "ghost"}
-              className={`flex-1 font-orbitron tracking-wider transition-all ${mode === "register" ? "shadow-md shadow-primary/20" : ""}`}
+              className="flex-1"
+            />
+            <PixelButton
+              variant="ok"
+              label="REGISTER"
               onClick={() => { setMode("register"); setError(""); setSuccess(""); }}
-            >
-              Register
-            </Button>
+              className="flex-1"
+            />
           </div>
 
           <AnimatePresence mode="wait">

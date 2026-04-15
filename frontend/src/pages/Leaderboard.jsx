@@ -328,14 +328,12 @@ export default function Leaderboard({ character }) {
               {/* Admin Actions — superadmin only */}
               {currentUser?.role === "superadmin" && (
               <div className="space-y-2 mb-6">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start gap-2"
+                <PixelButton
+                  variant="ok"
+                  label="EDIT STATS"
                   onClick={() => setEditStats(!editStats)}
-                >
-                  <Edit className="w-3.5 h-3.5" /> Edit Stats
-                </Button>
+                  className="w-full"
+                />
 
                 <details className="group">
                   <summary className="flex items-center justify-between p-2 rounded-lg border border-border hover:bg-muted cursor-pointer">
@@ -363,31 +361,27 @@ export default function Leaderboard({ character }) {
                   </div>
                 </details>
 
-                <Button
-                  variant={selectedChar.is_banned ? "outline" : "destructive"}
-                  size="sm"
-                  className="w-full justify-start gap-2"
+                <PixelButton
+                  variant={selectedChar.is_banned ? "ok" : "cancel"}
+                  label={selectedChar.is_banned ? "UNBAN" : "BAN PLAYER"}
                   onClick={() => managePlayerMutation.mutate({
                     action: selectedChar.is_banned ? "unban" : "ban",
                     target_character_id: selectedChar.id,
                   })}
                   disabled={managePlayerMutation.isPending}
-                >
-                  <Lock className="w-3.5 h-3.5" /> {selectedChar.is_banned ? "Unban" : "Ban Player"}
-                </Button>
+                  className="w-full"
+                />
 
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="w-full justify-start gap-2"
+                <PixelButton
+                  variant="cancel"
+                  label="DELETE CHARACTER"
                   onClick={() => managePlayerMutation.mutate({
                     action: "delete",
                     target_character_id: selectedChar.id,
                   })}
                   disabled={managePlayerMutation.isPending}
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete Character
-                </Button>
+                  className="w-full"
+                />
               </div>
               )}
 

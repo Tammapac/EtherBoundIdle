@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import PixelButton from "@/components/game/PixelButton";
 import { Badge } from "@/components/ui/badge";
 import WelcomeBackModal from "@/components/game/WelcomeBackModal";
 import {
@@ -1541,14 +1542,12 @@ export default function Battle({ character, onCharacterUpdate }) {
       <div className="bg-card border border-border rounded-xl p-2 rpg-frame">
         <div className="flex flex-wrap gap-1.5">
           {/* Basic attack */}
-          <button
-            disabled={!isMyTurn || !enemy || enemyHp <= 0}
+          <PixelButton
+            variant="ok"
+            label="ATTACK"
             onClick={() => doPlayerAttack(null)}
-            className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px]"
-          >
-            <Swords className="w-3.5 h-3.5 text-foreground" />
-            <span className="text-[10px] font-medium leading-none">Attack</span>
-          </button>
+            disabled={!isMyTurn || !enemy || enemyHp <= 0}
+          />
 
           {/* Skills */}
           {charSkills.map((skill) => {
@@ -1595,18 +1594,13 @@ export default function Battle({ character, onCharacterUpdate }) {
           {/* Potions */}
           {potionGroups.length > 0 && <div className="w-px bg-border self-stretch mx-0.5" />}
           {potionGroups.map((stack) => (
-            <button
+            <PixelButton
               key={stack.name}
+              variant="ok"
+              label={`POTION (${stack.count})`}
               onClick={() => usePotionMutation.mutate(stack)}
               disabled={usePotionMutation.isPending || playerHp >= actualMaxHp}
-              className="relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-green-500/40 bg-green-500/5 hover:bg-green-500/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px] text-green-400"
-            >
-              <Heart className="w-3 h-3" />
-              <span className="text-[9px] font-medium leading-none">Potion</span>
-              <span className="absolute -top-1.5 -right-1.5 bg-green-600 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
-                {stack.count}
-              </span>
-            </button>
+            />
           ))}
         </div>
         <p className="text-[10px] text-muted-foreground mt-1.5 px-0.5">

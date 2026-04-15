@@ -312,14 +312,12 @@ function WorldBossCombat({ boss, character, onLeave }) {
         <div className="bg-card border border-border rounded-xl p-2 space-y-1.5">
           {attacksLeft > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              <button
+              <PixelButton
+                variant="ok"
+                label="ATTACK"
                 onClick={() => doAction("attack")}
                 disabled={loading}
-                className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-violet-600/30 border-violet-500/50 hover:bg-violet-600/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-w-[52px]"
-              >
-                <Swords className="w-3.5 h-3.5 text-foreground" />
-                <span className="text-[9px] font-medium leading-none">Attack</span>
-              </button>
+              />
               {charSkills.map(skill => {
                 const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
                 const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
@@ -352,16 +350,13 @@ function WorldBossCombat({ boss, character, onLeave }) {
           {/* Bulk attack buttons — always visible */}
           <div className="flex gap-1.5 justify-center border-t border-border/30 pt-1.5">
             {BULK_PACKS.map(pack => (
-              <button
+              <PixelButton
                 key={pack.id}
+                variant="ok"
+                label={`x${pack.attacks} (${pack.gems}💎)`}
                 onClick={() => doBulkAttack(pack.id)}
                 disabled={bulkLoading}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-500/40 bg-amber-600/20 hover:bg-amber-600/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-xs"
-              >
-                <Zap className="w-3 h-3 text-amber-400" />
-                <span className="font-bold text-amber-300">x{pack.attacks}</span>
-                <span className="text-[10px] text-violet-300 flex items-center gap-0.5"><Gem className="w-2.5 h-2.5" />{pack.gems}</span>
-              </button>
+              />
             ))}
           </div>
         </div>

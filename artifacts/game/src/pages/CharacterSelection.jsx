@@ -185,8 +185,8 @@ export default function CharacterSelection({ onCharacterSelected }) {
                 This action cannot be undone. All items and progress will be lost.
               </p>
               <div className="flex gap-3 justify-center">
-                <PixelButton variant="cancel" onClick={() => setDeleteConfirm(null)} />
-                <PixelButton variant="ok" onClick={() => deleteMutation.mutate(deleteConfirm.id)} disabled={deleteMutation.isPending} />
+                <PixelButton variant="cancel" label="CANCEL" onClick={() => setDeleteConfirm(null)} />
+                <PixelButton variant="ok" label="DELETE" onClick={() => deleteMutation.mutate(deleteConfirm.id)} disabled={deleteMutation.isPending} />
               </div>
             </motion.div>
           </motion.div>
