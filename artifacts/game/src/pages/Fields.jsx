@@ -570,18 +570,21 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
                       transition={{ repeat: Infinity, duration: 0.6 }}
                     />
                     <div className="flex-1 min-w-0">
-                      <span className={`text-[10px] font-bold truncate block ${dead ? "line-through" : ""} ${enemy.isElite ? "text-yellow-400" : enemy.isBoss ? "text-red-400" : "text-foreground"}`}>
-                        {enemy.name}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] font-bold truncate ${dead ? "line-through" : ""} ${enemy.isElite ? "text-yellow-400" : enemy.isBoss ? "text-red-400" : "text-foreground"}`}>
+                          {enemy.name}
+                        </span>
+                        {/* Debuff icons next to enemy name */}
+                        {modifiers.filter(m => m.type === "debuff").map((mod, mi) => (
+                          <div key={mi} className="w-4 h-4 rounded border border-red-500/60 bg-red-500/20 flex items-center justify-center shrink-0" title={`${mod.name}: ${mod.description || "Debuff"}`}>
+                            <span className="text-[7px]">⬇</span>
+                          </div>
+                        ))}
+                      </div>
                       <div className="h-1.5 bg-gray-800 overflow-hidden mt-0.5">
                         <div className={`h-full transition-all ${hpPct > 50 ? "bg-red-500" : hpPct > 25 ? "bg-orange-500" : "bg-red-700"}`} style={{ width: `${hpPct}%` }} />
                       </div>
                       <p className="text-[8px] text-muted-foreground">{dead ? "DEAD" : `${enemy.hp}/${enemy.max_hp}`}</p>
-                      {modifiers.filter(m => m.type === "debuff").length > 0 && (
-                        <div className="mt-0.5">
-                          <CombatEffects modifiers={modifiers.filter(m => m.type === "debuff")} compact />
-                        </div>
-                      )}
                     </div>
                   </div>
                   {(enemy.attackers || []).length >= 3 && <span className="text-[8px] text-yellow-400">x{enemy.attackers.length} co-op!</span>}
@@ -618,15 +621,24 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
                       </div>
                       <span className="text-[8px] text-muted-foreground">Lv{m.level} {m.class}</span>
                     </div>
+                    {/* Active modifiers next to character */}
+                    {isMe && modifiers.length > 0 && (
+                      <div className="flex gap-0.5 flex-wrap">
+                        {modifiers.map((mod, mi) => (
+                          <div
+                            key={mi}
+                            className={`w-5 h-5 rounded border flex items-center justify-center ${mod.type === "buff" ? "border-green-500/60 bg-green-500/20" : "border-red-500/60 bg-red-500/20"}`}
+                            title={`${mod.name}: ${mod.description || (mod.type === "buff" ? "Buff active" : "Debuff active")}`}
+                          >
+                            <span className="text-[8px]">{mod.type === "buff" ? "⬆" : "⬇"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <PixelBar current={dead ? 0 : m.hp} max={m.max_hp} type="hp" showText={false} />
                   <p className="text-[8px] text-muted-foreground">{dead ? "KO'd" : `${m.hp}/${m.max_hp}`}</p>
                   <PixelBar current={m.mp} max={m.max_mp} type="mp" showText={false} />
-                  {isMe && modifiers.length > 0 && (
-                    <div className="mt-0.5">
-                      <CombatEffects modifiers={modifiers} compact />
-                    </div>
-                  )}
                   {m.reviveTimer > 0 && <p className="text-[8px] text-cyan-400 mt-0.5">Reviving... ({m.reviveTimer}/3)</p>}
                 </div>
               );

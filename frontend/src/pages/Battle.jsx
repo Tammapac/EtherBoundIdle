@@ -1424,21 +1424,40 @@ export default function Battle({ character, onCharacterUpdate }) {
             <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
               <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="font-bold">{character.name}</p>
               <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
             </div>
+            {/* Active skill buffs next to character */}
+            {activePlayerBuffs.length > 0 && (
+              <div className="flex gap-1 flex-wrap">
+                {activePlayerBuffs.map((buff, i) => {
+                  const folder = getSkillSpriteFolder(buff.skillId);
+                  return (
+                    <div
+                      key={buff.skillId || i}
+                      className={`relative w-8 h-8 rounded border ${buff.type === "defense" ? "border-blue-500/60 bg-blue-500/20" : "border-orange-500/60 bg-orange-500/20"} flex items-center justify-center`}
+                      title={`${buff.skillName} (${buff.type === "defense" ? "DEF+" : "ATK+"}) — ${buff.turnsLeft}T remaining`}
+                    >
+                      {folder ? (
+                        <img src={`/sprites/skills/${folder}/${buff.skillId}.png`} alt={buff.skillName} className="w-6 h-6" style={{ imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
+                      ) : (
+                        <span className="text-xs">{buff.type === "defense" ? "🛡️" : "⚔️"}</span>
+                      )}
+                      <span className={`absolute -bottom-1 -right-1 text-[7px] font-bold bg-black/80 rounded px-0.5 leading-none ${buff.type === "defense" ? "text-blue-400" : "text-orange-400"}`}>
+                        {buff.turnsLeft}T
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
             <PixelBar current={playerHp} max={actualMaxHp} type="hp" label="HP" />
             <PixelBar current={playerMp} max={actualMaxMp} type="mp" label="MP" />
             <PixelBar current={character.exp} max={character.exp_to_next} type="exp" label="EXP" />
           </div>
-          {activePlayerBuffs.length > 0 && (
-            <div className="mt-1.5">
-              <CombatEffects playerBuffs={activePlayerBuffs} />
-            </div>
-          )}
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
             {(() => {
               const { derived: rd } = calculateFinalStats(character, equippedItems);
@@ -1522,7 +1541,7 @@ export default function Battle({ character, onCharacterUpdate }) {
                 <div className="w-12 h-12 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center">
                   <Skull className="w-6 h-6 text-destructive" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="font-bold">{enemy.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {enemy.isBoss && <Badge variant="destructive" className="mr-1 text-xs">BOSS</Badge>}
@@ -1549,13 +1568,31 @@ export default function Battle({ character, onCharacterUpdate }) {
                     );
                   })()}
                 </div>
+                {/* Active DoTs on enemy */}
+                {activeEnemyDots.length > 0 && (
+                  <div className="flex gap-1 flex-wrap">
+                    {activeEnemyDots.map((dot, i) => {
+                      const elemLabels = { fire: "🔥", poison: "☠️", bleed: "🩸", ice: "❄️", lightning: "⚡", wind: "🌪️", arcane: "✨", blood: "🩸", sand: "🏜️" };
+                      const elemColors = { fire: "border-orange-500/60 bg-orange-500/20", poison: "border-green-500/60 bg-green-500/20", bleed: "border-rose-500/60 bg-rose-500/20", ice: "border-cyan-500/60 bg-cyan-500/20", lightning: "border-yellow-500/60 bg-yellow-500/20" };
+                      const elemTextColors = { fire: "text-orange-400", poison: "text-green-400", bleed: "text-rose-400", ice: "text-cyan-400", lightning: "text-yellow-400" };
+                      const elem = dot.element || "fire";
+                      return (
+                        <div
+                          key={`dot-${i}`}
+                          className={`relative w-8 h-8 rounded border ${elemColors[elem] || "border-red-500/60 bg-red-500/20"} flex items-center justify-center`}
+                          title={`${elem} DoT: ${dot.dmgPerTurn} dmg/turn (${dot.turnsLeft}T left)`}
+                        >
+                          <span className="text-sm">{elemLabels[elem] || "💀"}</span>
+                          <span className={`absolute -bottom-1 -right-1 text-[7px] font-bold bg-black/80 rounded px-0.5 leading-none ${elemTextColors[elem] || "text-red-400"}`}>
+                            {dot.turnsLeft}T
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <PixelBar current={enemyHp} max={enemy.maxHp} type="hp" label="HP" />
-              {activeEnemyDots.length > 0 && (
-                <div className="mt-1">
-                  <CombatEffects enemyDots={activeEnemyDots} />
-                </div>
-              )}
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">Searching for enemy...</div>
