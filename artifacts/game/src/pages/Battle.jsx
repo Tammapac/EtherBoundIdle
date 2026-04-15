@@ -1428,36 +1428,44 @@ export default function Battle({ character, onCharacterUpdate }) {
               <p className="font-bold">{character.name}</p>
               <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
             </div>
-            {/* Active skill buffs next to character */}
-            {activePlayerBuffs.length > 0 && (
-              <div className="flex gap-1 flex-wrap">
-                {activePlayerBuffs.map((buff, i) => {
-                  const folder = getSkillSpriteFolder(buff.skillId);
-                  return (
-                    <div
-                      key={buff.skillId || i}
-                      className={`relative w-8 h-8 rounded border ${buff.type === "defense" ? "border-blue-500/60 bg-blue-500/20" : "border-orange-500/60 bg-orange-500/20"} flex items-center justify-center`}
-                      title={`${buff.skillName} (${buff.type === "defense" ? "DEF+" : "ATK+"}) — ${buff.turnsLeft}T remaining`}
-                    >
-                      {folder ? (
-                        <img src={`/sprites/skills/${folder}/${buff.skillId}.png`} alt={buff.skillName} className="w-6 h-6" style={{ imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
-                      ) : (
-                        <span className="text-xs">{buff.type === "defense" ? "🛡️" : "⚔️"}</span>
-                      )}
-                      <span className={`absolute -bottom-1 -right-1 text-[7px] font-bold bg-black/80 rounded px-0.5 leading-none ${buff.type === "defense" ? "text-blue-400" : "text-orange-400"}`}>
-                        {buff.turnsLeft}T
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
           <div className="space-y-1.5">
             <PixelBar current={playerHp} max={actualMaxHp} type="hp" label="HP" />
             <PixelBar current={playerMp} max={actualMaxMp} type="mp" label="MP" />
             <PixelBar current={character.exp} max={character.exp_to_next} type="exp" label="EXP" />
           </div>
+          {/* Active skill buffs with description */}
+          {activePlayerBuffs.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {activePlayerBuffs.map((buff, i) => {
+                const folder = getSkillSpriteFolder(buff.skillId);
+                const skill = charSkills.find(s => s.id === buff.skillId);
+                const isDefense = buff.type === "defense";
+                return (
+                  <div
+                    key={buff.skillId || i}
+                    className={`flex items-center gap-2 px-2 py-1 rounded border ${isDefense ? "border-blue-500/40 bg-blue-500/10" : "border-orange-500/40 bg-orange-500/10"}`}
+                  >
+                    <div className={`relative w-7 h-7 rounded shrink-0 flex items-center justify-center ${isDefense ? "bg-blue-500/20" : "bg-orange-500/20"}`}>
+                      {folder ? (
+                        <img src={`/sprites/skills/${folder}/${buff.skillId}.png`} alt={buff.skillName} className="w-5 h-5" style={{ imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
+                      ) : (
+                        <span className="text-xs">{isDefense ? "🛡️" : "⚔️"}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[10px] font-semibold ${isDefense ? "text-blue-400" : "text-orange-400"}`}>
+                        {buff.skillName} <span className="text-muted-foreground font-normal">({buff.turnsLeft}T)</span>
+                      </p>
+                      <p className="text-[9px] text-muted-foreground truncate">
+                        {skill?.description || (isDefense ? "Defense increased" : "Attack power increased")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
             {(() => {
               const { derived: rd } = calculateFinalStats(character, equippedItems);
