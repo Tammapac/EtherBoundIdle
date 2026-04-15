@@ -1329,20 +1329,19 @@ export default function Battle({ character, onCharacterUpdate }) {
       partyId={partyData?.id}
       onJoinZone={handleJoinZone}
     />
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4 relative overflow-hidden">
-      {/* Region background */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage: `url('/sprites/backgrounds/${character?.current_region || "verdant_forest"}.png')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          opacity: 0.12,
-          imageRendering: "pixelated",
-          transform: "scale(1.1)",
-        }}
-      />
+    {/* Region background — fixed, doesn't move with content */}
+    <div
+      className="fixed inset-0 pointer-events-none z-0"
+      style={{
+        backgroundImage: `url('/sprites/backgrounds/${character?.current_region || "verdant_forest"}.png')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        opacity: 0.12,
+        imageRendering: "pixelated",
+      }}
+    />
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4 relative z-[1]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
