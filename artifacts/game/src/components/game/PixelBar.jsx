@@ -18,9 +18,9 @@ export default function PixelBar({ current, max, type = "hp", label, showText = 
   const fillSrc = BAR_FILLS[type] || BAR_FILLS.hp;
 
   return (
-    <div className="w-full">
+    <div style={{ maxWidth: 220 }}>
       {label && (
-        <div className="flex justify-between text-xs mb-0.5">
+        <div className="flex justify-between text-xs mb-0.5" style={{ maxWidth: 220 }}>
           <span className="text-muted-foreground font-bold text-[10px]">{label}</span>
           {showText && (
             <span className="text-foreground font-medium text-[10px]">
@@ -30,10 +30,12 @@ export default function PixelBar({ current, max, type = "hp", label, showText = 
         </div>
       )}
       <div
-        className="relative w-full overflow-hidden"
+        className="relative overflow-hidden"
         style={{
-          height: 14,
-          borderImage: "url('/sprites/ui/bars/bar_frame.png') 3 / 3px",
+          width: "100%",
+          maxWidth: 220,
+          height: 20,
+          borderImage: "url('/sprites/ui/bars/bar_frame.png') 3 / 5px",
           borderStyle: "solid",
           imageRendering: "pixelated",
           background: "#080b18",
