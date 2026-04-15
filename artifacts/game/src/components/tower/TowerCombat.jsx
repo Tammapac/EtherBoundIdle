@@ -7,6 +7,7 @@ import PixelBar from "@/components/game/PixelBar";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Zap, LogOut, ArrowUp, Skull, Coins, Star, Gem, Trophy, Package, Play, Pause } from "lucide-react";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
+import CombatEffects from "@/components/game/CombatEffects";
 
 function getSkillSpriteFolder(skillId) {
   if (!skillId) return null;
@@ -296,6 +297,7 @@ export default function TowerCombat({ session: initialSession, character, onLeav
               <div className="space-y-1.5">
                 <PixelBar current={me.hp} max={me.max_hp} type="hp" label="HP" />
                 <PixelBar current={me.mp} max={me.max_mp} type="mp" label="MP" />
+                {/* Active skill buffs would show here if tracked */}
               </div>
             </div>
           )}

@@ -26,6 +26,7 @@ function getSkillSpriteFolder(skillId) {
   return null;
 }
 import { getPlayerSprite, getEnemySpriteUrl, getDeadSprite } from "@/lib/pixelSprites";
+import CombatEffects from "@/components/game/CombatEffects";
 
 const ELEMENT_ICONS = {
   fire: Flame, ice: Snowflake, lightning: Zap, poison: Droplets,
@@ -576,6 +577,11 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
                         <div className={`h-full transition-all ${hpPct > 50 ? "bg-red-500" : hpPct > 25 ? "bg-orange-500" : "bg-red-700"}`} style={{ width: `${hpPct}%` }} />
                       </div>
                       <p className="text-[8px] text-muted-foreground">{dead ? "DEAD" : `${enemy.hp}/${enemy.max_hp}`}</p>
+                      {modifiers.filter(m => m.type === "debuff").length > 0 && (
+                        <div className="mt-0.5">
+                          <CombatEffects modifiers={modifiers.filter(m => m.type === "debuff")} compact />
+                        </div>
+                      )}
                     </div>
                   </div>
                   {(enemy.attackers || []).length >= 3 && <span className="text-[8px] text-yellow-400">x{enemy.attackers.length} co-op!</span>}
@@ -616,6 +622,11 @@ function FieldCombat({ session: initialSession, character, onLeave }) {
                   <PixelBar current={dead ? 0 : m.hp} max={m.max_hp} type="hp" showText={false} />
                   <p className="text-[8px] text-muted-foreground">{dead ? "KO'd" : `${m.hp}/${m.max_hp}`}</p>
                   <PixelBar current={m.mp} max={m.max_mp} type="mp" showText={false} />
+                  {isMe && modifiers.length > 0 && (
+                    <div className="mt-0.5">
+                      <CombatEffects modifiers={modifiers} compact />
+                    </div>
+                  )}
                   {m.reviveTimer > 0 && <p className="text-[8px] text-cyan-400 mt-0.5">Reviving... ({m.reviveTimer}/3)</p>}
                 </div>
               );

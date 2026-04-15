@@ -22,6 +22,7 @@ const LOOT_TYPE_ICONS = {
 
 import HealthBar from "@/components/game/HealthBar";
 import PixelBar from "@/components/game/PixelBar";
+import CombatEffects from "@/components/game/CombatEffects";
 import AttackVisual from "@/components/game/AttackVisual";
 import PartyBattlePanel from "@/components/game/PartyBattlePanel";
 import PartyBattleArena from "@/components/game/PartyBattleArena";
@@ -68,6 +69,9 @@ export default function Battle({ character, onCharacterUpdate }) {
   const [battleLog, setBattleLog] = useState([]);
   // Turn-based cooldowns (in turns remaining)
   const [cooldowns, setCooldowns] = useState({});
+  // Active combat effects for UI display
+  const [activePlayerBuffs, setActivePlayerBuffs] = useState([]);
+  const [activeEnemyDots, setActiveEnemyDots] = useState([]);
   const [lootDrop, setLootDrop] = useState(null);
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [combatPhase, setCombatPhase] = useState("idle"); // idle | player_turn | enemy_turn | enemy_dead | player_dead
@@ -294,7 +298,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     setAttackSpeedBonusHits(0);
     sharedEnemyClaimedRef.current = false;
     enemyDeadRef.current = false;
-    if (procEngineRef.current) procEngineRef.current.reset();
+    if (procEngineRef.current) procEngineRef.current.reset(); setActiveEnemyDots([]);
     if (isEliteSpawn) addLog(`⚡ ELITE appeared: ${enemyData.name}! Rare loot bonus!`);
     if (isEmpowered) addLog(`⚡ Empowered ${enemyData.name} appeared! 3x HP, 3x rewards!`);
 
@@ -396,6 +400,8 @@ export default function Battle({ character, onCharacterUpdate }) {
       for (const [k, v] of Object.entries(prev)) { if (v > 0) next[k] = v - 1; }
       return next;
     });
+    // Tick down player buffs
+    setActivePlayerBuffs(prev => prev.map(b => ({ ...b, turnsLeft: b.turnsLeft - 1 })).filter(b => b.turnsLeft > 0));
 
     if (newPlayerHp <= 0) {
       const xpLost = Math.floor((character.exp || 0) * 0.10);
@@ -442,6 +448,13 @@ export default function Battle({ character, onCharacterUpdate }) {
       if (skill.damage > 0) finalDmg = Math.floor(damage * (skill.damage || 1.5) * guildDmgMult);
       setPlayerMp(prev => prev - skill.mp);
       setCooldowns(prev => ({ ...prev, [skill.id]: skill.cooldown || 3 }));
+      // Track buff skills for UI display
+      if (skill.buff) {
+        setActivePlayerBuffs(prev => [
+          ...prev.filter(b => b.skillId !== skill.id),
+          { type: skill.buff, turnsLeft: skill.cooldown || 3, skillName: skill.name, skillId: skill.id }
+        ]);
+      }
     }
 
     // Elemental weakness/resistance multiplier
@@ -485,6 +498,8 @@ export default function Battle({ character, onCharacterUpdate }) {
         addLog(`☠️ Poison tick: ${dotDmg} damage`);
         spawnEnemyNum(dotDmg, "dot");
       }
+      // Update enemy DoT display
+      setActiveEnemyDots(procEngineRef.current.getActiveDots());
     }
 
     const totalDamageDealt = finalDmg + totalProcDmg;
@@ -1094,7 +1109,7 @@ export default function Battle({ character, onCharacterUpdate }) {
           enemyDeadRef.current = false;
           attackSpeedAccRef.current = 0;
           setAttackSpeedBonusHits(0);
-          if (procEngineRef.current) procEngineRef.current.reset();
+          if (procEngineRef.current) procEngineRef.current.reset(); setActiveEnemyDots([]);
           addLog(`⚔️ Party battle: ${se.name} appeared!`);
         }
       } catch {}
@@ -1129,7 +1144,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       enemyDeadRef.current = false;
       attackSpeedAccRef.current = 0;
       setAttackSpeedBonusHits(0);
-      if (procEngineRef.current) procEngineRef.current.reset();
+      if (procEngineRef.current) procEngineRef.current.reset(); setActiveEnemyDots([]);
       addLog(`⚔️ Party battle: ${se.name} appeared!`);
     };
     window.addEventListener("party-enemy-spawn", onSpawn);
@@ -1419,6 +1434,11 @@ export default function Battle({ character, onCharacterUpdate }) {
             <PixelBar current={playerMp} max={actualMaxMp} type="mp" label="MP" />
             <PixelBar current={character.exp} max={character.exp_to_next} type="exp" label="EXP" />
           </div>
+          {activePlayerBuffs.length > 0 && (
+            <div className="mt-1.5">
+              <CombatEffects playerBuffs={activePlayerBuffs} />
+            </div>
+          )}
           <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
             {(() => {
               const { derived: rd } = calculateFinalStats(character, equippedItems);
@@ -1531,6 +1551,11 @@ export default function Battle({ character, onCharacterUpdate }) {
                 </div>
               </div>
               <PixelBar current={enemyHp} max={enemy.maxHp} type="hp" label="HP" />
+              {activeEnemyDots.length > 0 && (
+                <div className="mt-1">
+                  <CombatEffects enemyDots={activeEnemyDots} />
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">Searching for enemy...</div>

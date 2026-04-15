@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Swords, Zap, LogOut, Crown, Skull, Clock, User } from "lucide-react";
 import { SKILLS, CLASSES } from "@/lib/gameData";
 import { CLASS_SKILLS, ELEMENT_CONFIG } from "@/lib/skillData";
+import CombatEffects from "@/components/game/CombatEffects";
 
 function getSkillSpriteFolder(skillId) {
   if (!skillId) return null;
