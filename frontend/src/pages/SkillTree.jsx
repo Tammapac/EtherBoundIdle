@@ -88,6 +88,7 @@ function computeLayout(filteredSkills) {
    SKILL NODE (from prototype + game styling)
 ====================== */
 function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, isInPath, onClick, onHover, onLeave }) {
+  const [isHovered, setIsHovered] = React.useState(false);
   const elemCfg = skill.element ? ELEMENT_CONFIG[skill.element] : { icon: "⚔️", label: "Physical" };
 
   // Color priority: hover path > learned > can learn > locked (matches prototype exactly)
@@ -96,7 +97,10 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
     : canLearn ? "#a78bfa"
     : "#475569";
 
-  const glow = learned ? "0 0 15px #facc1555"
+  const hoverGlowColor = learned ? "#facc15" : canLearn ? "#a78bfa" : isInPath ? "#38bdf8" : "#94a3b8";
+  const glow = isHovered
+    ? `0 0 20px ${hoverGlowColor}88, 0 0 40px ${hoverGlowColor}44`
+    : learned ? "0 0 15px #facc1555"
     : isInPath ? "0 0 12px #38bdf855"
     : "none";
 
@@ -109,22 +113,26 @@ function SkillNode({ skill, learned, canLearn, locked, isSelected, isEquipped, i
   return (
     <div
       onClick={onClick}
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
+      onMouseEnter={(e) => { setIsHovered(true); onHover?.(e); }}
+      onMouseLeave={(e) => { setIsHovered(false); onLeave?.(e); }}
       style={{
         width: NODE_SIZE,
         height: NODE_SIZE,
         background: learned ? "#1e293b" : "#080b11",
-        opacity: learned ? 1 : 0.6,
+        opacity: learned ? 1 : isHovered ? 0.9 : 0.6,
         boxShadow: glow,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
         position: "relative",
-        zIndex: 1,
+        zIndex: isHovered ? 2 : 1,
         color: "white",
         overflow: "visible",
+        transform: isHovered ? "scale(1.15)" : "scale(1)",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease",
+        borderRadius: 6,
+        border: isHovered ? `2px solid ${hoverGlowColor}66` : "2px solid transparent",
       }}
     >
       {/* Frame — on top of the skill icon (picture frame effect) */}
