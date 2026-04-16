@@ -1420,57 +1420,59 @@ export default function Battle({ character, onCharacterUpdate }) {
           className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
         >
           {playerNumNode}
-          {/* Buff container — absolutely positioned in top-right of card so it never
-              pushes HP/MP/EXP bars down as more buffs stack up */}
-          {activePlayerBuffs.length > 0 && (
-            <div className="absolute top-3 right-3 flex flex-col gap-1 items-end z-10 pointer-events-none max-w-[55%]">
-              {activePlayerBuffs.map((buff, i) => {
-                  const folder = getSkillSpriteFolder(buff.skillId);
-                  const parts = [];
-                  const fx = buff.buffEffect || {};
-                  if (fx.fire_dmg) parts.push(`+${fx.fire_dmg}%Fire`);
-                  if (fx.ice_dmg) parts.push(`+${fx.ice_dmg}%Ice`);
-                  if (fx.lightning_dmg) parts.push(`+${fx.lightning_dmg}%Ltn`);
-                  if (fx.arcane_dmg) parts.push(`+${fx.arcane_dmg}%Arc`);
-                  if (fx.blood_dmg) parts.push(`+${fx.blood_dmg}%Bld`);
-                  if (fx.sand_dmg) parts.push(`+${fx.sand_dmg}%Sand`);
-                  if (fx.atk_pct) parts.push(`+${fx.atk_pct}%Att`);
-                  if (fx.def_pct) parts.push(`+${fx.def_pct}%Def`);
-                  if (fx.crit_pct) parts.push(`+${fx.crit_pct}%Crit`);
-                  if (fx.atk_speed) parts.push(`+${fx.atk_speed}%Spd`);
-                  if (fx.hp_pct) parts.push(`+${fx.hp_pct}%HP`);
-                  if (fx.hp_regen) parts.push(`+${fx.hp_regen}%HPR`);
-                  if (fx.hp_restore) parts.push(`+${fx.hp_restore}%Res`);
-                  if (fx.block_pct) parts.push(`+${fx.block_pct}%Blk`);
-                  if (fx.lifesteal) parts.push(`+${fx.lifesteal}%LS`);
-                  if (fx.reflect) parts.push(`${fx.reflect}%Ref`);
-                  if (fx.reflect_magic) parts.push(`MRef`);
-                  if (fx.all_stats) parts.push(`+${fx.all_stats}All`);
-                  if (fx.mana_absorb) parts.push(`MAbsorb`);
-                  if (fx.extra_turn) parts.push(`ExTurn`);
-                  if (fx.freeze) parts.push(`Freeze`);
-                  if (fx.shock_reflect) parts.push(`ShkRef`);
-                  if (parts.length === 0) parts.push(buff.type === "defense" ? "+Def" : "+Atk");
-                  return (
-                    <div key={buff.skillId || i} className="flex items-center gap-1" title={buff.skillName}>
-                      {folder ? (
-                        <img src={`/sprites/skills/${folder}/${buff.skillId}.png`} alt={buff.skillName} className="w-5 h-5 shrink-0" style={{ imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
-                      ) : (
-                        <span className="text-xs shrink-0">{buff.type === "defense" ? "🛡️" : "⚔️"}</span>
-                      )}
-                      <span className="text-[9px] text-orange-300 whitespace-nowrap">{parts.join(" ")} {buff.turnsLeft}T</span>
-                    </div>
-                  );
-                })}
-            </div>
-          )}
           <div className="flex items-start gap-3 mb-3">
             <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
               <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold">{character.name}</p>
-              <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
+            <div className="min-w-0 shrink-0 max-w-[40%]">
+              <p className="font-bold truncate">{character.name}</p>
+              <p className="text-xs text-muted-foreground truncate">Lv.{character.level} {charClass.name}</p>
+            </div>
+            {/* Buff zone — fixed 48px height matching avatar, so extra buffs overflow
+                below visually but NEVER stretch the header row or push HP/MP down */}
+            <div className="flex-1 min-w-0 relative h-12">
+              {activePlayerBuffs.length > 0 && (
+                <div className="absolute inset-0 flex flex-col gap-1 items-start overflow-visible pointer-events-none">
+                  {activePlayerBuffs.map((buff, i) => {
+                    const folder = getSkillSpriteFolder(buff.skillId);
+                    const parts = [];
+                    const fx = buff.buffEffect || {};
+                    if (fx.fire_dmg) parts.push(`+${fx.fire_dmg}%Fire`);
+                    if (fx.ice_dmg) parts.push(`+${fx.ice_dmg}%Ice`);
+                    if (fx.lightning_dmg) parts.push(`+${fx.lightning_dmg}%Ltn`);
+                    if (fx.arcane_dmg) parts.push(`+${fx.arcane_dmg}%Arc`);
+                    if (fx.blood_dmg) parts.push(`+${fx.blood_dmg}%Bld`);
+                    if (fx.sand_dmg) parts.push(`+${fx.sand_dmg}%Sand`);
+                    if (fx.atk_pct) parts.push(`+${fx.atk_pct}%Att`);
+                    if (fx.def_pct) parts.push(`+${fx.def_pct}%Def`);
+                    if (fx.crit_pct) parts.push(`+${fx.crit_pct}%Crit`);
+                    if (fx.atk_speed) parts.push(`+${fx.atk_speed}%Spd`);
+                    if (fx.hp_pct) parts.push(`+${fx.hp_pct}%HP`);
+                    if (fx.hp_regen) parts.push(`+${fx.hp_regen}%HPR`);
+                    if (fx.hp_restore) parts.push(`+${fx.hp_restore}%Res`);
+                    if (fx.block_pct) parts.push(`+${fx.block_pct}%Blk`);
+                    if (fx.lifesteal) parts.push(`+${fx.lifesteal}%LS`);
+                    if (fx.reflect) parts.push(`${fx.reflect}%Ref`);
+                    if (fx.reflect_magic) parts.push(`MRef`);
+                    if (fx.all_stats) parts.push(`+${fx.all_stats}All`);
+                    if (fx.mana_absorb) parts.push(`MAbsorb`);
+                    if (fx.extra_turn) parts.push(`ExTurn`);
+                    if (fx.freeze) parts.push(`Freeze`);
+                    if (fx.shock_reflect) parts.push(`ShkRef`);
+                    if (parts.length === 0) parts.push(buff.type === "defense" ? "+Def" : "+Atk");
+                    return (
+                      <div key={buff.skillId || i} className="flex items-center gap-1" title={buff.skillName}>
+                        {folder ? (
+                          <img src={`/sprites/skills/${folder}/${buff.skillId}.png`} alt={buff.skillName} className="w-5 h-5 shrink-0" style={{ imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
+                        ) : (
+                          <span className="text-xs shrink-0">{buff.type === "defense" ? "🛡️" : "⚔️"}</span>
+                        )}
+                        <span className="text-[9px] text-orange-300 whitespace-nowrap">{parts.join(" ")} {buff.turnsLeft}T</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
           <div className="space-y-1.5">
