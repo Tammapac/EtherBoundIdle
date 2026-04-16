@@ -1420,17 +1420,11 @@ export default function Battle({ character, onCharacterUpdate }) {
           className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
         >
           {playerNumNode}
-          <div className="flex items-start gap-3 mb-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
-              <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
-            </div>
-            <div className="min-w-0 shrink-0">
-              <p className="font-bold">{character.name}</p>
-              <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
-            </div>
-            {/* Buff container — always rendered right next to the name to prevent layout shift */}
-            <div className="flex-1 min-w-0 flex flex-col gap-1 min-h-[40px]">
-              {activePlayerBuffs.length > 0 && activePlayerBuffs.map((buff, i) => {
+          {/* Buff container — absolutely positioned in top-right of card so it never
+              pushes HP/MP/EXP bars down as more buffs stack up */}
+          {activePlayerBuffs.length > 0 && (
+            <div className="absolute top-3 right-3 flex flex-col gap-1 items-end z-10 pointer-events-none max-w-[55%]">
+              {activePlayerBuffs.map((buff, i) => {
                   const folder = getSkillSpriteFolder(buff.skillId);
                   const parts = [];
                   const fx = buff.buffEffect || {};
@@ -1468,6 +1462,15 @@ export default function Battle({ character, onCharacterUpdate }) {
                     </div>
                   );
                 })}
+            </div>
+          )}
+          <div className="flex items-start gap-3 mb-3">
+            <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+              <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold">{character.name}</p>
+              <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
             </div>
           </div>
           <div className="space-y-1.5">
