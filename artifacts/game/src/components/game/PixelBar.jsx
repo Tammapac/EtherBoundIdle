@@ -30,9 +30,9 @@ export default function PixelBar({ current, max, type = "hp", label, showText = 
   const insetY = 10;
 
   return (
-    <div style={{ maxWidth: barWidth }}>
+    <div style={{ width: barWidth, maxWidth: "100%" }}>
       {label && (
-        <div className="flex justify-between text-xs mb-0.5" style={{ maxWidth: barWidth }}>
+        <div className="flex justify-between text-xs mb-0.5" style={{ width: "100%" }}>
           <span className="text-muted-foreground font-bold text-[10px]">{label}</span>
           {showText && (
             <span className="text-foreground font-medium text-[10px]">
@@ -45,7 +45,6 @@ export default function PixelBar({ current, max, type = "hp", label, showText = 
         className="relative"
         style={{
           width: "100%",
-          maxWidth: barWidth,
           height: barHeight,
         }}
       >
@@ -60,14 +59,14 @@ export default function PixelBar({ current, max, type = "hp", label, showText = 
             background: "#080b18",
           }}
         />
-        {/* Colored fill */}
+        {/* Colored fill — percentage-based so it scales with container width */}
         <div
           style={{
             position: "absolute",
             left: insetX,
             top: insetY,
             bottom: insetY,
-            width: `${(pct / 100) * (barWidth - insetX * 2)}px`,
+            width: `calc((100% - ${insetX * 2}px) * ${pct / 100})`,
             backgroundImage: `url('${fillSrc}')`,
             backgroundSize: "100% 100%",
             imageRendering: "pixelated",
