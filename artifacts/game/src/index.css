@@ -82,6 +82,13 @@
   * {
     @apply border-border;
   }
+  /* Scale the whole UI a notch — Tailwind's text/padding/width/gap utilities
+     are rem-based, so bumping the root font-size uniformly enlarges them.
+     Fixed-px assets (sprite bars, sprite images) stay at their native pixel
+     size, which keeps pixel art crisp. */
+  html {
+    font-size: 17px;
+  }
   body {
     @apply bg-background text-foreground font-inter;
   }
