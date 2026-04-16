@@ -25,40 +25,53 @@ const SHEET_CLASS = {
 };
 
 function AttackSprite({ animKey, emoji }) {
+  const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
-  if (errored || !animKey) {
+
+  if (!animKey || errored) {
     return <span className="text-4xl">{emoji}</span>;
   }
 
   const sheetClass = SHEET_CLASS[animKey];
-  if (sheetClass) {
-    return (
-      <>
-        {/* Hidden preload — triggers fallback if the sheet is missing */}
-        <img
-          src={`/sprites/effects/attacks/${animKey}.png`}
-          alt=""
-          onError={() => setErrored(true)}
-          style={{ display: "none" }}
-        />
-        <div aria-hidden className={sheetClass} />
-      </>
-    );
-  }
 
   return (
-    <img
-      src={`/sprites/effects/attacks/${animKey}.png`}
-      alt=""
-      draggable={false}
-      onError={() => setErrored(true)}
-      style={{
-        width: 64,
-        height: 64,
-        imageRendering: "pixelated",
-        objectFit: "contain",
-      }}
-    />
+    <>
+      {/* Preload image */}
+      <img
+        src={`/sprites/effects/attacks/${animKey}.png`}
+        alt=""
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        style={{ display: "none" }}
+      />
+
+      {/* Show sprite only when loaded */}
+      {loaded && sheetClass ? (
+        <div aria-hidden className={sheetClass} />
+      ) : (
+        <span className="text-4xl">{emoji}</span>
+      )}
+    </>
+  );
+}
+  return (
+    <>
+      {!loaded && <span className="text-5xl">{emoji}</span>}
+      <img
+        src={`/sprites/effects/attacks/${animKey}.png`}
+        alt=""
+        draggable={false}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(false)}
+        style={{
+          width: 64,
+          height: 64,
+          imageRendering: "pixelated",
+          objectFit: "contain",
+          display: loaded ? "inline-block" : "none",
+        }}
+      />
+    </>
   );
 }
 
@@ -114,7 +127,7 @@ const CLASS_BASIC = {
   rogue:   "slash",
 };
 
-export default function AttackVisual({ characterClass, isSkill, skillId, show, damage, isCrit }) {
+export default function AttackVisual({ characterClass, isSkill, skillId, show, seq = 0, damage, isCrit }) {
   const animKey = skillId && SKILL_ANIMATIONS[skillId]
     ? SKILL_ANIMATIONS[skillId]
     : (isSkill ? "nova" : (CLASS_BASIC[characterClass] || "slash"));
@@ -122,21 +135,26 @@ export default function AttackVisual({ characterClass, isSkill, skillId, show, d
   const config = ANIM_CONFIG[animKey] || ANIM_CONFIG.slash;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {show && (
+        // `key` changes on every attack so framer-motion treats each attack as
+        // a fresh mount — without this, rapid consecutive attacks can end up
+        // skipping the animation because the same element is being "re-used".
         <motion.div
+          key={`attack-${seq}`}
           className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
         >
           <motion.span
-            className="inline-flex items-center justify-center"
+            className="inline-flex items-center justify-center drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
             variants={config.variants}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           >
             <AttackSprite animKey={animKey} emoji={config.emoji} />
           </motion.span>
