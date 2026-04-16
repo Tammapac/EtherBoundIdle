@@ -32,6 +32,27 @@ const TYPE_ICONS = {
 
 const SLOT_ORDER = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
 
+// ─── Item Sprite w/ Icon Fallback ───────────────────────────────────────────
+// Renders the pixel sprite if it loads, otherwise silently swaps to the
+// supplied Lucide icon. Prevents broken-image placeholders when a sprite path
+// 404s (e.g. missing ring/boot tier for a particular rarity).
+function ItemSprite({ sprite, Icon, imgClassName, iconClassName, style }) {
+  const [errored, setErrored] = React.useState(false);
+  React.useEffect(() => { setErrored(false); }, [sprite]);
+  if (!sprite || errored) {
+    return <Icon className={iconClassName} />;
+  }
+  return (
+    <img
+      src={sprite}
+      alt=""
+      className={imgClassName}
+      style={{ imageRendering: "pixelated", ...style }}
+      onError={() => setErrored(true)}
+    />
+  );
+}
+
 // ─── Hover Tooltip ──────────────────────────────────────────────────────────
 
 function HoverTooltip({ item, character, equipped, triggerRef, allRunes = [] }) {
@@ -160,11 +181,12 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
           </span>
         )}
         <div className="flex items-center gap-2.5 mb-1">
-          {getItemSprite(item) ? (
-            <img src={getItemSprite(item)} alt="" className="w-12 h-12 flex-shrink-0 sprite-outline" style={{ imageRendering: "pixelated" }} />
-          ) : (
-            <Icon className={`w-10 h-10 ${rarity.color} flex-shrink-0`} />
-          )}
+          <ItemSprite
+            sprite={getItemSprite(item)}
+            Icon={Icon}
+            imgClassName="w-12 h-12 flex-shrink-0 sprite-outline"
+            iconClassName={`w-10 h-10 ${rarity.color} flex-shrink-0`}
+          />
           <div className="flex-1 min-w-0">
             <span className={`text-xs font-semibold ${rarity.color} truncate block`}>{item.name}</span>
             {desc && <span className="text-[10px] text-muted-foreground leading-tight block">{desc}</span>}
@@ -201,11 +223,12 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         )}
         <div className="flex items-center gap-2 mb-1">
           <div className="relative flex-shrink-0 w-12 h-12 flex items-center justify-center">
-            {getItemSprite(item) ? (
-              <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
-            ) : (
-              <Icon className={`w-10 h-10 ${rarity.color}`} />
-            )}
+            <ItemSprite
+              sprite={getItemSprite(item)}
+              Icon={Icon}
+              imgClassName="w-12 h-12 sprite-outline"
+              iconClassName={`w-10 h-10 ${rarity.color}`}
+            />
             {itemLevel && (
               <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold leading-none px-0.5 rounded ${rarity.color} bg-background border border-current`}>
                 {itemLevel}
@@ -280,11 +303,12 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
         title={item ? item.name : SLOT_LABELS[slot]}
       >
         <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
-          {item && getItemSprite(item) ? (
-            <img src={getItemSprite(item)} alt="" className="w-10 h-10 sprite-outline" style={{ imageRendering: "pixelated" }} />
-          ) : (
-            <Icon className={`w-8 h-8 ${item ? rarity?.color : "text-gray-600"}`} />
-          )}
+          <ItemSprite
+            sprite={item ? getItemSprite(item) : null}
+            Icon={Icon}
+            imgClassName="w-10 h-10 sprite-outline"
+            iconClassName={`w-8 h-8 ${item ? rarity?.color : "text-gray-600"}`}
+          />
         </div>
         <div className="flex-1 min-w-0 text-left">
           <span className={`text-[10px] font-semibold truncate block leading-tight ${item ? rarity?.color : "text-gray-600"}`}>

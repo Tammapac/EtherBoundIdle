@@ -402,23 +402,23 @@ function SynergyPanel({ charClass, skills, learnedSkills, equippedSkills }) {
         <Sparkles className="w-4 h-4" /> Synergies
         <span className="text-xs text-amber-500/60 ml-auto">{activeSynergies.length}/{allSynergies.length}</span>
       </h3>
-      <div className="grid grid-cols-1 gap-1.5 max-h-[70vh] overflow-y-auto scrollbar-hide">
+      <div className="grid grid-cols-2 gap-1.5 max-h-[70vh] overflow-y-auto scrollbar-hide">
         {allSynergies.map(syn => {
           const isActive = activeSynergies.some(a => a.id === syn.id);
           const progress = syn.requires.filter(id => learnedSet.has(id)).length;
           return (
-            <div key={syn.id} className={`p-2 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-sm">{syn.icon}</span>
-                <span className={`text-xs font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
-                {isActive ? <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> : <span className="text-[10px] text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
+            <div key={syn.id} className={`p-1.5 rounded-lg border ${isActive ? "border-amber-500/40 bg-amber-500/10" : "border-gray-700/30 opacity-50"}`}>
+              <div className="flex items-center gap-1 mb-0.5">
+                <span className="text-xs">{syn.icon}</span>
+                <span className={`text-[11px] font-bold flex-1 truncate ${isActive ? "text-amber-300" : "text-gray-500"}`}>{syn.name}</span>
+                {isActive ? <CheckCircle2 className="w-3 h-3 text-amber-400" /> : <span className="text-[9px] text-gray-500 font-bold">{progress}/{syn.requires.length}</span>}
               </div>
-              <p className={`text-[11px] leading-snug ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
-              <div className="flex gap-1 flex-wrap mt-1">
+              <p className={`text-[10px] leading-snug ${isActive ? "text-amber-200/70" : "text-gray-600"}`}>{syn.description}</p>
+              <div className="flex gap-0.5 flex-wrap mt-1">
                 {syn.requires.map(id => {
                   const sk = skills.find(s => s.id === id);
                   const has = learnedSet.has(id);
-                  return <span key={id} className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
+                  return <span key={id} className={`text-[9px] px-1 py-0 rounded font-medium ${has ? "bg-green-500/15 text-green-400 border border-green-500/30" : "bg-gray-800 text-gray-500 border border-gray-700"}`}>{sk?.name || id}</span>;
                 })}
               </div>
             </div>
@@ -537,23 +537,26 @@ export default function SkillTree({ character, onCharacterUpdate }) {
 
   return (
     <div className="p-2 md:p-3 max-w-[1800px] mx-auto space-y-2">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-orbitron text-lg font-bold flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" /> Skill Tree
-          </h2>
-          <p className="text-xs text-muted-foreground capitalize">{charClass} · Lv.{charLevel}</p>
+      {/* Header + Hotbar — padded left on desktop so the floating quick-access
+          icons (fixed at left-[17rem], ~224px wide) don't overlap them. */}
+      <div className="lg:pl-[14rem] space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-orbitron text-lg font-bold flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" /> Skill Tree
+            </h2>
+            <p className="text-xs text-muted-foreground capitalize">{charClass} · Lv.{charLevel}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 text-sm px-3 py-1">
+              <Star className="w-3.5 h-3.5" /> {skillPoints} SP
+            </Badge>
+            <Badge variant="outline" className="text-xs">{learnedSkills.length}/{allSkills.length}</Badge>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 text-sm px-3 py-1">
-            <Star className="w-3.5 h-3.5" /> {skillPoints} SP
-          </Badge>
-          <Badge variant="outline" className="text-xs">{learnedSkills.length}/{allSkills.length}</Badge>
-        </div>
-      </div>
 
-      <SkillHotbar character={character} onCharacterUpdate={onCharacterUpdate} />
+        <SkillHotbar character={character} onCharacterUpdate={onCharacterUpdate} />
+      </div>
 
       {/* Mobile toggles */}
       <div className="flex gap-2 lg:hidden">

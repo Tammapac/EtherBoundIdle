@@ -73,12 +73,12 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
     .filter(Boolean);
 
   return (
-    <div className="bg-card border border-primary/30 rounded-xl p-4 space-y-3 rpg-frame">
+    <div className="bg-card border border-primary/30 rounded-xl p-2 space-y-2 rpg-frame">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
-          <span className="font-semibold text-sm">Battle Hotbar</span>
-          <Badge className="bg-primary/20 text-primary text-xs border-0">
+        <div className="flex items-center gap-1.5">
+          <Zap className="w-3.5 h-3.5 text-primary" />
+          <span className="font-semibold text-xs">Battle Hotbar</span>
+          <Badge className="bg-primary/20 text-primary text-[10px] border-0 px-1.5 py-0">
             {localHotbar.length}/{MAX_HOTBAR} slots
           </Badge>
         </div>
@@ -95,21 +95,21 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
       </div>
 
       {/* Hotbar slots */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-1.5 flex-wrap">
         {Array.from({ length: MAX_HOTBAR }).map((_, i) => {
           const skill = hotbarSkillData[i];
           const elem = skill?.element ? ELEMENT_CONFIG[skill.element] : null;
           return (
             <div
               key={i}
-              className={`relative w-12 h-12 rounded-xl border-2 flex flex-col items-center justify-center gap-0.5 text-xs font-bold transition-all duration-200 ${
+              className={`relative w-10 h-10 rounded-lg border-2 flex flex-col items-center justify-center gap-0 text-xs font-bold transition-all duration-200 ${
                 skill
                   ? `border-primary/60 bg-primary/10 ${elem?.color || "text-foreground"} hover:scale-110 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary`
                   : "border-border/50 bg-muted/20 text-muted-foreground/40"
               }`}
             >
-              {skill ? <SkillSprite skill={skill} size={32} /> : <span className="text-base leading-none text-muted-foreground/40">{i + 1}</span>}
-              {skill && <span className="text-[8px] text-center leading-none truncate max-w-[44px] px-0.5">{skill.name.split(" ")[0]}</span>}
+              {skill ? <SkillSprite skill={skill} size={26} /> : <span className="text-sm leading-none text-muted-foreground/40">{i + 1}</span>}
+              {skill && <span className="text-[7px] text-center leading-none truncate max-w-[36px] px-0.5">{skill.name.split(" ")[0]}</span>}
             </div>
           );
         })}
@@ -153,18 +153,18 @@ export default function SkillHotbar({ character, onCharacterUpdate }) {
       )}
 
       {!isEditing && hotbarSkillData.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-2 gap-y-0.5">
           {hotbarSkillData.map((skill, i) => {
             const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
             return (
-              <div key={skill.id} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="w-4 h-4 rounded bg-muted flex items-center justify-center text-[9px] font-bold text-primary flex-shrink-0">{i + 1}</span>
-                <SkillSprite skill={skill} size={20} className="flex-shrink-0" />
+              <div key={skill.id} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className="w-3.5 h-3.5 rounded bg-muted flex items-center justify-center text-[8px] font-bold text-primary flex-shrink-0">{i + 1}</span>
+                <SkillSprite skill={skill} size={16} className="flex-shrink-0" />
                 <span className="font-medium text-foreground truncate">{skill.name}</span>
                 <span className="text-blue-400 flex-shrink-0">{skill.mp}MP</span>
-                <span className="flex-shrink-0">{skill.cooldown}T CD</span>
+                <span className="flex-shrink-0">{skill.cooldown}T</span>
                 {skill.damage > 0 && <span className="text-orange-400 flex-shrink-0">{Math.round(skill.damage * 100)}%</span>}
-                {elem && <span className={`flex-shrink-0 ${elem.color}`}>{elem.icon} {elem.label}</span>}
+                {elem && <span className={`flex-shrink-0 ${elem.color}`}>{elem.icon}</span>}
               </div>
             );
           })}
