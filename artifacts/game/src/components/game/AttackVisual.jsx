@@ -7,15 +7,45 @@ import { SKILL_ANIMATIONS } from "@/lib/skillData";
  * PNG exists at /sprites/effects/attacks/{animKey}.png. If the file is missing
  * the sprite quietly falls back to the emoji glyph supplied by the parent.
  *
+ * Two file layouts are supported:
+ *   - Static single-frame PNG (default). Rendered via <img>.
+ *   - Horizontal sprite strip listed in SHEET_CLASS below. Rendered as a
+ *     background-image so CSS `steps()` animation can cycle through frames.
+ *     Add the key here AND declare a matching `.eb-sprite-{key}` class with
+ *     its keyframes in index.css.
+ *
  * Drop sprites in /public/sprites/effects/attacks/ named after the animation
  * key (e.g. fireball.png, slash.png, nova.png) and they will replace the
  * emoji automatically.
  */
+// Animation keys whose PNG is a horizontal sprite strip (not a single frame).
+// The CSS class drives the per-frame animation; see index.css.
+const SHEET_CLASS = {
+  fireball: "eb-sprite-fireball",
+};
+
 function AttackSprite({ animKey, emoji }) {
   const [errored, setErrored] = useState(false);
   if (errored || !animKey) {
     return <span className="text-4xl">{emoji}</span>;
   }
+
+  const sheetClass = SHEET_CLASS[animKey];
+  if (sheetClass) {
+    return (
+      <>
+        {/* Hidden preload — triggers fallback if the sheet is missing */}
+        <img
+          src={`/sprites/effects/attacks/${animKey}.png`}
+          alt=""
+          onError={() => setErrored(true)}
+          style={{ display: "none" }}
+        />
+        <div aria-hidden className={sheetClass} />
+      </>
+    );
+  }
+
   return (
     <img
       src={`/sprites/effects/attacks/${animKey}.png`}

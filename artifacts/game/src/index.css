@@ -158,3 +158,21 @@
   to   { transform: rotate(360deg); }
 }
 .eb-aura-spin { animation: eb-aura-spin-kf 3.5s linear infinite; }
+
+/* ── Attack sprite-sheet animations (used by AttackVisual.jsx) ───────── */
+/* Fireball: 7 frames × 32×32 source, displayed at 64×64.
+   Source width 224px → displayed sheet width 448px (7 × 64).
+   Travel distance for steps(7, jump-none) = (7 - 1) × 64 = 384px.            */
+@keyframes eb-sprite-fireball-kf {
+  from { background-position-x: 0; }
+  to   { background-position-x: -384px; }
+}
+.eb-sprite-fireball {
+  width: 64px;
+  height: 64px;
+  background-image: url('/sprites/effects/attacks/fireball.png');
+  background-repeat: no-repeat;
+  background-size: 448px 64px;
+  image-rendering: pixelated;
+  animation: eb-sprite-fireball-kf 0.45s steps(7, jump-none) infinite;
+}
