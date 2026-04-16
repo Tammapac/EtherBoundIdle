@@ -100,32 +100,49 @@ export default function Shop({ character, onCharacterUpdate }) {
         toast({ title: "Not enough gold!", variant: "destructive" });
         return;
       }
-      await base44.entities.Item.create({
+      // Only pass actual Item table columns at top-level. Everything else
+      // (subtype, level_req, sell_price, etc.) belongs in extra_data so it
+      // doesn't collide with the server's unknown-field overflow handling.
+      const created = await base44.entities.Item.create({
         name: shopItem.name,
         type: shopItem.type,
-        subtype: shopItem.subtype || null,
         rarity: shopItem.rarity,
-        stats: shopItem.stats,
+        stats: shopItem.stats || {},
         item_level: shopItem.item_level,
-        level_req: shopItem.level_req || Math.max(1, (shopItem.item_level || 1) - 2),
         owner_id: character.id,
-        sell_price: shopItem.sell_price || Math.floor(shopItem.buy_price * 0.3),
-        buy_price: shopItem.buy_price,
-        description: shopItem.description || `Purchased from the rotating shop`,
         extra_data: {
-          ...(shopItem.subtype ? { subtype: shopItem.subtype } : {}),
+          subtype: shopItem.subtype || null,
+          level_req: shopItem.level_req || Math.max(1, (shopItem.item_level || 1) - 2),
+          sell_price: shopItem.sell_price || Math.floor(shopItem.buy_price * 0.3),
+          buy_price: shopItem.buy_price,
+          description: shopItem.description || "Purchased from the rotating shop",
           ...(shopItem.rune_slots ? { rune_slots: shopItem.rune_slots } : {}),
           ...(shopItem.proc_effects ? { proc_effects: shopItem.proc_effects } : {}),
         },
       });
+      if (!created || !created.id) {
+        throw new Error("Purchase failed — item not saved on server");
+      }
       const newGold = (character.gold || 0) - shopItem.buy_price;
       await base44.entities.Character.update(character.id, { gold: newGold });
       onCharacterUpdate({ ...character, gold: newGold });
       addPurchasedId(character.id, shopItem.id);
       setShopItems(prev => prev.filter(i => i.id !== shopItem.id));
-      queryClient.invalidateQueries({ queryKey: ["items"] });
-      queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
+      await queryClient.invalidateQueries({ queryKey: ["items"] });
+      await queryClient.invalidateQueries({ queryKey: ["equippedItems"] });
+      await queryClient.invalidateQueries({ queryKey: ["characters"] });
       toast({ title: `Purchased ${shopItem.name}!`, duration: 1000 });
+      return created;
+    },
+    onError: (err) => {
+      toast({
+        title: "Purchase failed",
+        description: err?.message || "Could not complete the purchase. Try again.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+      queryClient.invalidateQueries({ queryKey: ["characters"] });
     },
   });
 

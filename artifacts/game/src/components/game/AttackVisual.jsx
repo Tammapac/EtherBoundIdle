@@ -12,23 +12,29 @@ import { SKILL_ANIMATIONS } from "@/lib/skillData";
  * emoji automatically.
  */
 function AttackSprite({ animKey, emoji }) {
-  const [errored, setErrored] = useState(false);
-  if (errored || !animKey) {
-    return <span className="text-4xl">{emoji}</span>;
-  }
+  // Start as "errored" (emoji) and only swap to sprite if the PNG actually
+  // loads. Prevents a flash of a broken-image placeholder during the short
+  // window before the <img> onError fires.
+  const [loaded, setLoaded] = useState(false);
+  if (!animKey) return <span className="text-5xl">{emoji}</span>;
   return (
-    <img
-      src={`/sprites/effects/attacks/${animKey}.png`}
-      alt=""
-      draggable={false}
-      onError={() => setErrored(true)}
-      style={{
-        width: 64,
-        height: 64,
-        imageRendering: "pixelated",
-        objectFit: "contain",
-      }}
-    />
+    <>
+      {!loaded && <span className="text-5xl">{emoji}</span>}
+      <img
+        src={`/sprites/effects/attacks/${animKey}.png`}
+        alt=""
+        draggable={false}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(false)}
+        style={{
+          width: 64,
+          height: 64,
+          imageRendering: "pixelated",
+          objectFit: "contain",
+          display: loaded ? "inline-block" : "none",
+        }}
+      />
+    </>
   );
 }
 
@@ -84,7 +90,7 @@ const CLASS_BASIC = {
   rogue:   "slash",
 };
 
-export default function AttackVisual({ characterClass, isSkill, skillId, show, damage, isCrit }) {
+export default function AttackVisual({ characterClass, isSkill, skillId, show, seq = 0, damage, isCrit }) {
   const animKey = skillId && SKILL_ANIMATIONS[skillId]
     ? SKILL_ANIMATIONS[skillId]
     : (isSkill ? "nova" : (CLASS_BASIC[characterClass] || "slash"));
@@ -92,21 +98,26 @@ export default function AttackVisual({ characterClass, isSkill, skillId, show, d
   const config = ANIM_CONFIG[animKey] || ANIM_CONFIG.slash;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {show && (
+        // `key` changes on every attack so framer-motion treats each attack as
+        // a fresh mount — without this, rapid consecutive attacks can end up
+        // skipping the animation because the same element is being "re-used".
         <motion.div
+          key={`attack-${seq}`}
           className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
         >
           <motion.span
-            className="inline-flex items-center justify-center"
+            className="inline-flex items-center justify-center drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]"
             variants={config.variants}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           >
             <AttackSprite animKey={animKey} emoji={config.emoji} />
           </motion.span>

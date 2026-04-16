@@ -77,6 +77,7 @@ export default function Battle({ character, onCharacterUpdate }) {
   const [isPlayerTurn, setIsPlayerTurn] = useState(true);
   const [combatPhase, setCombatPhase] = useState("idle"); // idle | player_turn | enemy_turn | enemy_dead | player_dead
   const [showAttackVisual, setShowAttackVisual] = useState(false);
+  const [attackSeq, setAttackSeq] = useState(0);
   const [lastAttackIsSkill, setLastAttackIsSkill] = useState(false);
   const [lastSkillId, setLastSkillId] = useState(null);
   const [lastDamage, setLastDamage] = useState(null);
@@ -543,8 +544,9 @@ export default function Battle({ character, onCharacterUpdate }) {
     setLastIsCrit(isCrit);
     setLastAttackIsSkill(!!skill);
     setLastSkillId(skill?.id || null);
+    setAttackSeq(n => n + 1); // unique key per attack so framer-motion remounts
     setShowAttackVisual(true);
-    setTimeout(() => setShowAttackVisual(false), 600);
+    setTimeout(() => setShowAttackVisual(false), 700);
 
     // Player nudges forward, enemy shakes on hit
     setPlayerAttackNudge(true);
@@ -609,6 +611,14 @@ export default function Battle({ character, onCharacterUpdate }) {
     if (newEnemyHp <= 0) {
       attackSpeedAccRef.current = 0;
       setAttackSpeedBonusHits(0);
+      // Tick down cooldowns — enemy turn won't fire, but the player still
+      // consumed a turn to land the killing blow, so cooldowns should advance.
+      setCooldowns(prev => {
+        const next = {};
+        for (const [k, v] of Object.entries(prev)) { if (v > 0) next[k] = v - 1; }
+        return next;
+      });
+      setActivePlayerBuffs(prev => prev.map(b => ({ ...b, turnsLeft: b.turnsLeft - 1 })).filter(b => b.turnsLeft > 0));
       handleEnemyDefeat();
       return;
     }
@@ -1574,6 +1584,7 @@ export default function Battle({ character, onCharacterUpdate }) {
             isSkill={lastAttackIsSkill}
             skillId={lastSkillId}
             show={showAttackVisual}
+            seq={attackSeq}
             damage={lastDamage}
             isCrit={lastIsCrit}
           />
