@@ -24,6 +24,7 @@ import HealthBar from "@/components/game/HealthBar";
 import PixelBar from "@/components/game/PixelBar";
 import CombatEffects from "@/components/game/CombatEffects";
 import AttackVisual from "@/components/game/AttackVisual";
+import EffectAura from "@/components/game/EffectAura";
 import PartyBattlePanel from "@/components/game/PartyBattlePanel";
 import PartyBattleArena from "@/components/game/PartyBattleArena";
 import PartyActivityNotifier from "@/components/game/PartyActivityNotifier";
@@ -1467,8 +1468,27 @@ export default function Battle({ character, onCharacterUpdate }) {
             </div>
           )}
           <div className="flex items-start gap-3 mb-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+            <div className="relative w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 overflow-visible">
               <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
+              {/* Shield aura — plays while a shield-type buff is active */}
+              {activePlayerBuffs.some(b => b.type === "shield") && (
+                <EffectAura type="shield" size={60} anim="pulse" position="center" />
+              )}
+              {/* Buff auras — one per active buff. Stacked offsets keep multiple
+                  buffs readable; missing sprites render nothing (no broken img). */}
+              {activePlayerBuffs
+                .filter(b => b.type !== "shield")
+                .map((b, i) => (
+                  <EffectAura
+                    key={`buff-aura-${b.skillId || i}`}
+                    type="buff"
+                    effectKey={b.type || "generic"}
+                    size={36}
+                    anim="pulse"
+                    position="top-right"
+                    opacity={0.9}
+                  />
+                ))}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold">{character.name}</p>
@@ -1560,8 +1580,21 @@ export default function Battle({ character, onCharacterUpdate }) {
           {enemy ? (
             <>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center">
+                <div className="relative w-12 h-12 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center overflow-visible">
                   <Skull className="w-6 h-6 text-destructive" />
+                  {/* Debuff auras — one per active DoT on the enemy (poison,
+                      bleed, fire, etc.). Missing sprites render nothing. */}
+                  {activeEnemyDots.map((dot, i) => (
+                    <EffectAura
+                      key={`debuff-aura-${i}`}
+                      type="debuff"
+                      effectKey={dot.element || "generic"}
+                      size={36}
+                      anim="jitter"
+                      position="top-right"
+                      opacity={0.9}
+                    />
+                  ))}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold">{enemy.name}</p>

@@ -130,3 +130,24 @@
   border-radius: 0 !important;
   padding: 20px !important;
 }
+
+/* ── Battle effect aura animations (used by EffectAura.jsx) ──────────── */
+@keyframes eb-aura-pulse-kf {
+  0%, 100% { transform: scale(1);   opacity: 0.85; }
+  50%      { transform: scale(1.12); opacity: 1;   }
+}
+.eb-aura-pulse { animation: eb-aura-pulse-kf 1.6s ease-in-out infinite; }
+
+@keyframes eb-aura-jitter-kf {
+  0%, 100% { transform: translate(0, 0)   rotate(0deg);  }
+  25%      { transform: translate(-1px, 1px) rotate(-2deg); }
+  50%      { transform: translate(1px, -1px) rotate(2deg);  }
+  75%      { transform: translate(-1px, -1px) rotate(-1deg); }
+}
+.eb-aura-jitter { animation: eb-aura-jitter-kf 0.9s linear infinite; }
+
+@keyframes eb-aura-spin-kf {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.eb-aura-spin { animation: eb-aura-spin-kf 3.5s linear infinite; }

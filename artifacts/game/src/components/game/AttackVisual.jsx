@@ -1,6 +1,36 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SKILL_ANIMATIONS } from "@/lib/skillData";
+
+/**
+ * AttackSprite — renders a pixel sprite for the current attack animation if a
+ * PNG exists at /sprites/effects/attacks/{animKey}.png. If the file is missing
+ * the sprite quietly falls back to the emoji glyph supplied by the parent.
+ *
+ * Drop sprites in /public/sprites/effects/attacks/ named after the animation
+ * key (e.g. fireball.png, slash.png, nova.png) and they will replace the
+ * emoji automatically.
+ */
+function AttackSprite({ animKey, emoji }) {
+  const [errored, setErrored] = useState(false);
+  if (errored || !animKey) {
+    return <span className="text-4xl">{emoji}</span>;
+  }
+  return (
+    <img
+      src={`/sprites/effects/attacks/${animKey}.png`}
+      alt=""
+      draggable={false}
+      onError={() => setErrored(true)}
+      style={{
+        width: 64,
+        height: 64,
+        imageRendering: "pixelated",
+        objectFit: "contain",
+      }}
+    />
+  );
+}
 
 // Per-animation-type config: emoji + motion variants
 const ANIM_CONFIG = {
@@ -71,14 +101,14 @@ export default function AttackVisual({ characterClass, isSkill, skillId, show, d
           exit={{ opacity: 0 }}
         >
           <motion.span
-            className="text-4xl"
+            className="inline-flex items-center justify-center"
             variants={config.variants}
             initial="initial"
             animate="animate"
             exit="exit"
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
-            {config.emoji}
+            <AttackSprite animKey={animKey} emoji={config.emoji} />
           </motion.span>
 
           {damage && (
