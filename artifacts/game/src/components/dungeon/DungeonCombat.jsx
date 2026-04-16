@@ -135,6 +135,52 @@ function PlayerCard({ member, character, session, charSkills, isMyTurn, loading,
           </span>
         </div>
       )}
+
+      {/* Skill hotbar — only on current player's card, at the bottom */}
+      {isMe && charSkills.length > 0 && (
+        <div className="flex gap-1 flex-wrap mt-1">
+          {charSkills.slice(0, 6).map(skill => {
+            const folder = getSkillSpriteFolder(skill.id);
+            const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
+            const buffColor = skill.buff === "defense"
+              ? "border-blue-500/40 hover:border-blue-500/70 hover:bg-blue-500/10"
+              : skill.buff === "attack"
+              ? "border-orange-500/40 hover:border-orange-500/70 hover:bg-orange-500/10"
+              : elem
+              ? "border-violet-500/40 hover:border-violet-500/70 hover:bg-violet-500/10"
+              : "border-border hover:border-primary/60 hover:bg-primary/10";
+            return (
+              <button
+                key={skill.id}
+                onClick={(e) => { e.stopPropagation(); if (isMyTurn && !loading) doAction('skill', skill.id); }}
+                disabled={!isMyTurn || loading}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md border bg-background/40 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-[1.03] transition-all ${buffColor}`}
+                title={skill.description || skill.name}
+                style={{ minWidth: 60 }}
+              >
+                {folder ? (
+                  <img
+                    src={`/sprites/skills/${folder}/${skill.id}.png`}
+                    alt={skill.name}
+                    style={{ width: 20, height: 20, imageRendering: "pixelated" }}
+                    onError={e => { e.target.style.display = "none"; }}
+                  />
+                ) : (
+                  <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3.5 h-3.5 inline text-violet-400" />}</span>
+                )}
+                <div className="flex flex-col items-start min-w-0">
+                  <span className="text-[10px] font-bold truncate max-w-[60px]">
+                    {skill.name}
+                  </span>
+                  <span className="text-[9px] text-blue-400 font-semibold">
+                    {skill.mp}MP
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

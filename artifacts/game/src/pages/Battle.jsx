@@ -1424,14 +1424,13 @@ export default function Battle({ character, onCharacterUpdate }) {
             <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
               <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 shrink-0">
               <p className="font-bold">{character.name}</p>
               <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
             </div>
-            {/* Buff icons — right side of character header, inside the card */}
-            {activePlayerBuffs.length > 0 && (
-              <div className="flex flex-col gap-1 shrink-0">
-                {activePlayerBuffs.map((buff, i) => {
+            {/* Buff container — always rendered right next to the name to prevent layout shift */}
+            <div className="flex-1 min-w-0 flex flex-col gap-1 min-h-[40px]">
+              {activePlayerBuffs.length > 0 && activePlayerBuffs.map((buff, i) => {
                   const folder = getSkillSpriteFolder(buff.skillId);
                   const parts = [];
                   const fx = buff.buffEffect || {};
@@ -1469,8 +1468,7 @@ export default function Battle({ character, onCharacterUpdate }) {
                     </div>
                   );
                 })}
-              </div>
-            )}
+            </div>
           </div>
           <div className="space-y-1.5">
             <PixelBar current={playerHp} max={actualMaxHp} type="hp" label="HP" />
