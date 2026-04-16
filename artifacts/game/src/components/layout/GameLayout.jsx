@@ -313,7 +313,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             {quickAccessOpen && <div className="grid grid-cols-3 gap-2">
             <div
               onClick={() => navigate("/tower")}
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-600/20 border-2 border-amber-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-amber-400 hover:from-amber-500/40 hover:to-orange-500/30 transition-all shadow-lg shadow-amber-500/20 group"
+              className="w-16 h-16 flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-all group"
               title="Tower of Trials"
             >
               <MenuSprite src="/sprites/ui/menu/tower.png" Fallback={ArrowUp} className="w-12 h-12 text-amber-400 group-hover:text-amber-300 transition-colors" />
@@ -321,7 +321,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             </div>
             <div
               onClick={() => navigate("/seasonpass")}
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-600/20 border-2 border-purple-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-purple-400 hover:from-purple-500/40 hover:to-pink-500/30 transition-all shadow-lg shadow-purple-500/20 group"
+              className="w-16 h-16 flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-all group"
               title="Battle Pass"
             >
               <MenuSprite src="/sprites/ui/menu/pass.png" Fallback={Star} className="w-12 h-12 text-purple-400 group-hover:text-purple-300 transition-colors" />
@@ -329,7 +329,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             </div>
             <div
               onClick={() => navigate("/pets")}
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-teal-600/20 border-2 border-cyan-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-cyan-400 hover:from-cyan-500/40 hover:to-teal-500/30 transition-all shadow-lg shadow-cyan-500/20 group"
+              className="w-16 h-16 flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-all group"
               title="Pet Companions"
             >
               <MenuSprite src="/sprites/ui/menu/pets.png" Fallback={PawPrint} className="w-12 h-12 text-cyan-400 group-hover:text-cyan-300 transition-colors" />
@@ -337,7 +337,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             </div>
             <div
               onClick={() => navigate("/portal")}
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500/30 to-indigo-600/20 border-2 border-violet-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-violet-400 hover:from-violet-500/40 hover:to-indigo-500/30 transition-all shadow-lg shadow-violet-500/20 group"
+              className="w-16 h-16 flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-all group"
               title="Infinite Portal"
             >
               <MenuSprite src="/sprites/ui/menu/portal.png" Fallback={Sparkles} className="w-12 h-12 text-violet-400 group-hover:text-violet-300 transition-colors" />
@@ -345,7 +345,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             </div>
             <div
               onClick={() => navigate("/fields")}
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500/30 to-emerald-600/20 border-2 border-green-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-green-400 hover:from-green-500/40 hover:to-emerald-500/30 transition-all shadow-lg shadow-green-500/20 group"
+              className="w-16 h-16 flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-all group"
               title="The Fields"
             >
               <MenuSprite src="/sprites/ui/menu/fields.png" Fallback={Wheat} className="w-12 h-12 text-green-400 group-hover:text-green-300 transition-colors" />
@@ -353,7 +353,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
             </div>
             <div
               onClick={() => navigate("/worldboss")}
-              className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500/30 to-amber-600/20 border-2 border-red-500/50 flex flex-col items-center justify-center cursor-pointer hover:scale-110 hover:border-red-400 hover:from-red-500/40 hover:to-amber-500/30 transition-all shadow-lg shadow-red-500/20 group"
+              className="w-16 h-16 flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-all group"
               title="World Boss"
             >
               <MenuSprite src="/sprites/ui/menu/boss.png" Fallback={Skull} className="w-12 h-12 text-red-400 group-hover:text-red-300 transition-colors" />
