@@ -456,65 +456,8 @@ export default function DungeonCombat({ session: initialSession, character, onLe
           </div>
         </div>
 
-        {/* ── Right Column: Actions + Combat Log (always visible) ────────── */}
+        {/* ── Right Column: Combat Log (always visible) ────────── */}
         <div className="w-full md:w-80 flex flex-col gap-3">
-
-          {/* My turn skill actions */}
-          {session.status === 'active' && myMember && myMember.hp > 0 && (
-            <div className="bg-card border border-border rounded-xl p-3 rpg-frame space-y-2">
-              <p className={`font-orbitron font-bold text-xs ${isMyTurn ? "text-yellow-400" : "text-muted-foreground"}`}>
-                {isMyTurn ? "YOUR TURN" : `${currentTurnMember?.name}'s turn...`}
-              </p>
-              <div className="space-y-1.5">
-                {charSkills.map(skill => {
-                  const folder = getSkillSpriteFolder(skill.id);
-                  const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
-                  const buffColor = skill.buff === "defense"
-                    ? "border-blue-500/40 hover:border-blue-500/70 hover:bg-blue-500/5"
-                    : skill.buff === "attack"
-                    ? "border-orange-500/40 hover:border-orange-500/70 hover:bg-orange-500/5"
-                    : elem
-                    ? "border-violet-500/40 hover:border-violet-500/70 hover:bg-violet-500/5"
-                    : "border-border hover:border-primary/60 hover:bg-primary/5";
-                  return (
-                    <button
-                      key={skill.id}
-                      onClick={() => doAction('skill', skill.id)}
-                      disabled={!isMyTurn || loading}
-                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border bg-background/40 disabled:opacity-30 disabled:cursor-not-allowed transition-all ${buffColor}`}
-                    >
-                      <div className="w-9 h-9 shrink-0 flex items-center justify-center rounded-md bg-primary/10 border border-primary/20">
-                        {folder ? (
-                          <img
-                            src={`/sprites/skills/${folder}/${skill.id}.png`}
-                            alt={skill.name}
-                            style={{ width: 24, height: 24, imageRendering: "pixelated" }}
-                            onError={e => { e.target.style.display = "none"; }}
-                          />
-                        ) : (
-                          <span className="text-base leading-none">{elem?.icon || "⚡"}</span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <p className="font-bold text-xs truncate">
-                          {skill.name}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          <span className="text-blue-400 font-semibold">{skill.mp}MP</span>
-                          {skill.description ? ` · ${skill.description}` : ""}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              {isMyTurn && (
-                <p className="text-center text-[10px] text-muted-foreground">
-                  Auto-attack in 15s if idle
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Combat Log (always visible) */}
           <div className="bg-card border border-border rounded-xl p-3 rpg-frame flex-1 min-h-0 flex flex-col">
