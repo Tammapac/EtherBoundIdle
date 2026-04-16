@@ -7,16 +7,53 @@ import { SKILL_ANIMATIONS } from "@/lib/skillData";
  * PNG exists at /sprites/effects/attacks/{animKey}.png. If the file is missing
  * the sprite quietly falls back to the emoji glyph supplied by the parent.
  *
+ * Two file layouts are supported:
+ *   - Static single-frame PNG (default). Rendered via <img>.
+ *   - Horizontal sprite strip listed in SHEET_CLASS below. Rendered as a
+ *     background-image so CSS `steps()` animation can cycle through frames.
+ *     Add the key here AND declare a matching `.eb-sprite-{key}` class with
+ *     its keyframes in index.css.
+ *
  * Drop sprites in /public/sprites/effects/attacks/ named after the animation
  * key (e.g. fireball.png, slash.png, nova.png) and they will replace the
  * emoji automatically.
  */
+// Animation keys whose PNG is a horizontal sprite strip (not a single frame).
+// The CSS class drives the per-frame animation; see index.css.
+const SHEET_CLASS = {
+  fireball: "eb-sprite-fireball",
+};
+
 function AttackSprite({ animKey, emoji }) {
-  // Start as "errored" (emoji) and only swap to sprite if the PNG actually
-  // loads. Prevents a flash of a broken-image placeholder during the short
-  // window before the <img> onError fires.
   const [loaded, setLoaded] = useState(false);
-  if (!animKey) return <span className="text-5xl">{emoji}</span>;
+  const [errored, setErrored] = useState(false);
+
+  if (!animKey || errored) {
+    return <span className="text-4xl">{emoji}</span>;
+  }
+
+  const sheetClass = SHEET_CLASS[animKey];
+
+  return (
+    <>
+      {/* Preload image */}
+      <img
+        src={`/sprites/effects/attacks/${animKey}.png`}
+        alt=""
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        style={{ display: "none" }}
+      />
+
+      {/* Show sprite only when loaded */}
+      {loaded && sheetClass ? (
+        <div aria-hidden className={sheetClass} />
+      ) : (
+        <span className="text-4xl">{emoji}</span>
+      )}
+    </>
+  );
+}
   return (
     <>
       {!loaded && <span className="text-5xl">{emoji}</span>}
