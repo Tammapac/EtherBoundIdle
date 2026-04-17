@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 /**
  * Animated burning frame overlay for the enemy card.
  * Uses a 9-frame horizontal sprite strip of fire wrapping around a card border.
- * Stretches each frame to cover the full card using a canvas for clean rendering.
+ * Canvas renders each frame stretched to cover the card with slight overhang.
  * Parent must have position: relative.
  */
 
@@ -15,25 +15,50 @@ const BURN_SPRITE = {
   frameDuration: 110,
 };
 
+// Padding around the card — how far the fire extends beyond the card border
+const PAD = 14;
+
 export default function BurnOverlay({ active }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
   const frameRef = useRef(0);
-  const animRef = useRef(null);
+  const intervalRef = useRef(null);
+  const parentSizeRef = useRef({ w: 0, h: 0 });
 
-  // Load sprite sheet
+  // Load sprite sheet once
   useEffect(() => {
     const img = new Image();
-    img.onload = () => {
-      imgRef.current = img;
-      setLoaded(true);
-    };
+    img.onload = () => { imgRef.current = img; setLoaded(true); };
     img.onerror = () => setLoaded(false);
     img.src = BURN_SPRITE.src;
   }, []);
 
-  // Animate frames on canvas
+  // Resize canvas to match parent card
+  useEffect(() => {
+    if (!active || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const card = canvas.closest("[class*='rpg-frame']") || canvas.parentElement?.parentElement;
+    if (!card) return;
+
+    const resize = () => {
+      const rect = card.getBoundingClientRect();
+      const w = Math.round(rect.width + PAD * 2);
+      const h = Math.round(rect.height + PAD * 2);
+      if (w !== parentSizeRef.current.w || h !== parentSizeRef.current.h) {
+        canvas.width = w;
+        canvas.height = h;
+        parentSizeRef.current = { w, h };
+      }
+    };
+
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [active]);
+
+  // Animate frames
   useEffect(() => {
     if (!active || !loaded || !canvasRef.current || !imgRef.current) return;
 
@@ -47,44 +72,23 @@ export default function BurnOverlay({ active }) {
       const cw = canvas.width;
       const ch = canvas.height;
       ctx.clearRect(0, 0, cw, ch);
-      // Draw current frame stretched to fill canvas
+      ctx.globalAlpha = 0.75;
       ctx.drawImage(
         img,
         f * BURN_SPRITE.frameW, 0, BURN_SPRITE.frameW, BURN_SPRITE.frameH,
         0, 0, cw, ch
       );
+      ctx.globalAlpha = 1.0;
     };
 
     draw();
-
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       frameRef.current = (frameRef.current + 1) % BURN_SPRITE.frames;
       draw();
     }, BURN_SPRITE.frameDuration);
 
-    animRef.current = interval;
-    return () => clearInterval(interval);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [active, loaded]);
-
-  // Resize canvas to match parent
-  useEffect(() => {
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const parent = canvas.parentElement?.parentElement;
-    if (!parent) return;
-
-    const resize = () => {
-      const rect = parent.getBoundingClientRect();
-      // Add padding for flames to extend beyond card
-      canvas.width = Math.round(rect.width + 16);
-      canvas.height = Math.round(rect.height + 16);
-    };
-
-    resize();
-    const observer = new ResizeObserver(resize);
-    observer.observe(parent);
-    return () => observer.disconnect();
-  }, [active]);
 
   if (!active) return null;
 
@@ -92,9 +96,11 @@ export default function BurnOverlay({ active }) {
     <div
       className="absolute pointer-events-none"
       style={{
-        inset: -8,
+        top: -PAD,
+        left: -PAD,
+        right: -PAD,
+        bottom: -PAD,
         zIndex: 10,
-        overflow: "visible",
       }}
     >
       <canvas
@@ -103,7 +109,6 @@ export default function BurnOverlay({ active }) {
           width: "100%",
           height: "100%",
           imageRendering: "auto",
-          filter: "drop-shadow(0 0 4px rgba(255, 80, 0, 0.5))",
         }}
       />
     </div>

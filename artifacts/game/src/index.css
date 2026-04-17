@@ -2,10 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Pixel Operator — self-hosted pixel art font */
+@font-face {
+  font-family: 'Pixel Operator';
+  src: url('/fonts/PixelOperator.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Pixel Operator';
+  src: url('/fonts/PixelOperator-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
-    --font-inter: 'Inter', sans-serif;
-    --font-orbitron: 'Orbitron', sans-serif;
+    --font-inter: 'Pixel Operator', 'Inter', sans-serif;
+    --font-orbitron: 'Pixel Operator', 'Orbitron', sans-serif;
 
     --background: 230 25% 7%;
     --foreground: 210 40% 96%;
