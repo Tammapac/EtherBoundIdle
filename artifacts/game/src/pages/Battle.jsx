@@ -549,7 +549,7 @@ export default function Battle({ character, onCharacterUpdate }) {
     setLastSkillId(skill?.id || null);
     setAttackSeq(n => n + 1); // unique key per attack so framer-motion remounts
     setShowAttackVisual(true);
-    setTimeout(() => setShowAttackVisual(false), 700);
+    setTimeout(() => setShowAttackVisual(false), 850);
 
     // Player nudges forward, enemy shakes on hit
     setPlayerAttackNudge(true);
