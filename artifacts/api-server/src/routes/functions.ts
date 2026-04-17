@@ -4283,6 +4283,24 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
           },
         }).returning();
         lootItem = inserted;
+
+        // Auto-prune: if owner has >950 items, delete oldest unequipped to stay under 900
+        try {
+          const [{ cnt }] = await db.select({ cnt: sql<number>`count(*)::int` })
+            .from(itemsTable).where(eq(itemsTable.ownerId, characterId));
+          if (cnt > 950) {
+            const cutoff = await db.select({ createdAt: itemsTable.createdAt })
+              .from(itemsTable).where(eq(itemsTable.ownerId, characterId))
+              .orderBy(desc(itemsTable.createdAt)).limit(1).offset(900);
+            if (cutoff.length > 0) {
+              await db.delete(itemsTable).where(and(
+                eq(itemsTable.ownerId, characterId),
+                eq(itemsTable.equipped, false),
+                lt(itemsTable.createdAt, cutoff[0].createdAt)
+              ));
+            }
+          }
+        } catch {}
       }
 
       // Insert celestial stone as separate item

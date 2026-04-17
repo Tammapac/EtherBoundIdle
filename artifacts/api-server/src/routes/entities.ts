@@ -409,6 +409,11 @@ router.get("/entities/:entity", async (req: Request, res: Response) => {
       }
     }
 
+    // Default sort: Items by newest first so recent loot/purchases always visible
+    if (!sortParam && entity === "Item") {
+      query = query.orderBy(desc((table as any).createdAt));
+    }
+
     // Enforce query limits to prevent egress explosions
     const ENTITY_MAX_LIMITS: Record<string, number> = {
       PartyActivity: 20,
@@ -511,6 +516,38 @@ router.post("/entities/:entity", async (req: Request, res: Response) => {
     }
 
     const [row] = await db.insert(table).values(dbData).returning();
+
+    // Auto-prune excess items: keep only the newest 900 per owner.
+    // Sells (deletes) the oldest unequipped common/uncommon items first,
+    // preventing the 1000-item query cap from hiding new loot/purchases.
+    if (entity === "Item" && dbData.ownerId) {
+      try {
+        const countResult = await db.select({ cnt: sql<number>`count(*)::int` })
+          .from(itemsTable)
+          .where(eq(itemsTable.ownerId, dbData.ownerId));
+        const totalItems = countResult[0]?.cnt || 0;
+        if (totalItems > 950) {
+          // Find the 900th newest item's createdAt as the cutoff
+          const cutoffRows = await db.select({ createdAt: itemsTable.createdAt })
+            .from(itemsTable)
+            .where(eq(itemsTable.ownerId, dbData.ownerId))
+            .orderBy(desc(itemsTable.createdAt))
+            .limit(1)
+            .offset(900);
+          if (cutoffRows.length > 0) {
+            // Only delete unequipped items older than the cutoff
+            await db.delete(itemsTable)
+              .where(and(
+                eq(itemsTable.ownerId, dbData.ownerId),
+                eq(itemsTable.equipped, false),
+                lt(itemsTable.createdAt, cutoffRows[0].createdAt)
+              ));
+          }
+        }
+      } catch (pruneErr: any) {
+        req.log.warn({ err: pruneErr }, "Item auto-prune failed (non-critical)");
+      }
+    }
 
     // Auto-prune old party activities: keep only the most recent 20 per party
     if (entity === "PartyActivity" && dbData.partyId) {
