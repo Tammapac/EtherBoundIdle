@@ -63,7 +63,7 @@ export const REGIONS = {
   verdant_forest: {
     name: "Verdant Forest",
     description: "A lush forest teeming with wildlife and low-level creatures.",
-    levelRange: [1, 10],
+    levelRange: [1, 5],
     icon: "Trees",
     color: "text-emerald-400",
     bgColor: "from-emerald-500/10",
@@ -75,7 +75,7 @@ export const REGIONS = {
   scorched_desert: {
     name: "Scorched Desert",
     description: "A vast, burning desert filled with scorpions and sand golems.",
-    levelRange: [10, 25],
+    levelRange: [5, 10],
     icon: "Sun",
     color: "text-orange-400",
     bgColor: "from-orange-500/10",
@@ -87,7 +87,7 @@ export const REGIONS = {
   frozen_peaks: {
     name: "Frozen Peaks",
     description: "Icy mountains inhabited by frost creatures and ancient dragons.",
-    levelRange: [25, 45],
+    levelRange: [10, 20],
     icon: "Snowflake",
     color: "text-cyan-400",
     bgColor: "from-cyan-500/10",
@@ -96,10 +96,46 @@ export const REGIONS = {
     eliteEnemy2: "blizzard_titan",
     boss: "frost_dragon"
   },
+  mud_swamps: {
+    name: "Mud Swamps",
+    description: "A fetid marshland of poisonous bogs and lurking horrors beneath the murk.",
+    levelRange: [20, 30],
+    icon: "Droplets",
+    color: "text-lime-400",
+    bgColor: "from-lime-500/10",
+    enemies: ["swamp_lurker", "bog_toad", "mud_golem", "marsh_hag", "leech_swarm", "rotting_treant", "mire_crawler", "toxic_spore", "swamp_hydra", "sludge_beast", "quicksand_wraith", "fungal_horror"],
+    eliteEnemy: "swamp_king",
+    eliteEnemy2: "ancient_hydra",
+    boss: "bog_mother"
+  },
+  forgotten_cave: {
+    name: "Forgotten Cave",
+    description: "Ancient caverns filled with glowing crystals and creatures that lurk in the dark.",
+    levelRange: [30, 40],
+    icon: "Mountain",
+    color: "text-amber-400",
+    bgColor: "from-amber-500/10",
+    enemies: ["cave_bat", "stone_golem", "crystal_spider", "deep_dweller", "blind_stalker", "gem_beetle", "cave_troll", "stalactite_mimic", "tunnel_serpent", "echo_wraith", "mushroom_giant", "ore_elemental"],
+    eliteEnemy: "crystal_guardian",
+    eliteEnemy2: "deep_horror",
+    boss: "cave_dragon"
+  },
+  dark_seas: {
+    name: "Dark Seas",
+    description: "Treacherous waters haunted by sea monsters and ghost ships.",
+    levelRange: [40, 50],
+    icon: "Anchor",
+    color: "text-blue-400",
+    bgColor: "from-blue-500/10",
+    enemies: ["drowned_sailor", "sea_serpent", "ghost_pirate", "reef_golem", "abyssal_squid", "siren", "barnacle_fiend", "tide_elemental", "shark_spirit", "coral_wraith", "deep_angler", "phantom_kraken"],
+    eliteEnemy: "leviathan",
+    eliteEnemy2: "ghost_captain",
+    boss: "kraken_lord"
+  },
   shadow_realm: {
     name: "Shadow Realm",
     description: "A dark dimension where powerful demons lurk in the shadows.",
-    levelRange: [45, 70],
+    levelRange: [50, 60],
     icon: "Moon",
     color: "text-purple-400",
     bgColor: "from-purple-500/10",
@@ -108,10 +144,34 @@ export const REGIONS = {
     eliteEnemy2: "blood_colossus",
     boss: "shadow_lord"
   },
+  volcanos_path: {
+    name: "Volcano's Path",
+    description: "Rivers of molten lava and volcanic creatures forged in eternal fire.",
+    levelRange: [60, 70],
+    icon: "Flame",
+    color: "text-red-500",
+    bgColor: "from-red-500/10",
+    enemies: ["lava_golem", "fire_imp", "magma_serpent", "volcanic_drake", "ember_elemental", "infernal_hound", "ash_wraith", "obsidian_knight", "flame_djinn", "molten_spider", "pyroclast_titan", "cinder_shade"],
+    eliteEnemy: "magma_lord",
+    eliteEnemy2: "infernal_dragon",
+    boss: "volcano_guardian"
+  },
+  crystal_lands: {
+    name: "Crystal Lands",
+    description: "A surreal landscape of crystalline formations pulsing with raw magical energy.",
+    levelRange: [70, 80],
+    icon: "Diamond",
+    color: "text-pink-400",
+    bgColor: "from-pink-500/10",
+    enemies: ["crystal_sentinel", "prism_golem", "gem_wyrm", "refraction_spirit", "shard_elemental", "diamond_spider", "amethyst_knight", "quartz_phantom", "opal_shade", "ruby_construct", "sapphire_serpent", "topaz_guardian"],
+    eliteEnemy: "crystal_colossus",
+    eliteEnemy2: "prismatic_dragon",
+    boss: "crystal_overlord"
+  },
   celestial_spire: {
     name: "Celestial Spire",
-    description: "The ultimate endgame zone with godlike enemies.",
-    levelRange: [70, 100],
+    description: "A divine tower reaching into the heavens, guarded by angelic warriors.",
+    levelRange: [80, 90],
     icon: "Star",
     color: "text-yellow-400",
     bgColor: "from-yellow-500/10",
@@ -119,6 +179,18 @@ export const REGIONS = {
     eliteEnemy: "celestial_titan",
     eliteEnemy2: "omega_seraph",
     boss: "cosmic_overlord"
+  },
+  tammas_castle: {
+    name: "Tamma's Castle",
+    description: "The final stronghold — a dark fortress ruled by the ultimate evil. Only the worthy survive.",
+    levelRange: [90, 100],
+    icon: "Castle",
+    color: "text-rose-500",
+    bgColor: "from-rose-500/10",
+    enemies: ["castle_knight", "dark_paladin", "throne_guardian", "cursed_duke", "royal_revenant", "shadow_vizier", "doom_sentinel", "fallen_champion", "void_prince", "death_bishop", "chaos_warden", "nightmare_lord"],
+    eliteEnemy: "arch_demon",
+    eliteEnemy2: "eternal_guardian",
+    boss: "tamma_the_fallen"
   }
 };
 
@@ -218,10 +290,132 @@ export const ENEMIES = {
   starfire_drake:     { name: "Starfire Drake",      baseHp: 3100, baseDmg: 200, expReward: 460,  goldReward: 215 },
   void_seraph:        { name: "Void Seraph",          baseHp: 2900, baseDmg: 210, expReward: 480,  goldReward: 225 },
   genesis_elemental:  { name: "Genesis Elemental",   baseHp: 3800, baseDmg: 195, expReward: 510,  goldReward: 240 },
-  // Celestial Elites & Boss
+  // Mud Swamps (lv 20-30)
+  swamp_lurker:     { name: "Swamp Lurker",     baseHp: 480,  baseDmg: 48, expReward: 55,  goldReward: 25 },
+  bog_toad:         { name: "Bog Toad",         baseHp: 420,  baseDmg: 45, expReward: 50,  goldReward: 22 },
+  mud_golem:        { name: "Mud Golem",        baseHp: 600,  baseDmg: 42, expReward: 58,  goldReward: 28 },
+  marsh_hag:        { name: "Marsh Hag",        baseHp: 450,  baseDmg: 55, expReward: 62,  goldReward: 30 },
+  leech_swarm:      { name: "Leech Swarm",      baseHp: 380,  baseDmg: 52, expReward: 48,  goldReward: 22 },
+  rotting_treant:   { name: "Rotting Treant",   baseHp: 580,  baseDmg: 46, expReward: 56,  goldReward: 26 },
+  mire_crawler:     { name: "Mire Crawler",     baseHp: 500,  baseDmg: 50, expReward: 54,  goldReward: 24 },
+  toxic_spore:      { name: "Toxic Spore",      baseHp: 350,  baseDmg: 58, expReward: 52,  goldReward: 24 },
+  swamp_hydra:      { name: "Swamp Hydra",      baseHp: 650,  baseDmg: 48, expReward: 65,  goldReward: 32 },
+  sludge_beast:     { name: "Sludge Beast",     baseHp: 550,  baseDmg: 52, expReward: 60,  goldReward: 28 },
+  quicksand_wraith: { name: "Quicksand Wraith", baseHp: 460,  baseDmg: 56, expReward: 58,  goldReward: 27 },
+  fungal_horror:    { name: "Fungal Horror",    baseHp: 520,  baseDmg: 54, expReward: 62,  goldReward: 30 },
+  // Mud Swamps Elites & Boss
+  swamp_king:       { name: "⚡ Swamp King",     baseHp: 5500,  baseDmg: 140, expReward: 800,   goldReward: 400,  isElite: true },
+  ancient_hydra:    { name: "⚡ Ancient Hydra",  baseHp: 6500,  baseDmg: 155, expReward: 950,   goldReward: 475,  isElite: true },
+  bog_mother:       { name: "Bog Mother",       baseHp: 3500,  baseDmg: 100, expReward: 600,   goldReward: 300,  isBoss: true  },
+
+  // Forgotten Cave (lv 30-40)
+  cave_bat:          { name: "Cave Bat",          baseHp: 650,  baseDmg: 58, expReward: 72,  goldReward: 32 },
+  stone_golem:       { name: "Stone Golem",       baseHp: 900,  baseDmg: 55, expReward: 82,  goldReward: 40 },
+  crystal_spider:    { name: "Crystal Spider",    baseHp: 700,  baseDmg: 65, expReward: 78,  goldReward: 36 },
+  deep_dweller:      { name: "Deep Dweller",      baseHp: 750,  baseDmg: 62, expReward: 80,  goldReward: 38 },
+  blind_stalker:     { name: "Blind Stalker",     baseHp: 680,  baseDmg: 70, expReward: 85,  goldReward: 40 },
+  gem_beetle:        { name: "Gem Beetle",        baseHp: 600,  baseDmg: 60, expReward: 70,  goldReward: 35 },
+  cave_troll:        { name: "Cave Troll",        baseHp: 950,  baseDmg: 58, expReward: 88,  goldReward: 42 },
+  stalactite_mimic:  { name: "Stalactite Mimic",  baseHp: 720,  baseDmg: 68, expReward: 82,  goldReward: 38 },
+  tunnel_serpent:    { name: "Tunnel Serpent",    baseHp: 780,  baseDmg: 64, expReward: 78,  goldReward: 36 },
+  echo_wraith:      { name: "Echo Wraith",       baseHp: 660,  baseDmg: 72, expReward: 84,  goldReward: 40 },
+  mushroom_giant:   { name: "Mushroom Giant",    baseHp: 880,  baseDmg: 56, expReward: 80,  goldReward: 38 },
+  ore_elemental:    { name: "Ore Elemental",     baseHp: 820,  baseDmg: 60, expReward: 86,  goldReward: 42 },
+  // Forgotten Cave Elites & Boss
+  crystal_guardian:  { name: "⚡ Crystal Guardian", baseHp: 7500,  baseDmg: 165, expReward: 1100, goldReward: 550, isElite: true },
+  deep_horror:       { name: "⚡ Deep Horror",      baseHp: 9000,  baseDmg: 180, expReward: 1300, goldReward: 650, isElite: true },
+  cave_dragon:       { name: "Cave Dragon",        baseHp: 4800,  baseDmg: 120, expReward: 900,  goldReward: 450, isBoss: true  },
+
+  // Dark Seas (lv 40-50)
+  drowned_sailor:   { name: "Drowned Sailor",   baseHp: 1000, baseDmg: 78,  expReward: 120, goldReward: 55 },
+  sea_serpent:      { name: "Sea Serpent",       baseHp: 1200, baseDmg: 85,  expReward: 135, goldReward: 62 },
+  ghost_pirate:     { name: "Ghost Pirate",     baseHp: 1050, baseDmg: 90,  expReward: 130, goldReward: 60 },
+  reef_golem:       { name: "Reef Golem",        baseHp: 1400, baseDmg: 75,  expReward: 140, goldReward: 65 },
+  abyssal_squid:    { name: "Abyssal Squid",    baseHp: 1150, baseDmg: 88,  expReward: 132, goldReward: 60 },
+  siren:            { name: "Siren",             baseHp: 950,  baseDmg: 95,  expReward: 138, goldReward: 64 },
+  barnacle_fiend:   { name: "Barnacle Fiend",   baseHp: 1100, baseDmg: 82,  expReward: 125, goldReward: 58 },
+  tide_elemental:   { name: "Tide Elemental",   baseHp: 1300, baseDmg: 80,  expReward: 142, goldReward: 66 },
+  shark_spirit:     { name: "Shark Spirit",     baseHp: 1250, baseDmg: 92,  expReward: 145, goldReward: 68 },
+  coral_wraith:     { name: "Coral Wraith",     baseHp: 1050, baseDmg: 86,  expReward: 128, goldReward: 58 },
+  deep_angler:      { name: "Deep Angler",      baseHp: 1180, baseDmg: 90,  expReward: 136, goldReward: 62 },
+  phantom_kraken:   { name: "Phantom Kraken",   baseHp: 1500, baseDmg: 84,  expReward: 150, goldReward: 70 },
+  // Dark Seas Elites & Boss
+  leviathan:        { name: "⚡ Leviathan",      baseHp: 14000, baseDmg: 220, expReward: 2200, goldReward: 1100, isElite: true },
+  ghost_captain:    { name: "⚡ Ghost Captain",  baseHp: 16000, baseDmg: 240, expReward: 2500, goldReward: 1250, isElite: true },
+  kraken_lord:      { name: "Kraken Lord",      baseHp: 9000,  baseDmg: 155, expReward: 1800, goldReward: 900,  isBoss: true  },
+
+  // Volcano's Path (lv 60-70)
+  lava_golem:       { name: "Lava Golem",       baseHp: 1800, baseDmg: 115, expReward: 200, goldReward: 92  },
+  fire_imp:         { name: "Fire Imp",         baseHp: 1400, baseDmg: 125, expReward: 185, goldReward: 85  },
+  magma_serpent:    { name: "Magma Serpent",    baseHp: 1650, baseDmg: 120, expReward: 210, goldReward: 98  },
+  volcanic_drake:   { name: "Volcanic Drake",   baseHp: 1900, baseDmg: 118, expReward: 225, goldReward: 105 },
+  ember_elemental:  { name: "Ember Elemental",  baseHp: 1550, baseDmg: 128, expReward: 215, goldReward: 100 },
+  infernal_hound:   { name: "Infernal Hound",   baseHp: 1500, baseDmg: 130, expReward: 195, goldReward: 90  },
+  ash_wraith:       { name: "Ash Wraith",       baseHp: 1450, baseDmg: 132, expReward: 205, goldReward: 95  },
+  obsidian_knight:  { name: "Obsidian Knight",  baseHp: 2000, baseDmg: 112, expReward: 230, goldReward: 108 },
+  flame_djinn:      { name: "Flame Djinn",      baseHp: 1600, baseDmg: 138, expReward: 220, goldReward: 102 },
+  molten_spider:    { name: "Molten Spider",    baseHp: 1350, baseDmg: 125, expReward: 190, goldReward: 88  },
+  pyroclast_titan:  { name: "Pyroclast Titan",  baseHp: 2100, baseDmg: 110, expReward: 235, goldReward: 110 },
+  cinder_shade:     { name: "Cinder Shade",     baseHp: 1500, baseDmg: 135, expReward: 208, goldReward: 96  },
+  // Volcano's Path Elites & Boss
+  magma_lord:       { name: "⚡ Magma Lord",     baseHp: 20000, baseDmg: 260, expReward: 3200, goldReward: 1600, isElite: true },
+  infernal_dragon:  { name: "⚡ Infernal Dragon", baseHp: 24000, baseDmg: 290, expReward: 3800, goldReward: 1900, isElite: true },
+  volcano_guardian: { name: "Volcano Guardian", baseHp: 14000, baseDmg: 195, expReward: 2800, goldReward: 1400, isBoss: true  },
+
+  // Crystal Lands (lv 70-80)
+  crystal_sentinel:  { name: "Crystal Sentinel",  baseHp: 2200, baseDmg: 150, expReward: 350, goldReward: 150 },
+  prism_golem:       { name: "Prism Golem",        baseHp: 2600, baseDmg: 145, expReward: 380, goldReward: 170 },
+  gem_wyrm:          { name: "Gem Wyrm",            baseHp: 2800, baseDmg: 160, expReward: 400, goldReward: 180 },
+  refraction_spirit: { name: "Refraction Spirit",  baseHp: 2100, baseDmg: 170, expReward: 370, goldReward: 165 },
+  shard_elemental:   { name: "Shard Elemental",    baseHp: 2400, baseDmg: 155, expReward: 360, goldReward: 160 },
+  diamond_spider:    { name: "Diamond Spider",     baseHp: 2300, baseDmg: 165, expReward: 375, goldReward: 168 },
+  amethyst_knight:   { name: "Amethyst Knight",    baseHp: 2700, baseDmg: 158, expReward: 395, goldReward: 178 },
+  quartz_phantom:    { name: "Quartz Phantom",     baseHp: 2150, baseDmg: 175, expReward: 385, goldReward: 172 },
+  opal_shade:        { name: "Opal Shade",          baseHp: 2350, baseDmg: 168, expReward: 378, goldReward: 170 },
+  ruby_construct:    { name: "Ruby Construct",     baseHp: 2900, baseDmg: 152, expReward: 410, goldReward: 185 },
+  sapphire_serpent:  { name: "Sapphire Serpent",   baseHp: 2500, baseDmg: 172, expReward: 390, goldReward: 175 },
+  topaz_guardian:    { name: "Topaz Guardian",     baseHp: 3000, baseDmg: 148, expReward: 420, goldReward: 190 },
+  // Crystal Lands Elites & Boss
+  crystal_colossus:  { name: "⚡ Crystal Colossus",  baseHp: 35000, baseDmg: 340, expReward: 8000,  goldReward: 4000, isElite: true },
+  prismatic_dragon:  { name: "⚡ Prismatic Dragon",  baseHp: 42000, baseDmg: 370, expReward: 9500,  goldReward: 4750, isElite: true },
+  crystal_overlord:  { name: "Crystal Overlord",    baseHp: 25000, baseDmg: 250, expReward: 6500,  goldReward: 3250, isBoss: true  },
+
+  // Celestial Spire (lv 80-90)
+  celestial_guardian: { name: "Celestial Guardian", baseHp: 2200, baseDmg: 150, expReward: 350,  goldReward: 150 },
+  seraph_warrior:     { name: "Seraph Warrior",     baseHp: 2600, baseDmg: 175, expReward: 400,  goldReward: 180 },
+  titan:              { name: "Titan",              baseHp: 3200, baseDmg: 195, expReward: 500,  goldReward: 250 },
+  star_phantom:       { name: "Star Phantom",       baseHp: 2400, baseDmg: 185, expReward: 380,  goldReward: 170 },
+  nova_knight:        { name: "Nova Knight",        baseHp: 2800, baseDmg: 205, expReward: 430,  goldReward: 200 },
+  divine_construct:   { name: "Divine Construct",   baseHp: 3400, baseDmg: 180, expReward: 460,  goldReward: 210 },
+  astral_wyrm:        { name: "Astral Wyrm",        baseHp: 3000, baseDmg: 215, expReward: 490,  goldReward: 230 },
+  cosmic_sentinel:    { name: "Cosmic Sentinel",    baseHp: 3600, baseDmg: 190, expReward: 520,  goldReward: 240 },
+  light_golem:        { name: "Light Golem",         baseHp: 2500, baseDmg: 160, expReward: 370,  goldReward: 160 },
+  empyrean_shade:     { name: "Empyrean Shade",      baseHp: 2700, baseDmg: 185, expReward: 410,  goldReward: 185 },
+  starfire_drake:     { name: "Starfire Drake",      baseHp: 3100, baseDmg: 200, expReward: 460,  goldReward: 215 },
+  void_seraph:        { name: "Void Seraph",          baseHp: 2900, baseDmg: 210, expReward: 480,  goldReward: 225 },
+  genesis_elemental:  { name: "Genesis Elemental",   baseHp: 3800, baseDmg: 195, expReward: 510,  goldReward: 240 },
+  // Celestial Spire Elites & Boss
   celestial_titan:  { name: "⚡ Celestial Titan",  baseHp: 45000, baseDmg: 380, expReward: 12000, goldReward: 6000, isElite: true },
   omega_seraph:     { name: "⚡ Omega Seraph",      baseHp: 55000, baseDmg: 420, expReward: 14000, goldReward: 7000, isElite: true },
   cosmic_overlord:  { name: "Cosmic Overlord",     baseHp: 32000, baseDmg: 280, expReward: 10000, goldReward: 5000, isBoss: true  },
+
+  // Tamma's Castle (lv 90-100)
+  castle_knight:     { name: "Castle Knight",     baseHp: 4000, baseDmg: 230, expReward: 600,   goldReward: 280 },
+  dark_paladin:      { name: "Dark Paladin",      baseHp: 4500, baseDmg: 250, expReward: 650,   goldReward: 300 },
+  throne_guardian:   { name: "Throne Guardian",   baseHp: 5000, baseDmg: 240, expReward: 700,   goldReward: 320 },
+  cursed_duke:       { name: "Cursed Duke",       baseHp: 4200, baseDmg: 260, expReward: 680,   goldReward: 310 },
+  royal_revenant:    { name: "Royal Revenant",    baseHp: 4400, baseDmg: 255, expReward: 660,   goldReward: 305 },
+  shadow_vizier:     { name: "Shadow Vizier",     baseHp: 3800, baseDmg: 280, expReward: 720,   goldReward: 340 },
+  doom_sentinel:     { name: "Doom Sentinel",     baseHp: 5200, baseDmg: 245, expReward: 740,   goldReward: 350 },
+  fallen_champion:   { name: "Fallen Champion",   baseHp: 4800, baseDmg: 265, expReward: 730,   goldReward: 345 },
+  void_prince:       { name: "Void Prince",       baseHp: 4600, baseDmg: 275, expReward: 750,   goldReward: 355 },
+  death_bishop:      { name: "Death Bishop",      baseHp: 4100, baseDmg: 285, expReward: 710,   goldReward: 335 },
+  chaos_warden:      { name: "Chaos Warden",      baseHp: 5400, baseDmg: 255, expReward: 760,   goldReward: 360 },
+  nightmare_lord:    { name: "Nightmare Lord",    baseHp: 4700, baseDmg: 270, expReward: 740,   goldReward: 348 },
+  // Tamma's Castle Elites & Boss
+  arch_demon:        { name: "⚡ Arch Demon",      baseHp: 60000, baseDmg: 450, expReward: 16000, goldReward: 8000,  isElite: true },
+  eternal_guardian:  { name: "⚡ Eternal Guardian", baseHp: 70000, baseDmg: 480, expReward: 18000, goldReward: 9000,  isElite: true },
+  tamma_the_fallen:  { name: "Tamma the Fallen",  baseHp: 100000,baseDmg: 500, expReward: 25000, goldReward: 12500, isBoss: true  },
 };
 
 // ===== SHOP ITEMS =====
