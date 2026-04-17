@@ -160,25 +160,8 @@
 .eb-aura-spin { animation: eb-aura-spin-kf 3.5s linear infinite; }
 
 /* ── Attack sprite-sheet animations (used by AttackVisual.jsx) ───────── */
-/* ── Sprite-sheet formula ──
-   For N frames at displayWidth px each:
-     background-size: N × displayWidth
-     travel: -(N-1) × displayWidth
-     steps(N-1, jump-none)  →  N positions, one per frame
-   Duration ≈ projectile flight time so the sheet plays ~once per flight. */
-
-/* Fireball: 7 frames × 32×32 source, displayed at 64×64.
-   Sheet 448px wide, travel 384px, 6 steps → 7 positions.               */
-@keyframes eb-sprite-fireball-kf {
-  from { background-position-x: 0; }
-  to   { background-position-x: -384px; }
-}
-.eb-sprite-fireball {
-  width: 64px;
-  height: 64px;
-  background-image: url('/sprites/effects/attacks/fireball.png');
-  background-repeat: no-repeat;
-  background-size: 448px 64px;
-  image-rendering: pixelated;
-  animation: eb-sprite-fireball-kf 1.1s steps(6, jump-none) infinite;
-}
+/* ── Sprite-sheet animations ──
+   Frame cycling is now handled in JS (AttackVisual.jsx → SPRITE_SHEETS).
+   To add a new skill sprite: add an entry to SPRITE_SHEETS in AttackVisual.jsx
+   and drop the PNG strip in /public/sprites/effects/attacks/{animKey}.png.
+   No CSS needed per skill. */

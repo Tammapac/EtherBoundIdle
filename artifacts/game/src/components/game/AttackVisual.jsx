@@ -1,21 +1,33 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { SKILL_ANIMATIONS } from "@/lib/skillData";
 
-// Animation keys whose PNG is a horizontal sprite strip (not a single frame).
-const SHEET_CLASS = {
-  fireball: "eb-sprite-fireball",
+// Sprite-sheet config: frames, source frame size, display size, ms per frame.
+// Add an entry here for each skill that has a sprite strip PNG.
+const SPRITE_SHEETS = {
+  fireball: { frames: 7, srcW: 32, srcH: 32, displayW: 64, displayH: 64, frameDuration: 150 },
 };
 
 function AttackSprite({ animKey, emoji }) {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
+  const [frame, setFrame] = useState(0);
+
+  const sheet = SPRITE_SHEETS[animKey];
+
+  // JS-driven frame cycling — works in all browsers, no CSS steps() needed
+  useEffect(() => {
+    if (!loaded || !sheet) return;
+    setFrame(0);
+    const interval = setInterval(() => {
+      setFrame(f => (f + 1) % sheet.frames);
+    }, sheet.frameDuration);
+    return () => clearInterval(interval);
+  }, [loaded, sheet]);
 
   if (!animKey || errored) {
     return <span className="text-4xl">{emoji}</span>;
   }
-
-  const sheetClass = SHEET_CLASS[animKey];
 
   return (
     <>
@@ -26,8 +38,19 @@ function AttackSprite({ animKey, emoji }) {
         onError={() => setErrored(true)}
         style={{ display: "none" }}
       />
-      {loaded && sheetClass ? (
-        <div aria-hidden className={sheetClass} />
+      {loaded && sheet ? (
+        <div
+          aria-hidden
+          style={{
+            width: sheet.displayW,
+            height: sheet.displayH,
+            backgroundImage: `url('/sprites/effects/attacks/${animKey}.png')`,
+            backgroundRepeat: "no-repeat",
+            backgroundSize: `${sheet.frames * sheet.displayW}px ${sheet.displayH}px`,
+            backgroundPositionX: -(frame * sheet.displayW),
+            imageRendering: "pixelated",
+          }}
+        />
       ) : (
         <span className="text-4xl">{emoji}</span>
       )}
