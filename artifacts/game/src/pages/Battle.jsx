@@ -25,6 +25,7 @@ import PixelBar from "@/components/game/PixelBar";
 import CombatEffects from "@/components/game/CombatEffects";
 import AttackVisual from "@/components/game/AttackVisual";
 import EffectAura from "@/components/game/EffectAura";
+import BurnOverlay from "@/components/game/BurnOverlay";
 import PartyBattlePanel from "@/components/game/PartyBattlePanel";
 import PartyBattleArena from "@/components/game/PartyBattleArena";
 import PartyActivityNotifier from "@/components/game/PartyActivityNotifier";
@@ -1581,6 +1582,8 @@ export default function Battle({ character, onCharacterUpdate }) {
           }
           className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
         >
+          {/* Burn overlay when fire DoT is active */}
+          <BurnOverlay active={activeEnemyDots.some(d => d.element === "fire")} />
           {enemyNumNode}
           {enemy ? (
             <>
