@@ -5,7 +5,9 @@ import { SKILL_ANIMATIONS } from "@/lib/skillData";
 // Sprite-sheet config: frames, source frame size, display size, ms per frame.
 // Add an entry here for each skill that has a sprite strip PNG.
 const SPRITE_SHEETS = {
-  fireball: { frames: 7, srcW: 32, srcH: 32, displayW: 64, displayH: 64, frameDuration: 150 },
+  fireball:       { frames: 7,  srcW: 32, srcH: 32, displayW: 64, displayH: 64, frameDuration: 150 },
+  flamewall:      { frames: 15, srcW: 64, srcH: 64, displayW: 96, displayH: 96, frameDuration: 80 },
+  fire_explosion: { frames: 8,  srcW: 64, srcH: 64, displayW: 80, displayH: 80, frameDuration: 60 },
 };
 
 function AttackSprite({ animKey, emoji }) {
@@ -71,7 +73,7 @@ function AttackSprite({ animKey, emoji }) {
 
 const ANIM_CONFIG = {
   // Projectiles — fly from player to enemy
-  fireball:    { emoji: "🔥",  color: "text-orange-400", category: "projectile", rotate: 0,   scale: 1.4 },
+  fireball:    { emoji: "🔥",  color: "text-orange-400", category: "projectile", rotate: 0,   scale: 1.4, impactSprite: "fire_explosion" },
   arrow:       { emoji: "🏹",  color: "text-green-400",  category: "projectile", rotate: 0,   scale: 1.2 },
   icicle:      { emoji: "🧊",  color: "text-cyan-400",   category: "projectile", rotate: 15,  scale: 1.2 },
   projectile:  { emoji: "🔮",  color: "text-blue-400",   category: "projectile", rotate: 0,   scale: 1.2 },
@@ -83,6 +85,7 @@ const ANIM_CONFIG = {
   poison:      { emoji: "☠️",  color: "text-green-500",  category: "projectile", rotate: 0,   scale: 1.2 },
 
   // Impact — plays on the enemy
+  flamewall:   { emoji: "🔥",  color: "text-orange-400", category: "impact", variants: { initial: { scale: 0.2, opacity: 0, y: 10 }, animate: { scale: 1.3, opacity: 1, y: -5 }, exit: { scale: 1.5, opacity: 0, y: -15 } } },
   slash:       { emoji: "⚔️",  color: "text-red-400",    category: "impact", variants: { initial: { x: -30, opacity: 0, rotate: -45 }, animate: { x: 30, opacity: 1, rotate: 0 }, exit: { x: 60, opacity: 0, rotate: 45 } } },
   heavyslash:  { emoji: "🗡️",  color: "text-orange-400", category: "impact", variants: { initial: { x: -40, opacity: 0, scale: 0.5 }, animate: { x: 40, opacity: 1, scale: 1.4 }, exit: { x: 80, opacity: 0, scale: 0.5 } } },
   bash:        { emoji: "🛡️",  color: "text-blue-300",   category: "impact", variants: { initial: { scale: 0.3, opacity: 0 }, animate: { scale: 1.3, opacity: 1 }, exit: { scale: 2, opacity: 0 } } },
@@ -144,7 +147,7 @@ const HIT_COLORS = {
   bleed: "#ef4444", garrote: "#f97316", lightning: "#fde047", reaper: "#dc2626",
 };
 
-function HitImpact({ x, y, animKey, seq }) {
+function HitImpact({ x, y, animKey, seq, impactSprite }) {
   const color = HIT_COLORS[animKey] || "#ffffff";
   return (
     <>
@@ -177,6 +180,20 @@ function HitImpact({ x, y, animKey, seq }) {
         animate={{ scale: 2.5, opacity: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
       />
+      {/* sprite-based impact effect (e.g. fire explosion for fireball) */}
+      {impactSprite && (
+        <motion.div
+          key={`hit-sprite-${seq}`}
+          className="absolute pointer-events-none z-40"
+          style={{ left: x, top: y, transform: "translate(-50%, -50%)" }}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          <AttackSprite animKey={impactSprite} emoji="" />
+        </motion.div>
+      )}
     </>
   );
 }
@@ -225,7 +242,7 @@ function ProjectileAnim({ config, animKey, positions, seq, damage, isCrit }) {
           </motion.div>
         )}
       </motion.div>
-      {showHit && <HitImpact x={end.x} y={end.y} animKey={animKey} seq={seq} />}
+      {showHit && <HitImpact x={end.x} y={end.y} animKey={animKey} seq={seq} impactSprite={config.impactSprite} />}
     </>
   );
 }

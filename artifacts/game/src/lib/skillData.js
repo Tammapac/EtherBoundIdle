@@ -47,7 +47,7 @@ export const SKILL_ANIMATIONS = {
   m_magic_bolt: "projectile",   m_frost_armor: "frostshield", m_fireball: "fireball",
   m_ice_lance: "icicle",        m_mana_shield: "shield",      m_poison_bolt: "poison",
   m_arcane_burst: "nova",       m_lightning_bolt: "lightning", m_blizzard: "blizzard",
-  m_flame_wall: "fireball",     m_time_warp: "timewarp",      m_meteor: "meteor",
+  m_flame_wall: "flamewall",    m_time_warp: "timewarp",      m_meteor: "meteor",
   m_sandstorm: "smoke",         m_blood_pact: "bleed",        m_black_hole: "blackhole",
   m_arcane_nova: "nova",        m_chrono_rift: "timewarp",    m_ice_prison: "frostshield",
   m_singularity: "blackhole",   m_genesis: "divine",          m_apocalypse: "explosion",
