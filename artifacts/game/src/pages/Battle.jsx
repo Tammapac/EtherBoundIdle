@@ -108,6 +108,9 @@ export default function Battle({ character, onCharacterUpdate }) {
   const lastSpawnReportRef = useRef(0);
   const lastClaimReportRef = useRef(0);
   const spawnScheduledRef = useRef(false);
+  const arenaRef = useRef(null);
+  const playerAvatarRef = useRef(null);
+  const enemyAvatarRef = useRef(null);
 
   const [lastPetInfo, setLastPetInfo] = useState(null);
   const queryClient = useQueryClient();
@@ -1418,7 +1421,7 @@ export default function Battle({ character, onCharacterUpdate }) {
       )}
 
       {/* Battle Arena */}
-      <div className="grid md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+      <div ref={arenaRef} className="grid md:grid-cols-[1fr_auto_1fr] gap-4 items-start relative">
         {/* Player */}
         <motion.div
           animate={
@@ -1478,7 +1481,7 @@ export default function Battle({ character, onCharacterUpdate }) {
             </div>
           )}
           <div className="flex items-start gap-3 mb-3">
-            <div className="relative w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 overflow-visible">
+            <div ref={playerAvatarRef} className="relative w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0 overflow-visible">
               <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
               {/* Shield aura — plays while a shield-type buff is active */}
               {activePlayerBuffs.some(b => b.type === "shield") && (
@@ -1579,19 +1582,10 @@ export default function Battle({ character, onCharacterUpdate }) {
           className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
         >
           {enemyNumNode}
-          <AttackVisual
-            characterClass={character?.class}
-            isSkill={lastAttackIsSkill}
-            skillId={lastSkillId}
-            show={showAttackVisual}
-            seq={attackSeq}
-            damage={lastDamage}
-            isCrit={lastIsCrit}
-          />
           {enemy ? (
             <>
               <div className="flex items-center gap-3 mb-3">
-                <div className="relative w-12 h-12 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center overflow-visible">
+                <div ref={enemyAvatarRef} className="relative w-12 h-12 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center overflow-visible">
                   <Skull className="w-6 h-6 text-destructive" />
                   {/* Debuff auras — one per active DoT on the enemy (poison,
                       bleed, fire, etc.). Missing sprites render nothing. */}
@@ -1664,6 +1658,20 @@ export default function Battle({ character, onCharacterUpdate }) {
             <div className="text-center py-8 text-muted-foreground">Searching for enemy...</div>
           )}
         </motion.div>
+
+        {/* Projectile overlay — flies from player avatar to enemy avatar */}
+        <AttackVisual
+          characterClass={character?.class}
+          isSkill={lastAttackIsSkill}
+          skillId={lastSkillId}
+          show={showAttackVisual}
+          seq={attackSeq}
+          damage={lastDamage}
+          isCrit={lastIsCrit}
+          arenaRef={arenaRef}
+          playerRef={playerAvatarRef}
+          enemyRef={enemyAvatarRef}
+        />
       </div>
 
       {/* Skills Bar — compact grid */}
