@@ -474,6 +474,25 @@ export default function Battle({ character, onCharacterUpdate }) {
       }
     }
 
+    // Fire skills apply a burn DoT (30% of hit damage per turn for 2 turns)
+    if (attackElement === "fire" && skill && procEngineRef.current) {
+      const burnDmg = Math.max(1, Math.floor(finalDmg * 0.3));
+      // Don't stack — refresh if already burning from a skill
+      const existing = procEngineRef.current.dotEffects.find(d => d.procId === "skill_burn");
+      if (existing) {
+        existing.dmgPerTurn = Math.max(existing.dmgPerTurn, burnDmg);
+        existing.turnsLeft = 2;
+      } else {
+        procEngineRef.current.dotEffects.push({
+          procId: "skill_burn",
+          element: "fire",
+          dmgPerTurn: burnDmg,
+          turnsLeft: 2,
+        });
+      }
+      addLog(`🔥 Burn! ${burnDmg}/turn for 2 turns`);
+    }
+
     // Proc effects
     let totalProcDmg = 0;
     let procHeal = 0;
