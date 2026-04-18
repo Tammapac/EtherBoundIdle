@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 /**
  * Animated burning frame overlay for the enemy card.
- * Uses CSS border-image with 9-slice rendering so corners stay
- * at their natural proportions and only edges stretch.
- * Pre-renders each sprite frame as a data-URL on load, then
- * cycles through them via setInterval.
+ * Renders 4 edge strips (top, bottom, left, right) from the sprite
+ * on a canvas. Each strip only stretches in one direction, avoiding
+ * the corner distortion of uniform stretching or 9-slice artefacts.
+ * Strips overlap in corners for a natural fire look.
  */
 
 const BURN_SPRITE = {
@@ -16,73 +16,103 @@ const BURN_SPRITE = {
   frameDuration: 110,
 };
 
-// border-image-slice: how many pixels from each edge of the source
-// frame constitute the "border" (corners + edges).
-const SLICE = 26;
+// How many source pixels to take from each edge for the strips.
+const SRC_EDGE_H = 24;  // top / bottom strip height in source
+const SRC_EDGE_W = 30;  // left / right strip width in source
 
-// Rendered border thickness around the card (px).
-const BORDER_W = 40;
-
-// How far the border extends outside the card (outset).
-const OUTSET = 14;
+// Rendered strip thickness and padding around the card.
+const STRIP = 38;
+const PAD = 12;
 
 export default function BurnOverlay({ active }) {
-  const [frameURLs, setFrameURLs] = useState([]);
-  const [frame, setFrame] = useState(0);
-  const intervalRef = useRef(null);
+  const canvasRef = useRef(null);
+  const imgRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const frameRef = useRef(0);
+  const sizeRef = useRef({ w: 0, h: 0 });
 
-  /* Load sprite sheet & pre-render every frame as a data-URL */
+  // Load sprite sheet once
   useEffect(() => {
     const img = new Image();
-    img.onload = () => {
-      const urls = [];
-      for (let i = 0; i < BURN_SPRITE.frames; i++) {
-        const c = document.createElement("canvas");
-        c.width = BURN_SPRITE.frameW;
-        c.height = BURN_SPRITE.frameH;
-        const ctx = c.getContext("2d");
-        ctx.drawImage(
-          img,
-          i * BURN_SPRITE.frameW, 0,
-          BURN_SPRITE.frameW, BURN_SPRITE.frameH,
-          0, 0,
-          BURN_SPRITE.frameW, BURN_SPRITE.frameH,
-        );
-        urls.push(c.toDataURL());
-      }
-      setFrameURLs(urls);
-    };
+    img.onload = () => { imgRef.current = img; setLoaded(true); };
     img.src = BURN_SPRITE.src;
   }, []);
 
-  /* Cycle frames while active */
+  // Size canvas to parent card (once + on resize)
   useEffect(() => {
-    if (!active || frameURLs.length === 0) {
-      clearInterval(intervalRef.current);
-      return;
-    }
-    setFrame(0);
-    intervalRef.current = setInterval(() => {
-      setFrame(f => (f + 1) % BURN_SPRITE.frames);
-    }, BURN_SPRITE.frameDuration);
-    return () => clearInterval(intervalRef.current);
-  }, [active, frameURLs]);
+    if (!active || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const card = canvas.closest(".rpg-frame") || canvas.parentElement;
+    if (!card) return;
 
-  if (!active || frameURLs.length === 0) return null;
+    const sync = () => {
+      const { width, height } = card.getBoundingClientRect();
+      const w = Math.round(width) + PAD * 2;
+      const h = Math.round(height) + PAD * 2;
+      if (w !== sizeRef.current.w || h !== sizeRef.current.h) {
+        canvas.width = w;
+        canvas.height = h;
+        sizeRef.current = { w, h };
+      }
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(card);
+    return () => ro.disconnect();
+  }, [active]);
+
+  // Animate
+  useEffect(() => {
+    if (!active || !loaded || !canvasRef.current || !imgRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const img = imgRef.current;
+    const { frameW: fw, frameH: fh, frames, frameDuration } = BURN_SPRITE;
+    frameRef.current = 0;
+
+    const draw = () => {
+      const f = frameRef.current;
+      const fx = f * fw;
+      const cw = canvas.width;
+      const ch = canvas.height;
+
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.globalAlpha = 0.8;
+
+      // Top strip — source top SRC_EDGE_H px, stretched to full width
+      ctx.drawImage(img, fx, 0, fw, SRC_EDGE_H, 0, 0, cw, STRIP);
+      // Bottom strip — source bottom SRC_EDGE_H px
+      ctx.drawImage(img, fx, fh - SRC_EDGE_H, fw, SRC_EDGE_H, 0, ch - STRIP, cw, STRIP);
+      // Left strip — source left SRC_EDGE_W px, stretched to full height
+      ctx.drawImage(img, fx, 0, SRC_EDGE_W, fh, 0, 0, STRIP, ch);
+      // Right strip — source right SRC_EDGE_W px
+      ctx.drawImage(img, fx + fw - SRC_EDGE_W, 0, SRC_EDGE_W, fh, cw - STRIP, 0, STRIP, ch);
+
+      ctx.globalAlpha = 1;
+    };
+
+    draw();
+    const id = setInterval(() => {
+      frameRef.current = (frameRef.current + 1) % frames;
+      draw();
+    }, frameDuration);
+    return () => clearInterval(id);
+  }, [active, loaded]);
+
+  if (!active) return null;
 
   return (
-    <div
-      className="absolute inset-0 pointer-events-none"
+    <canvas
+      ref={canvasRef}
+      className="absolute pointer-events-none"
       style={{
+        top: -PAD,
+        left: -PAD,
+        right: -PAD,
+        bottom: -PAD,
         zIndex: 10,
-        borderStyle: "solid",
-        borderWidth: `${BORDER_W}px`,
-        borderImageSource: `url(${frameURLs[frame]})`,
-        borderImageSlice: `${SLICE}`,
-        borderImageWidth: `${BORDER_W}px`,
-        borderImageOutset: `${OUTSET}px`,
-        borderImageRepeat: "round",
-        opacity: 0.8,
+        width: `calc(100% + ${PAD * 2}px)`,
+        height: `calc(100% + ${PAD * 2}px)`,
         imageRendering: "auto",
       }}
     />
