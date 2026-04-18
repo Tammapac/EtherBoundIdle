@@ -76,12 +76,14 @@ const FRAGMENT_SHADER = `
     vec3 col = vec3(0.0);
     float heat = flame;
 
-    if (heat > 0.75) {
+    if (heat > 0.8) {
       col = vec3(1.0, 1.0, 0.6);
-    } else if (heat > 0.5) {
+    } else if (heat > 0.6) {
       col = vec3(1.0, 0.6, 0.0);
-    } else if (heat > 0.3) {
+    } else if (heat > 0.35) {
       col = vec3(1.0, 0.2, 0.0);
+    } else if (heat > 0.1) {
+      col = vec3(0.6, 0.05, 0.0);
     }
 
     col += vec3(1.0, 0.3, 0.1) * pow(heat, 3.0) * 0.5;
