@@ -535,13 +535,20 @@ router.post("/entities/:entity", async (req: Request, res: Response) => {
             .limit(1)
             .offset(900);
           if (cutoffRows.length > 0) {
-            // Only delete unequipped items older than the cutoff
-            await db.delete(itemsTable)
-              .where(and(
-                eq(itemsTable.ownerId, dbData.ownerId),
-                eq(itemsTable.equipped, false),
-                lt(itemsTable.createdAt, cutoffRows[0].createdAt)
-              ));
+            // Also protect items referenced in character.equipment map (in case equipped flag is stale)
+            const [owner] = await db.select({ equipment: charactersTable.equipment }).from(charactersTable).where(eq(charactersTable.id, dbData.ownerId));
+            const equipMap = owner?.equipment ? (typeof owner.equipment === "string" ? JSON.parse(owner.equipment) : owner.equipment) as Record<string, unknown> : {};
+            const equippedIds = Object.values(equipMap).filter(Boolean).map(String);
+            // Only delete unequipped items older than the cutoff, excluding items in equipment map
+            const conditions = [
+              eq(itemsTable.ownerId, dbData.ownerId),
+              eq(itemsTable.equipped, false),
+              lt(itemsTable.createdAt, cutoffRows[0].createdAt),
+            ];
+            if (equippedIds.length > 0) {
+              conditions.push(sql`${itemsTable.id}::text NOT IN (${sql.join(equippedIds.map(id => sql`${id}`), sql`, `)})`);
+            }
+            await db.delete(itemsTable).where(and(...conditions));
           }
         }
       } catch (pruneErr: any) {

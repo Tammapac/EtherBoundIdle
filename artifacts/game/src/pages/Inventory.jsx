@@ -580,7 +580,10 @@ export default function Inventory({ character, onCharacterUpdate }) {
     mutationFn: async () => {
       const gearTypes = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
       const typeFilter = filter === "all" ? gearTypes : filter === "consumable" || filter === "special" || filter === "sets" ? [] : [filter];
-      const unequipped = items.filter(i => !i.equipped && typeFilter.includes(i.type));
+      // Cross-reference with character.equipment map to catch items where equipped flag is stale
+      const equipMap = character.equipment || {};
+      const equippedIds = new Set(Object.values(equipMap).filter(Boolean).map(String));
+      const unequipped = items.filter(i => !i.equipped && !equippedIds.has(String(i.id)) && typeFilter.includes(i.type));
       if (unequipped.length === 0) return;
       // Sell in batches of 10 to avoid overwhelming the server
       for (let i = 0; i < unequipped.length; i += 10) {

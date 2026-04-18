@@ -581,11 +581,18 @@ router.post("/functions/sellItem", async (req: Request, res: Response) => {
     // Item may already be gone (auto-pruned or sold in a parallel batch) — treat as success
     if (!item) { sendSuccess(res, { success: true, gold_earned: 0, newGold: 0, sellPrice: 0 }); return; }
     if (!(await verifyCharacterOwner(req, item.ownerId))) { sendError(res, 403, "Not your item"); return; }
+    // Prevent selling equipped items — check both the item flag AND the character equipment map
+    if (item.equipped) { sendError(res, 400, "Cannot sell equipped items — unequip first"); return; }
+    const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
+    if (char?.equipment) {
+      const equipMap = (typeof char.equipment === "string" ? JSON.parse(char.equipment) : char.equipment) as Record<string, unknown>;
+      const equippedIds = new Set(Object.values(equipMap).filter(Boolean).map(String));
+      if (equippedIds.has(String(itemId))) { sendError(res, 400, "Cannot sell equipped items — unequip first"); return; }
+    }
     const cfg = await getGameConfig();
     const sellPrices = cfg.SELL_PRICES || {};
     const extraData = (item.extraData as any) || {};
     const goldValue = extraData.sell_price || Math.floor((sellPrices[item.rarity] || RARITY_SELL_PRICES[item.rarity] || 10) * (1 + (item.level || 1) * 0.08));
-    const [char] = await db.select().from(charactersTable).where(eq(charactersTable.id, item.ownerId));
     if (char) {
       await db.update(charactersTable).set({ gold: (char.gold || 0) + goldValue }).where(eq(charactersTable.id, char.id));
     }
@@ -4308,11 +4315,19 @@ router.post("/functions/fight", async (req: Request, res: Response) => {
               .from(itemsTable).where(eq(itemsTable.ownerId, characterId))
               .orderBy(desc(itemsTable.createdAt)).limit(1).offset(900);
             if (cutoff.length > 0) {
-              await db.delete(itemsTable).where(and(
+              // Protect items in character equipment map (in case equipped flag is stale)
+              const [owner] = await db.select({ equipment: charactersTable.equipment }).from(charactersTable).where(eq(charactersTable.id, characterId));
+              const equipMap = owner?.equipment ? (typeof owner.equipment === "string" ? JSON.parse(owner.equipment) : owner.equipment) as Record<string, unknown> : {};
+              const equippedIds = Object.values(equipMap).filter(Boolean).map(String);
+              const conditions = [
                 eq(itemsTable.ownerId, characterId),
                 eq(itemsTable.equipped, false),
-                lt(itemsTable.createdAt, cutoff[0].createdAt)
-              ));
+                lt(itemsTable.createdAt, cutoff[0].createdAt),
+              ];
+              if (equippedIds.length > 0) {
+                conditions.push(sql`${itemsTable.id}::text NOT IN (${sql.join(equippedIds.map(id => sql`${id}`), sql`, `)})`);
+              }
+              await db.delete(itemsTable).where(and(...conditions));
             }
           }
         } catch {}
