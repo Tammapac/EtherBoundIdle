@@ -536,10 +536,15 @@ export default function Battle({ character, onCharacterUpdate }) {
         }
       }
       // Tick DoTs
-      const dotDmg = procEngineRef.current.tickDoTs();
+      const { totalDmg: dotDmg, ticks: dotTicks } = procEngineRef.current.tickDoTs();
       if (dotDmg > 0) {
         totalProcDmg += dotDmg;
-        addLog(`☠️ Poison tick: ${dotDmg} damage`);
+        const DOT_ICONS = { fire: "🔥", ice: "❄️", poison: "☠️", lightning: "⚡", blood: "🩸" };
+        for (const tick of dotTicks) {
+          const icon = DOT_ICONS[tick.element] || "💀";
+          const label = tick.element === "fire" ? "Burn" : tick.element === "ice" ? "Frost" : tick.element === "poison" ? "Poison" : tick.element ? tick.element : "DoT";
+          addLog(`${icon} ${label} tick: ${tick.dmg} damage`);
+        }
         spawnEnemyNum(dotDmg, "dot");
       }
       // Update enemy DoT display

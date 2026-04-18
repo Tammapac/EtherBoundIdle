@@ -626,14 +626,16 @@ export class ProcEngine {
   // Tick DoTs at start of enemy turn. Returns total DoT damage dealt.
   tickDoTs() {
     let totalDmg = 0;
+    const ticks = [];
     const active = [];
     for (const dot of this.dotEffects) {
       totalDmg += dot.dmgPerTurn;
+      ticks.push({ element: dot.element, dmg: dot.dmgPerTurn });
       dot.turnsLeft--;
       if (dot.turnsLeft > 0) active.push(dot);
     }
     this.dotEffects = active;
-    return totalDmg;
+    return { totalDmg, ticks };
   }
 
   _resolveProc(proc, baseDamage, enemyMaxHp, totalStats) {
