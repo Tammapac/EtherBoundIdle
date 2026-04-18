@@ -178,7 +178,7 @@
 /* ── Burn overlay fire frame animation ────────────────────────────────── */
 @keyframes fire-frame-anim {
   from { background-position: 0% 0%; }
-  to   { background-position: 100% 0%; }
+  to   { background-position: 112.5% 0%; }
 }
 
 /* ── Attack sprite-sheet animations (used by AttackVisual.jsx) ───────── */
