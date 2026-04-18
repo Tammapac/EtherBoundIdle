@@ -2,10 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 
 /**
  * Animated burning frame overlay for the enemy card.
- * Renders 4 edge strips (top, bottom, left, right) from the sprite
- * on a canvas. Each strip only stretches in one direction, avoiding
- * the corner distortion of uniform stretching or 9-slice artefacts.
- * Strips overlap in corners for a natural fire look.
+ * Uses a wrapper div positioned beyond the card edges, with a canvas
+ * inside that renders 4 edge strips from the sprite sheet.
+ * Each strip stretches in only one direction for natural fire flow.
  */
 
 const BURN_SPRITE = {
@@ -16,15 +15,18 @@ const BURN_SPRITE = {
   frameDuration: 110,
 };
 
-// How many source pixels to take from each edge for the strips.
-const SRC_EDGE_H = 24;  // top / bottom strip height in source
-const SRC_EDGE_W = 30;  // left / right strip width in source
+// Source crop sizes (pixels in the sprite frame)
+const SRC_EDGE_H = 24;  // top/bottom strip height
+const SRC_EDGE_W = 30;  // left/right strip width
 
-// Rendered strip thickness and padding around the card.
+// Rendered strip thickness on screen
 const STRIP = 38;
-const PAD = 12;
+
+// How far fire extends beyond the card border
+const PAD = 14;
 
 export default function BurnOverlay({ active }) {
+  const wrapperRef = useRef(null);
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
@@ -38,17 +40,16 @@ export default function BurnOverlay({ active }) {
     img.src = BURN_SPRITE.src;
   }, []);
 
-  // Size canvas to parent card (once + on resize)
+  // Size canvas pixel buffer to match wrapper's actual rendered size
   useEffect(() => {
-    if (!active || !canvasRef.current) return;
+    if (!active || !wrapperRef.current || !canvasRef.current) return;
+    const wrapper = wrapperRef.current;
     const canvas = canvasRef.current;
-    const card = canvas.closest(".rpg-frame") || canvas.parentElement;
-    if (!card) return;
 
     const sync = () => {
-      const { width, height } = card.getBoundingClientRect();
-      const w = Math.round(width) + PAD * 2;
-      const h = Math.round(height) + PAD * 2;
+      const rect = wrapper.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
       if (w !== sizeRef.current.w || h !== sizeRef.current.h) {
         canvas.width = w;
         canvas.height = h;
@@ -57,11 +58,11 @@ export default function BurnOverlay({ active }) {
     };
     sync();
     const ro = new ResizeObserver(sync);
-    ro.observe(card);
+    ro.observe(wrapper);
     return () => ro.disconnect();
   }, [active]);
 
-  // Animate
+  // Animate frames
   useEffect(() => {
     if (!active || !loaded || !canvasRef.current || !imgRef.current) return;
     const canvas = canvasRef.current;
@@ -75,17 +76,18 @@ export default function BurnOverlay({ active }) {
       const fx = f * fw;
       const cw = canvas.width;
       const ch = canvas.height;
+      if (cw === 0 || ch === 0) return;
 
       ctx.clearRect(0, 0, cw, ch);
       ctx.globalAlpha = 0.8;
 
-      // Top strip — source top SRC_EDGE_H px, stretched to full width
+      // Top strip — source top edge, stretched to full canvas width
       ctx.drawImage(img, fx, 0, fw, SRC_EDGE_H, 0, 0, cw, STRIP);
-      // Bottom strip — source bottom SRC_EDGE_H px
+      // Bottom strip — source bottom edge
       ctx.drawImage(img, fx, fh - SRC_EDGE_H, fw, SRC_EDGE_H, 0, ch - STRIP, cw, STRIP);
-      // Left strip — source left SRC_EDGE_W px, stretched to full height
+      // Left strip — source left edge, stretched to full canvas height
       ctx.drawImage(img, fx, 0, SRC_EDGE_W, fh, 0, 0, STRIP, ch);
-      // Right strip — source right SRC_EDGE_W px
+      // Right strip — source right edge
       ctx.drawImage(img, fx + fw - SRC_EDGE_W, 0, SRC_EDGE_W, fh, cw - STRIP, 0, STRIP, ch);
 
       ctx.globalAlpha = 1;
@@ -102,8 +104,8 @@ export default function BurnOverlay({ active }) {
   if (!active) return null;
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
+      ref={wrapperRef}
       className="absolute pointer-events-none"
       style={{
         top: -PAD,
@@ -111,10 +113,16 @@ export default function BurnOverlay({ active }) {
         right: -PAD,
         bottom: -PAD,
         zIndex: 10,
-        width: `calc(100% + ${PAD * 2}px)`,
-        height: `calc(100% + ${PAD * 2}px)`,
-        imageRendering: "auto",
       }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+        }}
+      />
+    </div>
   );
 }
