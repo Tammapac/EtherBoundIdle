@@ -41,10 +41,9 @@ const FRAGMENT_SHADER = `
   float fbm(vec2 st) {
     float v = 0.0;
     float a = 0.5;
-
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
       v += a * noise(st);
-      st *= 2.0;
+      st *= 3.0;
       a *= 0.5;
     }
     return v;
@@ -53,37 +52,47 @@ const FRAGMENT_SHADER = `
   void main() {
     vec2 uv = gl_FragCoord.xy / u_resolution.xy;
 
-    float y = uv.y;
+    float PIXEL = 1.0;
+    uv = floor(uv * u_resolution.xy / PIXEL) * PIXEL / u_resolution.xy;
+
     float t = u_time * 2.0;
 
-    vec2 p = vec2(uv.x * 3.0, y * 4.0 - t);
-    float n = fbm(p);
+    float height = 1.1 - uv.y;
 
-    float base = smoothstep(0.0, 0.3, y);
-    float flame = n * base;
+    float flow = fbm(vec2(uv.x * 3.0, uv.y * 2.0 - t));
+    float distort = flow * 0.8;
 
-    flame += sin(uv.x * 25.0 + u_time * 12.0) * 0.05;
-    flame = smoothstep(0.2, 0.85, flame);
+    vec2 p = vec2(
+      uv.x * 25.5 + distort,
+      uv.y * 4.0 - t
+    );
 
-    vec3 red    = vec3(1.0, 0.1, 0.0);
-    vec3 orange = vec3(1.0, 0.5, 0.0);
-    vec3 yellow = vec3(1.0, 1.0, 0.4);
+    float shape = fbm(p);
 
-    vec3 col = mix(red, orange, flame);
-    col = mix(col, yellow, flame * flame);
+    float flame = shape * height;
+    flame = pow(flame, 1.7);
+    flame = smoothstep(0.1, 0.9, flame);
 
-    col += vec3(1.0, 0.3, 0.1) * pow(flame, 3.0) * 0.5;
+    vec3 col = vec3(0.0);
+    float heat = flame;
 
-    float sparks = step(0.997, random(vec2(uv.x * 80.0, uv.y * 200.0 + u_time * 5.0)));
-    col += sparks * vec3(1.0, 0.6, 0.2) * (1.0 - y);
+    if (heat > 0.75) {
+      col = vec3(1.0, 1.0, 0.6);
+    } else if (heat > 0.5) {
+      col = vec3(1.0, 0.6, 0.0);
+    } else if (heat > 0.3) {
+      col = vec3(1.0, 0.2, 0.0);
+    }
 
-    float smoke = smoothstep(0.3, 1.0, n) * (1.0 - flame);
-    vec3 smokeCol = vec3(0.2, 0.2, 0.2);
+    col += vec3(1.0, 0.3, 0.1) * pow(heat, 3.0) * 0.5;
 
-    col = mix(col, smokeCol, smoke * 0.25);
+    float ember = step(0.998, random(vec2(uv.x * 80.0, uv.y * 200.0 + t)));
+    col += ember * vec3(3.0, 0.7, 0.7) * height;
 
-    float alpha = flame * (1.0 - y);
-    alpha += smoke * 0.2;
+    float smoke = smoothstep(0.4, 1.0, uv.y) * fbm(vec2(uv.x * 2.0, uv.y - t * 0.3));
+    col = mix(col, vec3(0.15), smoke * 0.35);
+
+    float alpha = flame + smoke * 0.3;
 
     if (alpha < 0.01) discard;
 
