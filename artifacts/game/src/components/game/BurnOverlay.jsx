@@ -57,7 +57,7 @@ const FRAGMENT_SHADER = `
 
     float t = u_time * 2.0;
 
-    float height = 1.1 - uv.y;
+    float height = 1.4 - uv.y;
 
     float flow = fbm(vec2(uv.x * 3.0, uv.y * 2.0 - t));
     float distort = flow * 0.8;
@@ -70,7 +70,7 @@ const FRAGMENT_SHADER = `
     float shape = fbm(p);
 
     float flame = shape * height;
-    flame = pow(flame, 1.7);
+    flame = pow(flame, 1.4);
     flame = smoothstep(0.1, 0.9, flame);
 
     vec3 col = vec3(0.0);

@@ -16,6 +16,12 @@ import {
   Package,
   Hand,
   Sword,
+  Hourglass,
+  ScrollText,
+  Ticket,
+  Egg,
+  Sparkles,
+  Wrench,
 } from "lucide-react";
 
 // Subtype -> icon
@@ -33,6 +39,51 @@ const SUBTYPE_ICONS = {
   medium:   ShieldCheck,
   light:    ShieldCheck,
 };
+
+// Consumable type -> icon (matched via extraData.consumableType or extraData.materialType)
+const CONSUMABLE_ICONS = {
+  hourglass:       Hourglass,
+  scroll_exp:      ScrollText,
+  scroll_gold:     ScrollText,
+  scroll_dmg:      ScrollText,
+  scroll_loot:     ScrollText,
+  dungeon_ticket:  Ticket,
+  pet_egg_shiny:   Egg,
+  pet_egg:         Egg,
+  upgrade_stone:   Wrench,
+  pet_incubator:   Sparkles,
+  health_potion:   FlaskConical,
+  mana_potion:     FlaskConical,
+};
+
+// Consumable type -> pixel art sprite path (takes priority over Lucide icons)
+// NOTE: health/mana potions intentionally NOT mapped here (they use FlaskConical, not scrolls)
+const CONSUMABLE_SPRITES = {
+  scroll_exp:      "/sprites/items/scroll_teal.png",
+  scroll_gold:     "/sprites/items/scroll_gold.png",
+  scroll_dmg:      "/sprites/items/scroll_purple.png",
+  scroll_loot:     "/sprites/items/scroll_gold.png",
+  dungeon_ticket:  "/sprites/currencies/dungeon_ticket.png",
+  hourglass:       "/sprites/items/scroll_brown.png",
+  upgrade_stone:   "/sprites/currencies/upgrade_stone.png",
+};
+
+// Name-based sprite matching for items that don't have consumableType set
+// NOTE: potions are excluded - they keep the FlaskConical icon until we have potion sprites
+const NAME_SPRITE_MAP = [
+  { match: /scroll.*exp/i,        sprite: "/sprites/items/scroll_teal.png" },
+  { match: /scroll.*experience/i, sprite: "/sprites/items/scroll_teal.png" },
+  { match: /scroll.*gold/i,       sprite: "/sprites/items/scroll_gold.png" },
+  { match: /scroll.*power/i,      sprite: "/sprites/items/scroll_purple.png" },
+  { match: /scroll.*damage/i,     sprite: "/sprites/items/scroll_purple.png" },
+  { match: /scroll.*fortune/i,    sprite: "/sprites/items/scroll_gold.png" },
+  { match: /scroll.*loot/i,       sprite: "/sprites/items/scroll_gold.png" },
+  { match: /dungeon.*ticket/i,    sprite: "/sprites/currencies/dungeon_ticket.png" },
+  { match: /hourglass/i,          sprite: "/sprites/items/scroll_brown.png" },
+  { match: /exp.*boost/i,         sprite: "/sprites/items/scroll_teal.png" },
+  { match: /gold.*boost/i,        sprite: "/sprites/items/scroll_gold.png" },
+  { match: /upgrade.*stone/i,     sprite: "/sprites/currencies/upgrade_stone.png" },
+];
 
 // Type -> fallback icon (when no subtype)
 const TYPE_ICONS = {
@@ -57,7 +108,106 @@ export function getItemIcon(item) {
   if (item.subtype && SUBTYPE_ICONS[item.subtype]) {
     return SUBTYPE_ICONS[item.subtype];
   }
+  // Check consumable/material subtype from extraData
+  const extra = item.extraData || item.extra_data || {};
+  const consumableType = extra.consumableType || extra.materialType;
+  if (consumableType && CONSUMABLE_ICONS[consumableType]) {
+    return CONSUMABLE_ICONS[consumableType];
+  }
   return TYPE_ICONS[item.type] || Package;
+}
+
+// Weapon sprite tier system: maps rarity to sprite tier folder
+// Tier A (common) = common/uncommon, Tier B (rare) = rare/epic, Tier C (legendary) = legendary/mythic/set/shiny
+const RARITY_TO_TIER = {
+  common: "common", uncommon: "common",
+  rare: "rare", epic: "rare",
+  legendary: "legendary", mythic: "legendary", set: "legendary", shiny: "legendary",
+};
+
+// Number of sprites available per item subtype per tier
+const WEAPON_SPRITE_COUNTS = {
+  wand:       { common: 64, rare: 62, legendary: 64 },
+  light:      { common: 64, rare: 64, legendary: 64 },
+  cloth_helm: { common: 49, rare: 64, legendary: 64 },
+  heavy:      { common: 30, rare: 31, legendary: 29 },
+  plate_helm: { common: 23, rare: 27, legendary: 20 },
+  sword:      { common: 32, rare: 32, legendary: 32 },
+  axe:        { common: 32, rare: 31, legendary: 36 },
+  mace:       { common: 32, rare: 32, legendary: 30 },
+  bow:        { common: 64, rare: 64, legendary: 40 },
+  crossbow:   { common: 64, rare: 64, legendary: 64 },
+  medium:       { common: 56, rare: 56, legendary: 56 },
+  leather_helm: { common: 40, rare: 64, legendary: 64 },
+  dagger:   { common: 64, rare: 64, legendary: 64 },
+  leather:  { common: 64, rare: 64, legendary: 64 },
+  hood:     { common: 64, rare: 64, legendary: 64 },
+  ring:     { common: 64, rare: 64, legendary: 64 },
+  amulet:   { common: 64, rare: 64, legendary: 64 },
+  cloth_gloves:  { common: 64, rare: 64, legendary: 64 },
+  cloth_boots:   { common: 64, rare: 64, legendary: 64 },
+  plate_gloves:    { common: 64, rare: 64, legendary: 64 },
+  plate_boots:     { common: 64, rare: 64, legendary: 64 },
+  leather_gloves:  { common: 64, rare: 64, legendary: 64 },
+  leather_boots:   { common: 64, rare: 64, legendary: 64 },
+};
+
+// Simple hash from item ID or name to get a consistent sprite index
+function spriteHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Returns the pixel art sprite path for equipment based on its subtype and rarity.
+ * Uses item ID/name to consistently assign the same sprite to the same item.
+ */
+// Subtypes that share sprites with another subtype
+const SPRITE_ALIAS = {
+  blade: "dagger", staff: "wand",
+  gloves: "cloth_gloves", boots: "cloth_boots",
+  shadow_gloves: "plate_gloves", shadow_boots: "plate_boots",
+};
+
+function getEquipmentSprite(item) {
+  if (!item) return null;
+  const extra = item.extraData || item.extra_data || {};
+  let subtype = item.subtype || extra.subtype || item.type;
+  if (!subtype) return null;
+  const spriteType = SPRITE_ALIAS[subtype] || subtype;
+  if (!WEAPON_SPRITE_COUNTS[spriteType]) return null;
+  const tier = RARITY_TO_TIER[item.rarity] || "common";
+  const count = WEAPON_SPRITE_COUNTS[spriteType][tier];
+  if (!count) return null;
+  const seed = String(item.name || item.id || "");
+  const idx = (spriteHash(seed) % count) + 1;
+  return `/sprites/weapons/${spriteType}/${tier}/${spriteType}_${String(idx).padStart(3, "0")}.png?v=5`;
+}
+
+/**
+ * Returns the pixel art sprite path for an item, if available.
+ * Returns null if no sprite exists (use getItemIcon() as fallback).
+ */
+export function getItemSprite(item) {
+  if (!item) return null;
+  const extra = item.extraData || item.extra_data || {};
+  if (extra.sprite) return extra.sprite;
+  // Check equipment sprites (weapons, armor, etc.)
+  const equipSprite = getEquipmentSprite(item);
+  if (equipSprite) return equipSprite;
+  const consumableType = extra.consumableType || extra.materialType;
+  if (consumableType && CONSUMABLE_SPRITES[consumableType]) {
+    return CONSUMABLE_SPRITES[consumableType];
+  }
+  // Name-based fallback for items without consumableType
+  if (item.name) {
+    const match = NAME_SPRITE_MAP.find(m => m.match.test(item.name));
+    if (match) return match.sprite;
+  }
+  return null;
 }
 
 export { TYPE_ICONS, SUBTYPE_ICONS };
