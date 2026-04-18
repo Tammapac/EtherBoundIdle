@@ -8,9 +8,9 @@ import React from "react";
  */
 
 const FRAMES = 9;
-const CORNER_SIZE = 28;
-const EDGE_THICKNESS = 20;
-const INSET = -4;
+const CORNER_SIZE = 36;
+const EDGE_THICKNESS = 24;
+const INSET = -12;
 const ANIM = `fire-frame-anim 0.8s steps(${FRAMES}) infinite`;
 
 const SPRITES = {
