@@ -8,19 +8,16 @@ import React from "react";
  */
 
 const FRAMES = 9;
-const PAD = 14;
 
 const baseStyle = {
   position: "absolute",
-  top: -PAD,
-  left: -PAD,
-  right: -PAD,
-  bottom: -PAD,
+  inset: 0,
+  zIndex: 2,
   pointerEvents: "none",
   backgroundImage: "url(/sprites/effects/burn_frame.png)",
   backgroundRepeat: "no-repeat",
   backgroundSize: `${FRAMES * 100}% 100%`,
-  animation: `fire-frame-anim 0.9s steps(${FRAMES}) infinite`,
+  animation: `fire-frame-anim 0.8s steps(${FRAMES}) infinite`,
   mixBlendMode: "screen",
 };
 
@@ -29,11 +26,10 @@ export default function BurnOverlay({ active }) {
 
   return (
     <>
-      {/* Glow layer — blurred, lower opacity for soft light */}
+      {/* Glow layer — blurred, lower opacity for soft ambient light */}
       <div
         style={{
           ...baseStyle,
-          zIndex: 9,
           filter: "blur(8px)",
           opacity: 0.6,
         }}
@@ -42,7 +38,6 @@ export default function BurnOverlay({ active }) {
       <div
         style={{
           ...baseStyle,
-          zIndex: 10,
           opacity: 0.9,
         }}
       />

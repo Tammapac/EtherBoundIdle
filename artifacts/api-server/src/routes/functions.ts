@@ -501,6 +501,20 @@ router.post("/functions/managePlayer", async (req: Request, res: Response) => {
       }).returning();
       sendSuccess(res, { granted: inserted }); return;
     }
+    if (action === "bulk_delete_bots") {
+      const prefix = req.body.prefix || "Bot";
+      const bots = await db.select({ id: charactersTable.id, name: charactersTable.name })
+        .from(charactersTable)
+        .where(sql`${charactersTable.name} LIKE ${prefix + '%'}`);
+      if (bots.length === 0) { sendSuccess(res, { deleted: 0, names: [] }); return; }
+      const botIds = bots.map(b => b.id);
+      await db.delete(itemsTable).where(sql`${itemsTable.ownerId} IN (${sql.join(botIds.map(id => sql`${id}`), sql`, `)})`);
+      await db.delete(questsTable).where(sql`${questsTable.characterId} IN (${sql.join(botIds.map(id => sql`${id}`), sql`, `)})`);
+      await db.delete(resourcesTable).where(sql`${resourcesTable.characterId} IN (${sql.join(botIds.map(id => sql`${id}`), sql`, `)})`);
+      await db.delete(gemLabsTable).where(sql`${gemLabsTable.characterId} IN (${sql.join(botIds.map(id => sql`${id}`), sql`, `)})`);
+      await db.delete(charactersTable).where(sql`${charactersTable.name} LIKE ${prefix + '%'}`);
+      sendSuccess(res, { deleted: bots.length, names: bots.map(b => b.name) }); return;
+    }
     if (action === "delete_guild" && guildId) {
       await db.update(charactersTable).set({ guildId: null }).where(eq(charactersTable.guildId, guildId));
       await db.delete(guildsTable).where(eq(guildsTable.id, guildId));
