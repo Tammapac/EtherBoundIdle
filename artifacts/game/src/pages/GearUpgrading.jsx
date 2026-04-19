@@ -67,7 +67,7 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Left: Equipment Grid */}
         <div className="lg:col-span-3 rpg-frame rounded-xl border-2 border-amber-700/40 bg-gradient-to-b from-[#1a1a2e] to-[#0f1629] p-4">
-          <h3 className="text-xs font-bold text-amber-400/80 tracking-widest uppercase mb-4">Equipped Gear</h3>
+          <h3 className="text-sm font-bold text-amber-400/80 tracking-widest uppercase mb-4">Equipped Gear</h3>
 
           {equipmentItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -108,18 +108,18 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
 
                       {/* Item name + upgrade */}
                       <div className="text-center w-full">
-                        <p className={`font-semibold text-xs leading-tight ${rarity.color} truncate`}>
+                        <p className={`font-semibold text-sm leading-tight ${rarity.color} truncate`}>
                           {item.name}{currentUpgrade > 0 ? ` +${currentUpgrade}` : ""}
                         </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           Item Level: {item.item_level || 1}
                         </p>
                         {currentUpgrade > 0 && (
-                          <p className="text-[10px] text-green-400">
+                          <p className="text-xs text-green-400">
                             Upgrade Level: +{currentUpgrade}
                           </p>
                         )}
-                        <p className={`text-[10px] ${rarity.color}`}>
+                        <p className={`text-xs ${rarity.color}`}>
                           Rarity: {(item.rarity || "common").charAt(0).toUpperCase() + (item.rarity || "common").slice(1)}
                         </p>
                       </div>
@@ -127,10 +127,10 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                       {/* Star + stats row */}
                       <div className="flex items-center gap-1 flex-wrap justify-center">
                         {currentStar > 0 && (
-                          <span className="text-[10px] text-yellow-400">{"*".repeat(currentStar)}{currentStar}</span>
+                          <span className="text-xs text-yellow-400">{"*".repeat(currentStar)}{currentStar}</span>
                         )}
                         {item.is_awakened && (
-                          <span className="text-[10px] text-cyan-400">AWK</span>
+                          <span className="text-xs text-cyan-400">AWK</span>
                         )}
                       </div>
 
@@ -141,8 +141,8 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                             .filter(([, v]) => v && v !== 0)
                             .slice(0, 3)
                             .map(([stat, value]) => (
-                              <div key={stat} className="flex justify-between text-[9px]">
-                                <span className="text-gray-400 capitalize">{stat.replace(/_/g, " ").slice(0, 8)}</span>
+                              <div key={stat} className="flex justify-between text-xs">
+                                <span className="text-gray-400 capitalize">{stat.replace(/_/g, " ")}</span>
                                 <span className="text-green-400">+{value}</span>
                               </div>
                             ))}
