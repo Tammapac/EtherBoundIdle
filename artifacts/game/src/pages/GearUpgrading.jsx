@@ -40,9 +40,9 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
   if (!character) return null;
 
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+    <div className="p-3 md:p-4 max-w-5xl mx-auto space-y-3">
       {/* Header */}
-      <div className="rpg-frame rounded-xl border-2 border-amber-700/60 bg-gradient-to-b from-[#1a1a2e] to-[#16213e] p-4">
+      <div className="rpg-frame rounded-xl border-2 border-amber-700/60 bg-gradient-to-b from-[#1a1a2e] to-[#16213e] p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-600/50 flex items-center justify-center">
@@ -64,10 +64,10 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
       </div>
 
       {/* Main two-panel layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 max-h-[70vh]">
         {/* Left: Equipment Grid */}
-        <div className="lg:col-span-3 rpg-frame rounded-xl border-2 border-amber-700/40 bg-gradient-to-b from-[#1a1a2e] to-[#0f1629] p-4">
-          <h3 className="text-xs font-bold text-amber-400/80 tracking-widest uppercase mb-4">Equipped Gear</h3>
+        <div className="lg:col-span-3 rpg-frame rounded-xl border-2 border-amber-700/40 bg-gradient-to-b from-[#1a1a2e] to-[#0f1629] p-3 overflow-y-auto">
+          <h3 className="text-sm font-bold text-amber-400/80 tracking-widest uppercase mb-3">Equipped Gear</h3>
 
           {equipmentItems.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -90,7 +90,7 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                     onClick={() => setSelectedItem(item)}
-                    className={`relative text-left rounded-lg border-2 transition-all p-3 ${
+                    className={`relative text-left rounded-lg border-2 transition-all p-2 ${
                       isSelected
                         ? `${rarity.border} bg-white/10 ring-2 ring-amber-400/50`
                         : `border-gray-700/60 bg-black/30 hover:bg-white/5 hover:border-gray-600/80`
@@ -98,28 +98,28 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                   >
                     {/* Item sprite/icon */}
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`w-16 h-16 rounded-lg border ${rarity.border} ${rarity.bg} flex items-center justify-center`}>
+                      <div className={`w-12 h-12 rounded-lg border ${rarity.border} ${rarity.bg} flex items-center justify-center`}>
                         {sprite ? (
-                          <img src={sprite} alt="" className="w-14 h-14" style={{ imageRendering: "pixelated" }} />
+                          <img src={sprite} alt="" className="w-10 h-10" style={{ imageRendering: "pixelated" }} />
                         ) : (
-                          <Icon className={`w-10 h-10 ${rarity.color}`} />
+                          <Icon className={`w-8 h-8 ${rarity.color}`} />
                         )}
                       </div>
 
                       {/* Item name + upgrade */}
                       <div className="text-center w-full">
-                        <p className={`font-semibold text-xs leading-tight ${rarity.color} truncate`}>
+                        <p className={`font-semibold text-sm leading-tight ${rarity.color} truncate`}>
                           {item.name}{currentUpgrade > 0 ? ` +${currentUpgrade}` : ""}
                         </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           Item Level: {item.item_level || 1}
                         </p>
                         {currentUpgrade > 0 && (
-                          <p className="text-[10px] text-green-400">
+                          <p className="text-xs text-green-400">
                             Upgrade Level: +{currentUpgrade}
                           </p>
                         )}
-                        <p className={`text-[10px] ${rarity.color}`}>
+                        <p className={`text-xs ${rarity.color}`}>
                           Rarity: {(item.rarity || "common").charAt(0).toUpperCase() + (item.rarity || "common").slice(1)}
                         </p>
                       </div>
@@ -127,10 +127,10 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                       {/* Star + stats row */}
                       <div className="flex items-center gap-1 flex-wrap justify-center">
                         {currentStar > 0 && (
-                          <span className="text-[10px] text-yellow-400">{"*".repeat(currentStar)}{currentStar}</span>
+                          <span className="text-xs text-yellow-400">{"*".repeat(currentStar)}{currentStar}</span>
                         )}
                         {item.is_awakened && (
-                          <span className="text-[10px] text-cyan-400">AWK</span>
+                          <span className="text-xs text-cyan-400">AWK</span>
                         )}
                       </div>
 
@@ -141,8 +141,8 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                             .filter(([, v]) => v && v !== 0)
                             .slice(0, 3)
                             .map(([stat, value]) => (
-                              <div key={stat} className="flex justify-between text-[9px]">
-                                <span className="text-gray-400 capitalize">{stat.replace(/_/g, " ").slice(0, 8)}</span>
+                              <div key={stat} className="flex justify-between text-xs">
+                                <span className="text-gray-400 capitalize">{stat.replace(/_/g, " ")}</span>
                                 <span className="text-green-400">+{value}</span>
                               </div>
                             ))}
@@ -157,7 +157,7 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
         </div>
 
         {/* Right: Upgrade Panel */}
-        <div className="lg:col-span-2 rpg-frame rounded-xl border-2 border-amber-700/40 bg-gradient-to-b from-[#1a1a2e] to-[#0f1629] p-4">
+        <div className="lg:col-span-2 rpg-frame rounded-xl border-2 border-amber-700/40 bg-gradient-to-b from-[#1a1a2e] to-[#0f1629] p-3 overflow-y-auto">
           {selectedItem ? (
             <div className="[&>div]:max-w-none [&>div]:border-0 [&>div]:bg-transparent [&>div]:rounded-none [&>div]:p-0">
               <EquipmentUpgradePanel
