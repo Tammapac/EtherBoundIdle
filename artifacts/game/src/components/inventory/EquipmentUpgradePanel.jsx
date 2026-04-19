@@ -143,15 +143,14 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
       {/* Item Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className={`text-lg font-bold ${rarity.color}`}>{item.name}</h3>
+          <h3 className={`text-lg font-bold ${rarity.color}`}>
+            {item.name}{currentUpgrade > 0 ? ` +${currentUpgrade}` : ""}
+          </h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
         </div>
 
         {/* Upgrade Status */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Hammer className="w-3 h-3" /> +{currentUpgrade}
-          </Badge>
           {currentStar > 0 && (
             <Badge variant="outline" className="flex items-center gap-1 text-yellow-400 border-yellow-500/30">
               {[...Array(currentStar)].map((_, i) => <span key={i}>⭐</span>)}
@@ -299,12 +298,21 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                   ✓ Safe upgrade (no risk)
                 </div>
 
-                <PixelButton
-                   variant="ok"
-                   label={safeMutation.isPending ? "UPGRADING..." : `UPGRADE LV.${currentUpgrade + 1}`}
-                   onClick={() => safeMutation.mutate()}
-                   disabled={safeMutation.isPending || (character.gold || 0) < goldCost}
-                 />
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={() => safeMutation.mutate()}
+                    disabled={safeMutation.isPending || (character.gold || 0) < goldCost}
+                    className="flex-1 py-3 px-4 rounded-lg border-2 border-amber-600/80 bg-gradient-to-b from-[#1a1a3e] to-[#0d0d2a] text-amber-200 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-amber-400 hover:text-amber-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_8px_rgba(200,150,0,0.2)]"
+                  >
+                    {safeMutation.isPending ? "UPGRADING..." : `UPGRADE LV.${currentUpgrade + 1}`}
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="flex-1 py-3 px-4 rounded-lg border-2 border-red-700/60 bg-gradient-to-b from-[#2a1a1a] to-[#1a0d0d] text-red-300 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-red-500 hover:text-red-200 transition-all shadow-[0_0_8px_rgba(200,50,50,0.15)]"
+                  >
+                    CLOSE
+                  </button>
+                </div>
               </>
             )}
           </motion.div>
@@ -364,12 +372,21 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                 </div>
 
                 {!confirmStar ? (
-                  <PixelButton
-                    variant="ok"
-                    label={`UPGRADE TO ⭐${currentStar + 1}`}
-                    onClick={() => setConfirmStar(true)}
-                    disabled={starMutation.isPending || (character.gems || 0) < gemCost}
-                  />
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      onClick={() => setConfirmStar(true)}
+                      disabled={starMutation.isPending || (character.gems || 0) < gemCost}
+                      className="flex-1 py-3 px-4 rounded-lg border-2 border-amber-600/80 bg-gradient-to-b from-[#1a1a3e] to-[#0d0d2a] text-amber-200 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-amber-400 hover:text-amber-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_8px_rgba(200,150,0,0.2)]"
+                    >
+                      UPGRADE TO {currentStar + 1}
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="flex-1 py-3 px-4 rounded-lg border-2 border-red-700/60 bg-gradient-to-b from-[#2a1a1a] to-[#1a0d0d] text-red-300 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-red-500 hover:text-red-200 transition-all shadow-[0_0_8px_rgba(200,50,50,0.15)]"
+                    >
+                      CLOSE
+                    </button>
+                  </div>
                 ) : (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -377,11 +394,22 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                     className="space-y-2"
                   >
                     <div className="bg-destructive/20 border border-destructive/50 rounded-lg p-3 text-sm text-destructive font-semibold text-center">
-                      💀 Are you ABSOLUTELY SURE?
+                      Are you ABSOLUTELY SURE?
                     </div>
-                    <div className="flex gap-3 justify-center">
-                      <PixelButton variant="cancel" label="CANCEL" onClick={() => setConfirmStar(false)} />
-                      <PixelButton variant="ok" label="UPGRADE" onClick={() => starMutation.mutate()} disabled={starMutation.isPending} />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setConfirmStar(false)}
+                        className="flex-1 py-3 px-4 rounded-lg border-2 border-red-700/60 bg-gradient-to-b from-[#2a1a1a] to-[#1a0d0d] text-red-300 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-red-500 hover:text-red-200 transition-all"
+                      >
+                        CANCEL
+                      </button>
+                      <button
+                        onClick={() => starMutation.mutate()}
+                        disabled={starMutation.isPending}
+                        className="flex-1 py-3 px-4 rounded-lg border-2 border-amber-600/80 bg-gradient-to-b from-[#1a1a3e] to-[#0d0d2a] text-amber-200 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-amber-400 hover:text-amber-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_8px_rgba(200,150,0,0.2)]"
+                      >
+                        UPGRADE
+                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -426,12 +454,21 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                 </div>
 
                 {!confirmAwaken ? (
-                  <PixelButton
-                    variant="ok"
-                    label="AWAKEN"
-                    onClick={() => setConfirmAwaken(true)}
-                    disabled={awakenMutation.isPending || (character.gems || 0) < 5000}
-                  />
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      onClick={() => setConfirmAwaken(true)}
+                      disabled={awakenMutation.isPending || (character.gems || 0) < 5000}
+                      className="flex-1 py-3 px-4 rounded-lg border-2 border-amber-600/80 bg-gradient-to-b from-[#1a1a3e] to-[#0d0d2a] text-amber-200 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-amber-400 hover:text-amber-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_8px_rgba(200,150,0,0.2)]"
+                    >
+                      AWAKEN
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="flex-1 py-3 px-4 rounded-lg border-2 border-red-700/60 bg-gradient-to-b from-[#2a1a1a] to-[#1a0d0d] text-red-300 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-red-500 hover:text-red-200 transition-all shadow-[0_0_8px_rgba(200,50,50,0.15)]"
+                    >
+                      CLOSE
+                    </button>
+                  </div>
                 ) : (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -439,11 +476,22 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
                     className="space-y-2"
                   >
                     <div className="bg-cyan-600/20 border border-cyan-500/50 rounded-lg p-3 text-sm text-cyan-300 font-semibold text-center">
-                      ✨ Confirm awakening?
+                      Confirm awakening?
                     </div>
-                    <div className="flex gap-3 justify-center">
-                      <PixelButton variant="cancel" label="CANCEL" onClick={() => setConfirmAwaken(false)} />
-                      <PixelButton variant="ok" label="AWAKEN" onClick={() => awakenMutation.mutate()} disabled={awakenMutation.isPending} />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setConfirmAwaken(false)}
+                        className="flex-1 py-3 px-4 rounded-lg border-2 border-red-700/60 bg-gradient-to-b from-[#2a1a1a] to-[#1a0d0d] text-red-300 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-red-500 hover:text-red-200 transition-all"
+                      >
+                        CANCEL
+                      </button>
+                      <button
+                        onClick={() => awakenMutation.mutate()}
+                        disabled={awakenMutation.isPending}
+                        className="flex-1 py-3 px-4 rounded-lg border-2 border-amber-600/80 bg-gradient-to-b from-[#1a1a3e] to-[#0d0d2a] text-amber-200 font-orbitron font-bold text-sm tracking-wider uppercase hover:border-amber-400 hover:text-amber-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_8px_rgba(200,150,0,0.2)]"
+                      >
+                        AWAKEN
+                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -453,7 +501,6 @@ export default function EquipmentUpgradePanel({ item: initialItem, character, on
         )}
       </div>
 
-      <PixelButton variant="cancel" label="CLOSE" onClick={onClose} />
     </motion.div>
   );
 }
