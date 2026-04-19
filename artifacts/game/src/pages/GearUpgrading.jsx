@@ -5,13 +5,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Hammer, Zap, Sparkles, ArrowUpRight, Wrench
+  Hammer, Zap, Sparkles, ArrowUpRight, Wrench, Coins, Gem
 } from "lucide-react";
 import { RARITY_CONFIG } from "@/lib/gameData";
 import { getItemIcon, getItemSprite } from "@/lib/itemIcons";
 import EquipmentUpgradePanel from "@/components/inventory/EquipmentUpgradePanel";
 
 const SLOT_ORDER = ["weapon", "armor", "helmet", "gloves", "boots", "ring", "amulet"];
+
+const RARITY_GLOW = {
+  common:    "shadow-[0_0_6px_rgba(160,160,160,0.3)]",
+  uncommon:  "shadow-[0_0_6px_rgba(30,200,30,0.4)]",
+  rare:      "shadow-[0_0_8px_rgba(60,130,255,0.5)]",
+  epic:      "shadow-[0_0_8px_rgba(180,60,255,0.5)]",
+  legendary: "shadow-[0_0_10px_rgba(255,170,0,0.6)]",
+  mythic:    "shadow-[0_0_12px_rgba(255,50,50,0.6)]",
+  set:       "shadow-[0_0_10px_rgba(0,220,180,0.5)]",
+  shiny:     "shadow-[0_0_12px_rgba(255,215,0,0.7)]",
+};
 
 export default function GearUpgrading({ character, onCharacterUpdate }) {
   const [selectedItem, setSelectedItem] = useState(null);
@@ -22,7 +33,6 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
     enabled: !!character?.id,
   });
 
-  // Only show equipped items that can be upgraded
   const equipmentItems = items
     .filter(i => SLOT_ORDER.includes(i.type))
     .sort((a, b) => SLOT_ORDER.indexOf(a.type) - SLOT_ORDER.indexOf(b.type));
@@ -30,104 +40,126 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
   if (!character) return null;
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-          <Wrench className="w-5 h-5 text-purple-400" />
-        </div>
-        <h2 className="font-orbitron text-xl font-bold">Forge</h2>
-      </div>
-
-      {/* Info Cards */}
-      <div className="grid md:grid-cols-3 gap-3">
-        <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-xs text-muted-foreground mb-1">💰 Safe Upgrades</p>
-          <p className="text-sm text-green-400">Material-based progression</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-xs text-muted-foreground mb-1">⭐ Star Upgrades</p>
-          <p className="text-sm text-yellow-400">High-risk gem crafting</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-3">
-          <p className="text-xs text-muted-foreground mb-1">✨ Awakening</p>
-          <p className="text-sm text-cyan-400">Legendary transcendence</p>
-        </div>
-      </div>
-
-      {/* Equipment Items Grid */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-muted-foreground mb-4">EQUIPPED GEAR</h3>
-        
-        {equipmentItems.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Equip items to upgrade them
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+      {/* Header */}
+      <div className="rpg-frame rounded-xl border-2 border-amber-700/60 bg-gradient-to-b from-[#1a1a2e] to-[#16213e] p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-600/50 flex items-center justify-center">
+              <Hammer className="w-5 h-5 text-amber-400" />
+            </div>
+            <h2 className="font-orbitron text-xl font-bold text-amber-200 tracking-wider uppercase">Equipment Upgrade</h2>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {equipmentItems.map(item => {
-              const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
-              const Icon = getItemIcon(item);
-              const currentUpgrade = item.upgrade_level || 0;
-              const currentStar = item.star_level || 0;
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 bg-black/30 rounded-lg px-3 py-1.5 border border-yellow-600/30">
+              <Coins className="w-4 h-4 text-yellow-400" />
+              <span className="text-yellow-300 font-semibold text-sm">{(character.gold || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-black/30 rounded-lg px-3 py-1.5 border border-cyan-600/30">
+              <Gem className="w-4 h-4 text-cyan-400" />
+              <span className="text-cyan-300 font-semibold text-sm">{(character.gems || 0).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              return (
-                <motion.button
-                  key={item.id}
-                  whileHover={{ scale: 1.02 }}
-                  onClick={() => setSelectedItem(item)}
-                  className={`text-left p-4 rounded-lg border-2 transition-all hover:bg-muted/50 ${rarity.border} ${rarity.bg}`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {getItemSprite(item) ? (
-                        <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
-                      ) : (
-                        <Icon className={`w-10 h-10 ${rarity.color}`} />
-                      )}
-                      <div>
-                        <p className={`font-semibold text-sm ${rarity.color}`}>{item.name}</p>
-                        <p className="text-xs text-muted-foreground">Lvl {item.item_level || 1}</p>
+      {/* Main two-panel layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Left: Equipment Grid */}
+        <div className="lg:col-span-3 rpg-frame rounded-xl border-2 border-amber-700/40 bg-gradient-to-b from-[#1a1a2e] to-[#0f1629] p-4">
+          <h3 className="text-xs font-bold text-amber-400/80 tracking-widest uppercase mb-4">Equipped Gear</h3>
+
+          {equipmentItems.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Equip items to upgrade them
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {equipmentItems.map(item => {
+                const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;
+                const Icon = getItemIcon(item);
+                const sprite = getItemSprite(item);
+                const currentUpgrade = item.upgrade_level || 0;
+                const currentStar = item.star_level || 0;
+                const isSelected = selectedItem?.id === item.id;
+                const glow = RARITY_GLOW[item.rarity] || "";
+
+                return (
+                  <motion.button
+                    key={item.id}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setSelectedItem(item)}
+                    className={`relative text-left rounded-lg border-2 transition-all p-3 ${
+                      isSelected
+                        ? `${rarity.border} bg-white/10 ring-2 ring-amber-400/50`
+                        : `border-gray-700/60 bg-black/30 hover:bg-white/5 hover:border-gray-600/80`
+                    } ${glow}`}
+                  >
+                    {/* Item sprite/icon */}
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={`w-16 h-16 rounded-lg border ${rarity.border} ${rarity.bg} flex items-center justify-center`}>
+                        {sprite ? (
+                          <img src={sprite} alt="" className="w-14 h-14" style={{ imageRendering: "pixelated" }} />
+                        ) : (
+                          <Icon className={`w-10 h-10 ${rarity.color}`} />
+                        )}
                       </div>
+
+                      {/* Item name + upgrade */}
+                      <div className="text-center w-full">
+                        <p className={`font-semibold text-xs leading-tight ${rarity.color} truncate`}>
+                          {item.name}{currentUpgrade > 0 ? ` +${currentUpgrade}` : ""}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Item Level: {item.item_level || 1}
+                        </p>
+                        {currentUpgrade > 0 && (
+                          <p className="text-[10px] text-green-400">
+                            Upgrade Level: +{currentUpgrade}
+                          </p>
+                        )}
+                        <p className={`text-[10px] ${rarity.color}`}>
+                          Rarity: {(item.rarity || "common").charAt(0).toUpperCase() + (item.rarity || "common").slice(1)}
+                        </p>
+                      </div>
+
+                      {/* Star + stats row */}
+                      <div className="flex items-center gap-1 flex-wrap justify-center">
+                        {currentStar > 0 && (
+                          <span className="text-[10px] text-yellow-400">{"*".repeat(currentStar)}{currentStar}</span>
+                        )}
+                        {item.is_awakened && (
+                          <span className="text-[10px] text-cyan-400">AWK</span>
+                        )}
+                      </div>
+
+                      {/* Stat preview */}
+                      {item.stats && (
+                        <div className="w-full space-y-0.5">
+                          {Object.entries(item.stats)
+                            .filter(([, v]) => v && v !== 0)
+                            .slice(0, 3)
+                            .map(([stat, value]) => (
+                              <div key={stat} className="flex justify-between text-[9px]">
+                                <span className="text-gray-400 capitalize">{stat.replace(/_/g, " ").slice(0, 8)}</span>
+                                <span className="text-green-400">+{value}</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                     </div>
-                    <ArrowUpRight className="w-4 h-4 text-primary" />
-                  </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                  {/* Upgrade Status */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {currentUpgrade > 0 && (
-                      <Badge variant="outline" className="text-xs flex items-center gap-1">
-                        <Hammer className="w-2.5 h-2.5" /> Lvl {currentUpgrade}/20
-                      </Badge>
-                    )}
-                    {currentStar > 0 && (
-                      <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-500/30">
-                        {"⭐".repeat(currentStar)} {currentStar}/7
-                      </Badge>
-                    )}
-                    {item.is_awakened && (
-                      <Badge variant="outline" className="text-xs text-cyan-400 border-cyan-500/30">
-                        <Sparkles className="w-2.5 h-2.5 mr-1" /> AWAKENED
-                      </Badge>
-                    )}
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Upgrade Panel Modal */}
-      <AnimatePresence>
-        {selectedItem && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-            onClick={() => setSelectedItem(null)}
-          >
-            <div onClick={(e) => e.stopPropagation()}>
+        {/* Right: Upgrade Panel */}
+        <div className="lg:col-span-2 rpg-frame rounded-xl border-2 border-amber-700/40 bg-gradient-to-b from-[#1a1a2e] to-[#0f1629] p-4">
+          {selectedItem ? (
+            <div className="[&>div]:max-w-none [&>div]:border-0 [&>div]:bg-transparent [&>div]:rounded-none [&>div]:p-0">
               <EquipmentUpgradePanel
                 item={selectedItem}
                 character={character}
@@ -137,9 +169,14 @@ export default function GearUpgrading({ character, onCharacterUpdate }) {
                 }}
               />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted-foreground space-y-3">
+              <Hammer className="w-12 h-12 text-amber-700/40" />
+              <p className="text-sm text-center">Select an item from the left to upgrade</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
