@@ -6,7 +6,7 @@ import React, { useState } from "react";
  * Scales to fit any text length. Uses CSS borders for proper border-radius.
  * size: "sm" (default) | "lg" (bigger for prominent actions)
  */
-export default function PixelButton({ variant = "ok", label, onClick, disabled, className = "", size = "sm", style: extraStyle }) {
+export default function PixelButton({ variant = "ok", label, onClick, disabled, className = "", size = "sm", style: extraStyle, fontSize: fontSizeOverride }) {
   const [hovered, setHovered] = useState(false);
 
   const isGold = variant === "ok";
@@ -41,7 +41,7 @@ export default function PixelButton({ variant = "ok", label, onClick, disabled, 
       <span
         style={{
           fontFamily: "'Press Start 2P', monospace",
-          fontSize: isLg ? 11 : 9,
+          fontSize: fontSizeOverride || (isLg ? 11 : 9),
           lineHeight: 1,
           color: textColor,
           pointerEvents: "none",
