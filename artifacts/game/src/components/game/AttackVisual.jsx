@@ -5,7 +5,7 @@ import { SKILL_ANIMATIONS } from "@/lib/skillData";
 // Sprite-sheet config: frames, source frame size, display size, ms per frame.
 // Add an entry here for each skill that has a sprite strip PNG.
 const SPRITE_SHEETS = {
-  fireball:       { frames: 7,  srcW: 32, srcH: 32, displayW: 64, displayH: 64, frameDuration: 150 },
+  fireball:       { frames: 18, srcW: 128, srcH: 128, displayW: 96, displayH: 96, frameDuration: 60 },
   flamewall:      { frames: 15, srcW: 64, srcH: 64, displayW: 96, displayH: 96, frameDuration: 80 },
   fire_explosion: { frames: 8,  srcW: 64, srcH: 64, displayW: 80, displayH: 80, frameDuration: 60 },
 };
