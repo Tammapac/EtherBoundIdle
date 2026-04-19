@@ -103,7 +103,7 @@
      Fixed-px assets (sprite bars, sprite images) stay at their native pixel
      size, which keeps pixel art crisp. */
   html {
-    font-size: 19px;
+    font-size: 22px;
   }
   body {
     @apply bg-background text-foreground font-inter;
