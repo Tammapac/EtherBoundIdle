@@ -128,6 +128,21 @@
   }
 }
 
+/* Override all Tailwind text-size classes globally so they match
+   the 22px base set above. Without this, text-xs/text-sm etc.
+   use their own rem values and stay small. */
+.text-\[9px\],
+.text-\[10px\] { font-size: 14px !important; }
+.text-xs       { font-size: 16px !important; }
+.text-sm       { font-size: 18px !important; }
+.text-base     { font-size: 22px !important; }
+.text-lg       { font-size: 24px !important; }
+.text-xl       { font-size: 26px !important; }
+.text-2xl      { font-size: 30px !important; }
+.text-3xl      { font-size: 34px !important; }
+.text-4xl      { font-size: 40px !important; }
+.text-5xl      { font-size: 48px !important; }
+
 ::-webkit-scrollbar {
   width: 6px;
 }
