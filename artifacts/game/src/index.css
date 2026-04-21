@@ -98,17 +98,22 @@
   * {
     @apply border-border;
   }
-  /* Scale the whole UI a notch — Tailwind's text/padding/width/gap utilities
-     are rem-based, so bumping the root font-size uniformly enlarges them.
-     Fixed-px assets (sprite bars, sprite images) stay at their native pixel
-     size, which keeps pixel art crisp. */
+  /* Scale the whole UI — Tailwind's text/padding/width/gap utilities are
+     rem-based, so the root font-size controls overall zoom.
+     19px = slightly zoomed-in from default 16px, but more compact than 22px. */
   html {
-    font-size: 22px;
+    font-size: 19px;
   }
   body {
     @apply bg-background text-foreground font-inter;
+    /* Bump base text up so fonts stay large in the zoomed-out layout */
+    font-size: 17px;
   }
 }
+
+/* Boost small text classes so they remain readable at the smaller root rem */
+.text-xs { font-size: 14px !important; }
+.text-sm { font-size: 15px !important; }
 
 ::-webkit-scrollbar {
   width: 6px;
