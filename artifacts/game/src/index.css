@@ -98,12 +98,13 @@
   * {
     @apply border-border;
   }
-  /* Zoom out the UI layout while keeping text big:
-     - root font-size 20px = large text (rem-based Tailwind text classes)
-     - CSS zoom 0.85 on #root = shrinks the whole UI by 15% visually
-     Net effect: compact panels with readable text. */
+  /* UI smaller + fonts bigger:
+     - zoom 0.75 on #root shrinks the entire layout by 25%
+     - root font-size 24px makes text large (24 × 0.75 = 18px effective)
+     - Panels/spacing also use rem so they shrink with zoom
+       but text is proportionally bigger due to the high root value */
   html {
-    font-size: 20px;
+    font-size: 24px;
   }
   body {
     @apply bg-background text-foreground font-inter;
@@ -111,7 +112,7 @@
 }
 
 #root {
-  zoom: 0.85;
+  zoom: 0.75;
 }
 
 ::-webkit-scrollbar {
