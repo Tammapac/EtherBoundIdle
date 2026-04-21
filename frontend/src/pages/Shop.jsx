@@ -133,21 +133,31 @@ export default function Shop({ character, onCharacterUpdate }) {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-primary" /> Shop
+          <h2 className="flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5" style={{ color: "#1dffa0" }} />
+            <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "14px", color: "#1dffa0" }}>Shop</span>
           </h2>
-          <p className="text-xs text-muted-foreground">Inventory rotates every 4 hours</p>
+          <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a", marginTop: 6 }}>INVENTORY ROTATES EVERY 4 HOURS</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-accent border-accent/30 gap-1 text-sm">
-            <Coins className="w-3.5 h-3.5" /> {(character?.gold || 0).toLocaleString()}
-          </Badge>
-          <Badge variant="outline" className="text-purple-400 border-purple-400/30 gap-1 text-sm">
-            <Gem className="w-3.5 h-3.5" /> {(character?.gems || 0).toLocaleString()}
-          </Badge>
-          <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
+          <span
+            className="flex items-center gap-1.5"
+            style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#e6a800", border: "2px solid #a07200", background: "#130e00", padding: "4px 8px" }}
+          >
+            <Coins className="w-3 h-3" /> {(character?.gold || 0).toLocaleString()}
+          </span>
+          <span
+            className="flex items-center gap-1.5"
+            style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#c084fc", border: "2px solid #7c3aed60", background: "#120820", padding: "4px 8px" }}
+          >
+            <Gem className="w-3 h-3" /> {(character?.gems || 0).toLocaleString()}
+          </span>
+          <span
+            className="flex items-center gap-1.5"
+            style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#6b6a9a", border: "2px solid #2a1f5c", background: "#07071a", padding: "4px 8px" }}
+          >
             <Clock className="w-3 h-3" /> {timeLeft || "Loading..."}
-          </Badge>
+          </span>
         </div>
       </div>
 
@@ -158,13 +168,14 @@ export default function Shop({ character, onCharacterUpdate }) {
           label={loadingShop ? "REFRESHING..." : "REFRESH STOCK (5💎)"}
           onClick={() => loadShop(true)}
           disabled={loadingShop}
+          style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 3px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
         />
       </div>
 
       {loadingShop ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {Array(6).fill(0).map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-xl p-4 h-24 animate-pulse" />
+            <div key={i} className="p-4 h-24 animate-pulse" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c" }} />
           ))}
         </div>
       ) : (
@@ -181,9 +192,16 @@ export default function Shop({ character, onCharacterUpdate }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className={`bg-card border rounded-xl p-4 flex items-start gap-4 ${rarity.border}`}
+                className="relative p-4 flex items-start gap-4 overflow-visible"
+                style={{ background: "#0d0d1a", border: "2px solid #2a1f5c", boxShadow: "2px 2px 0 #1a1040" }}
               >
-                <div className={`p-3 rounded-lg ${rarity.bg} flex-shrink-0 overflow-hidden`}>
+                {/* Corner accent dots */}
+                <span className="absolute -top-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+                <span className="absolute -top-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+                <span className="absolute -bottom-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+                <span className="absolute -bottom-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+
+                <div className="flex-shrink-0 overflow-hidden" style={{ padding: 10, background: "#07071a", border: `1px solid #2a1f5c` }}>
                   {getItemSprite(item) ? (
                     <img src={getItemSprite(item)} alt="" className="w-12 h-12 sprite-outline" style={{ imageRendering: "pixelated" }} />
                   ) : (
@@ -192,25 +210,30 @@ export default function Shop({ character, onCharacterUpdate }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`font-semibold ${rarity.color}`}>{item.name}</span>
-                    <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>
+                    <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "9px", color: "#e0e0ff" }}>{item.name}</span>
+                    <span
+                      className={`${rarity.color}`}
+                      style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: `1px solid currentColor`, padding: "2px 5px", opacity: 0.9 }}
+                    >
                       {rarity.label}
-                    </Badge>
+                    </span>
                     {item.item_level && (
-                      <Badge variant="outline" className="text-xs">iLv.{item.item_level}</Badge>
+                      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a", border: "1px solid #2a1f5c", background: "#07071a", padding: "2px 5px" }}>
+                        iLv.{item.item_level}
+                      </span>
                     )}
                     {item.rune_slots > 0 && (
-                      <Badge variant="outline" className="text-xs text-purple-400 border-purple-400/30 gap-0.5">
+                      <span className="flex items-center gap-0.5" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#c084fc", border: "1px solid #7c3aed60", background: "#120820", padding: "2px 5px" }}>
                         <Gem className="w-2.5 h-2.5" /> {item.rune_slots} slot{item.rune_slots > 1 ? "s" : ""}
-                      </Badge>
+                      </span>
                     )}
                   </div>
                   {item.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                    <p className="text-xs mt-1" style={{ color: "#6b6a9a" }}>{item.description}</p>
                   )}
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
                     {item.stats && Object.entries(item.stats).map(([k, v]) => (
-                      <span key={k} className="text-xs text-green-400">
+                      <span key={k} className="text-green-400" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px" }}>
                         +{v} {k.replace(/_/g, " ")}
                       </span>
                     ))}
@@ -221,14 +244,15 @@ export default function Shop({ character, onCharacterUpdate }) {
                   label={`BUY (${price.toLocaleString()}G)`}
                   disabled={!canAfford || buyMutation.isPending}
                   onClick={() => buyMutation.mutate({ ...item, buy_price: price })}
+                  style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 3px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
                 />
               </motion.div>
             );
           })}
           {shopItems.length === 0 && (
-            <div className="col-span-full text-center py-12 text-muted-foreground">
+            <div className="col-span-full text-center py-12" style={{ color: "#6b6a9a" }}>
               <ShoppingBag className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p>No items available. Click Refresh Stock.</p>
+              <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px" }}>NO ITEMS AVAILABLE. CLICK REFRESH STOCK.</p>
             </div>
           )}
         </div>

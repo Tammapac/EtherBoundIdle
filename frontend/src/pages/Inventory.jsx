@@ -147,15 +147,21 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         onClick={() => onSelect(item)}
         onMouseEnter={() => { setHovered(true); if (isNew && onMarkSeen) onMarkSeen(item.id); }}
         onMouseLeave={() => setHovered(false)}
-        className={`relative bg-card border rounded-lg p-3 text-left transition-all hover:bg-muted/50 border-border ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""}`}
+        className={`relative p-3 text-left transition-all overflow-visible ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""}`}
+        style={{ background: "#0d0d1a", border: "2px solid #2a1f5c", boxShadow: "2px 2px 0 #1a1040" }}
       >
+        {/* Corner accent dots */}
+        <span className="absolute -top-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -top-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -bottom-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -bottom-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
         {isStack && (
-          <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center px-1">
             x{item.stackCount}
           </span>
         )}
         {isNew && (
-          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none animate-pulse">
+          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white font-bold leading-none animate-pulse" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", padding: "2px 4px" }}>
             NEW
           </span>
         )}
@@ -166,12 +172,12 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
             <Icon className={`w-10 h-10 ${rarity.color} flex-shrink-0`} />
           )}
           <div className="flex-1 min-w-0">
-            <span className={`text-xs font-semibold ${rarity.color} truncate block`}>{item.name}</span>
-            {desc && <span className="text-[10px] text-muted-foreground leading-tight block">{desc}</span>}
+            <span className={`${rarity.color} truncate block`} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px" }}>{item.name}</span>
+            {desc && <span className="text-[10px] leading-tight block" style={{ color: "#6b6a9a" }}>{desc}</span>}
           </div>
         </div>
         <div className="flex flex-wrap gap-1 mt-1">
-          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>{rarity.label}</Badge>
+          <span className={`${rarity.color}`} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid currentColor", padding: "2px 5px" }}>{rarity.label}</span>
         </div>
       </motion.button>
     );
@@ -185,17 +191,27 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
         onClick={() => onSelect(item)}
         onMouseEnter={() => { setHovered(true); if (isNew && onMarkSeen) onMarkSeen(item.id); }}
         onMouseLeave={() => setHovered(false)}
-        className={`relative bg-card border rounded-lg p-3 text-left transition-all hover:bg-muted/50 ${
-          item.equipped ? `${rarity.border} ${rarity.bg}` : !canEquip ? "border-destructive/30 opacity-60" : "border-border"
+        className={`relative p-3 text-left transition-all overflow-visible ${
+          !canEquip ? "opacity-60" : ""
         } ${item.rarity === "shiny" ? "ring-1 ring-yellow-400/50" : ""} ${isSetItem ? "ring-1 ring-cyan-400/50" : ""} ${isUnique ? "ring-1 ring-orange-400/50" : ""} ${item.is_awakened ? "outline outline-2 outline-purple-400 shadow-[0_0_16px_rgba(168,85,247,0.5),0_0_4px_rgba(168,85,247,0.3)] animate-pulse" : ""}`}
+        style={{
+          background: "#0d0d1a",
+          border: item.equipped ? `2px solid currentColor` : "2px solid #2a1f5c",
+          boxShadow: "2px 2px 0 #1a1040",
+        }}
       >
+        {/* Corner accent dots */}
+        <span className="absolute -top-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -top-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -bottom-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -bottom-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
         {isStack && (
-          <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          <span className="absolute top-1.5 right-1.5 bg-green-600 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center px-1">
             x{item.stackCount}
           </span>
         )}
         {isNew && (
-          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[9px] font-bold rounded px-1 py-0.5 leading-none animate-pulse">
+          <span className="absolute top-1.5 left-1.5 bg-red-500 text-white font-bold leading-none animate-pulse" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", padding: "2px 4px" }}>
             NEW
           </span>
         )}
@@ -207,44 +223,44 @@ function ItemCard({ item, character, equipped, onSelect, rarity, canEquip, isNew
               <Icon className={`w-10 h-10 ${rarity.color}`} />
             )}
             {itemLevel && (
-              <span className={`absolute -bottom-1 -right-1 text-[9px] font-bold leading-none px-0.5 rounded ${rarity.color} bg-background border border-current`}>
+              <span className={`absolute -bottom-1 -right-1 font-bold leading-none px-0.5 ${rarity.color} bg-background border border-current`} style={{ fontSize: "7px" }}>
                 {itemLevel}
               </span>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <span className={`text-xs font-semibold ${rarity.color} truncate block`}>{item.name}</span>
+            <span className="truncate block" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#e0e0ff" }}>{item.name}</span>
             <div className="flex items-center gap-1 mt-0.5">
               {(item.upgrade_level || 0) > 0 && (
-                <span className="text-[9px] font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded px-1 leading-tight">
+                <span className="text-green-400 border border-green-500/30 px-1 leading-tight" style={{ fontSize: "7px", fontFamily: "'Press Start 2P', monospace" }}>
                   +{item.upgrade_level}
                 </span>
               )}
-              <span className="text-[9px] text-yellow-400 tracking-tight leading-none">
+              <span className="text-yellow-400 tracking-tight leading-none text-[9px]">
                 {Array.from({length: 7}).map((_, si) => (
                   <span key={si} className={si < (item.star_level || 0) ? "text-yellow-400" : "text-muted-foreground/30"}>★</span>
                 ))}
               </span>
               {(item.star_level || 0) > 0 && (
-                <span className="text-[9px] text-yellow-400">{item.star_level}/7</span>
+                <span className="text-yellow-400 text-[9px]">{item.star_level}/7</span>
               )}
             </div>
           </div>
         </div>
         <div className="flex flex-wrap gap-1 mt-1">
-          <Badge variant="outline" className={`text-xs ${rarity.color} ${rarity.border}`}>{rarity.label}</Badge>
-          {item.equipped && <Badge className="text-xs bg-primary/20 text-primary">Equipped</Badge>}
-          {isSetItem && <Badge className="text-xs bg-cyan-500/20 text-cyan-300 border-cyan-500/30">Set</Badge>}
+          <span className={`${rarity.color}`} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid currentColor", padding: "2px 5px" }}>{rarity.label}</span>
+          {item.equipped && <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #22d3ee60", background: "#001a1a", color: "#22d3ee", padding: "2px 5px" }}>Equipped</span>}
+          {isSetItem && <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #22d3ee60", background: "#001a1a", color: "#22d3ee", padding: "2px 5px" }}>Set</span>}
           {runeSlots > 0 && (
-            <Badge className="text-xs bg-purple-500/15 text-purple-400 border-purple-500/30 gap-0.5">
+            <span className="flex items-center gap-0.5" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #7c3aed60", background: "#120820", color: "#c084fc", padding: "2px 5px" }}>
               <Gem className="w-2.5 h-2.5" /> {runeSlots}
-            </Badge>
+            </span>
           )}
-          {!levelOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Req. {item.level_req}</Badge>}
-          {levelOk && !classOk && <Badge className="text-xs bg-destructive/20 text-destructive border-destructive/30">Wrong Class</Badge>}
+          {!levelOk && <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #ef444460", background: "#1a0505", color: "#f87171", padding: "2px 5px" }}>Req. {item.level_req}</span>}
+          {levelOk && !classOk && <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #ef444460", background: "#1a0505", color: "#f87171", padding: "2px 5px" }}>Wrong Class</span>}
         </div>
         {isUnique && (
-          <span className="absolute bottom-1 right-1 bg-orange-500 text-white text-[9px] font-bold rounded w-[16px] h-[16px] flex items-center justify-center leading-none">
+          <span className="absolute bottom-1 right-1 bg-orange-500 text-white font-bold w-[16px] h-[16px] flex items-center justify-center leading-none" style={{ fontSize: "7px" }}>
             U
           </span>
         )}
@@ -272,11 +288,12 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
       <button
         key={slot}
         onClick={() => item && onSelectItem(item)}
-        className={`relative w-full h-[52px] rounded-lg border flex items-center gap-2 px-2 transition-all hover:brightness-110 ${
-          item
-            ? `${rarity?.border} ${rarity?.bg} cursor-pointer`
-            : "border-dashed border-gray-600/50 bg-gray-900/30"
-        }`}
+        className="relative w-full h-[52px] flex items-center gap-2 px-2 transition-all hover:brightness-110"
+        style={{
+          background: item ? undefined : "#07071a",
+          border: item ? `2px solid ${rarity?.border?.includes("cyan") ? "#22d3ee" : "#2a1f5c"}` : "1px dashed #2a1f5c",
+          cursor: item ? "pointer" : "default",
+        }}
         title={item ? item.name : SLOT_LABELS[slot]}
       >
         <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center">
@@ -287,7 +304,10 @@ function CharacterEquipmentPanel({ character, equipped, onSelectItem }) {
           )}
         </div>
         <div className="flex-1 min-w-0 text-left">
-          <span className={`text-[10px] font-semibold truncate block leading-tight ${item ? rarity?.color : "text-gray-600"}`}>
+          <span
+            className={`truncate block leading-tight ${item ? rarity?.color : ""}`}
+            style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: item ? undefined : "#6b6a9a" }}
+          >
             {item ? item.name : SLOT_LABELS[slot]}
           </span>
           {item && (
@@ -357,35 +377,35 @@ function CharacterStatsPanel({ character, equippedItems, equippedRunes = [] }) {
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1">
         <Icon className={`w-3 h-3 ${color}`} />
-        <span className="text-muted-foreground">{label}</span>
+        <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>{label}</span>
       </div>
-      <span className={`font-mono font-semibold ${color}`}>{value}</span>
+      <span className={`${color}`} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px" }}>{value}</span>
     </div>
   );
 
   return (
-    <div className="bg-card border border-border rounded-xl p-3 text-[11px] max-h-[280px] overflow-y-auto">
+    <div className="p-3 max-h-[280px] overflow-y-auto" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c" }}>
       {/* Base stats in a row */}
-      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Base Stats</h3>
+      <h3 className="mb-1 uppercase tracking-wider" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#1dffa0" }}>Base Stats</h3>
       <div className="flex flex-wrap gap-x-4 gap-y-0.5 mb-2">
         {baseStats.map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="flex items-center gap-1">
             <Icon className={`w-3 h-3 ${color}`} />
-            <span className="text-muted-foreground">{label}</span>
-            <span className={`font-mono font-semibold ${color}`}>{value}</span>
+            <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>{label}</span>
+            <span className={`${color}`} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px" }}>{value}</span>
           </div>
         ))}
       </div>
-      <div className="border-t border-border my-1.5" />
+      <div className="my-1.5" style={{ borderTop: "1px solid #2a1f5c" }} />
       {/* Combat stats in 2 columns */}
-      <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Combat Stats</h3>
+      <h3 className="mb-1 uppercase tracking-wider" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#1dffa0" }}>Combat Stats</h3>
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
         {stats.filter(s => !s.hide).map(s => <StatRow key={s.label} {...s} />)}
       </div>
       {elementalStats.length > 0 && (
         <>
-          <div className="border-t border-border my-1.5" />
-          <h3 className="text-[10px] font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Elemental</h3>
+          <div className="my-1.5" style={{ borderTop: "1px solid #2a1f5c" }} />
+          <h3 className="mb-1 uppercase tracking-wider" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#1dffa0" }}>Elemental</h3>
           <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
             {elementalStats.map(s => <StatRow key={s.label} {...s} />)}
           </div>
@@ -666,8 +686,9 @@ export default function Inventory({ character, onCharacterUpdate }) {
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
-          <Backpack className="w-5 h-5 text-primary" /> Inventory
+        <h2 className="flex items-center gap-2">
+          <Backpack className="w-5 h-5" style={{ color: "#1dffa0" }} />
+          <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "14px", color: "#1dffa0" }}>Inventory</span>
         </h2>
         {sellableCount > 0 && (
           <PixelButton
@@ -675,6 +696,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
             label={`SELL ALL${filter !== "all" ? " " + filter.charAt(0).toUpperCase() + filter.slice(1) + "S" : ""} (${sellableCount} · ${sellableItems.reduce((s, i) => s + getItemSellPrice(i), 0)}G)`}
             onClick={() => sellAllMutation.mutate()}
             disabled={sellAllMutation.isPending}
+            style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 3px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
           />
         )}
       </div>
@@ -682,8 +704,8 @@ export default function Inventory({ character, onCharacterUpdate }) {
       {/* Top: Equipment Grid + Stats (compact side-by-side) */}
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-3">
         {/* Equipment Grid */}
-        <div className="bg-card border border-border rounded-xl p-3">
-          <h3 className="text-[10px] font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Equipment</h3>
+        <div className="p-3" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c" }}>
+          <h3 className="mb-2 uppercase tracking-wider" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#1dffa0" }}>Equipment</h3>
           <CharacterEquipmentPanel
             character={character}
             equipped={equipped}
@@ -697,24 +719,37 @@ export default function Inventory({ character, onCharacterUpdate }) {
 
       {/* Tabs */}
       <Tabs value={filter} onValueChange={setFilter}>
-        <TabsList className="bg-muted flex flex-wrap h-auto gap-1 p-1">
-          <TabsTrigger value="all" className="flex items-center gap-1 text-xs"><Backpack className="w-3 h-3" />All Gear</TabsTrigger>
-          <TabsTrigger value="weapon" className="flex items-center gap-1 text-xs"><Swords className="w-3 h-3" />Weapons</TabsTrigger>
-          <TabsTrigger value="armor" className="flex items-center gap-1 text-xs"><ShieldCheck className="w-3 h-3" />Armor</TabsTrigger>
-          <TabsTrigger value="helmet" className="flex items-center gap-1 text-xs"><Crown className="w-3 h-3" />Helmets</TabsTrigger>
-          <TabsTrigger value="gloves" className="flex items-center gap-1 text-xs"><Hand className="w-3 h-3" />Gloves</TabsTrigger>
-          <TabsTrigger value="boots" className="flex items-center gap-1 text-xs"><Footprints className="w-3 h-3" />Boots</TabsTrigger>
-          <TabsTrigger value="ring" className="flex items-center gap-1 text-xs"><CircleDot className="w-3 h-3" />Rings</TabsTrigger>
-          <TabsTrigger value="amulet" className="flex items-center gap-1 text-xs"><Gem className="w-3 h-3" />Amulets</TabsTrigger>
-          <TabsTrigger value="consumable" className="flex items-center gap-1 text-xs"><FlaskConical className="w-3 h-3" />Consumables</TabsTrigger>
-          <TabsTrigger value="special" className="flex items-center gap-1 text-xs"><Sparkles className="w-3 h-3" />Special</TabsTrigger>
-          <TabsTrigger value="sets" className="flex items-center gap-1 text-xs"><Shield className="w-3 h-3 text-yellow-400" />Sets</TabsTrigger>
+        <TabsList
+          className="flex flex-wrap h-auto gap-1 p-1 rounded-none"
+          style={{ background: "#07071a", border: "2px solid #2a1f5c" }}
+        >
+          {[
+            { value: "all",        Icon: Backpack,    label: "All Gear" },
+            { value: "weapon",     Icon: Swords,      label: "Weapons" },
+            { value: "armor",      Icon: ShieldCheck, label: "Armor" },
+            { value: "helmet",     Icon: Crown,       label: "Helmets" },
+            { value: "gloves",     Icon: Hand,        label: "Gloves" },
+            { value: "boots",      Icon: Footprints,  label: "Boots" },
+            { value: "ring",       Icon: CircleDot,   label: "Rings" },
+            { value: "amulet",     Icon: Gem,         label: "Amulets" },
+            { value: "consumable", Icon: FlaskConical,label: "Consumables" },
+            { value: "special",    Icon: Sparkles,    label: "Special" },
+            { value: "sets",       Icon: Shield,      label: "Sets" },
+          ].map(({ value, Icon, label }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex items-center gap-1 rounded-none data-[state=active]:bg-[#e6a800] data-[state=active]:text-[#1a1a2e] data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#6b6a9a] font-['Press_Start_2P'] text-[7px] py-1.5 px-2"
+            >
+              <Icon className="w-3 h-3" />{label}
+            </TabsTrigger>
+          ))}
         </TabsList>
       </Tabs>
 
       {/* Item Grid */}
       {filter === "sets" ? (
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="p-4" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c" }}>
           <SetCollectionPanel
             equippedItems={equipped}
             allItems={items}
@@ -724,7 +759,7 @@ export default function Inventory({ character, onCharacterUpdate }) {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
           {isLoading && Array(4).fill(0).map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-lg p-3 animate-pulse h-24" />
+            <div key={i} className="p-3 animate-pulse h-24" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c" }} />
           ))}
           {filtered && filtered.map(item => {
             const rarity = RARITY_CONFIG[item.rarity] || RARITY_CONFIG.common;

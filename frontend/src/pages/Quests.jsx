@@ -97,55 +97,82 @@ export default function Quests({ character, onCharacterUpdate }) {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: idx * 0.05 }}
-        className={`bg-card border rounded-xl p-4 ${
-          isComplete ? "border-primary/30 glow-cyan" : "border-border"
-        }`}
+        className="relative p-4 overflow-visible"
+        style={{
+          background: "#0d0d1a",
+          border: `2px solid ${isComplete ? "#1dffa050" : "#2a1f5c"}`,
+          boxShadow: isComplete ? "0 0 12px rgba(29,255,160,0.08)" : "2px 2px 0 #1a1040",
+        }}
       >
+        {/* Corner accent dots */}
+        <span className="absolute -top-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -top-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -bottom-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+        <span className="absolute -bottom-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-lg">{getObjectiveIcon()}</span>
-              <h3 className="font-semibold">{quest.title}</h3>
+              <h3
+                className="leading-snug"
+                style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "9px", color: isComplete ? "#1dffa0" : "#d0d0ff" }}
+              >{quest.title}</h3>
               {quest.type === "daily" && (
-                <Badge variant="secondary" className="text-xs gap-1 flex items-center">
-                  <Clock className="w-3 h-3" /> Infinite
-                </Badge>
+                <span
+                  className="flex items-center gap-1"
+                  style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #2a1f5c", background: "#0a0a1e", padding: "2px 5px", color: "#6b6a9a" }}
+                >
+                  <Clock className="w-2.5 h-2.5" /> Infinite
+                </span>
               )}
               {quest.expires_at && (
                 <DailyTimer expiresAt={quest.expires_at} />
               )}
               {quest.type === "weekly" && (
-                <Badge variant="outline" className="text-xs gap-1 flex items-center">
-                  <Calendar className="w-3 h-3" /> Weekly
-                </Badge>
+                <span
+                  className="flex items-center gap-1"
+                  style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #2a1f5c", background: "#0a0a1e", padding: "2px 5px", color: "#6b6a9a" }}
+                >
+                  <Calendar className="w-2.5 h-2.5" /> Weekly
+                </span>
               )}
             </div>
             {quest.description && (
-              <p className="text-sm text-muted-foreground mt-1">{quest.description}</p>
+              <p className="text-xs text-muted-foreground mt-1.5">{quest.description}</p>
             )}
             <div className="mt-3">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="text-foreground font-semibold">
-                  {currentCount}/{targetCount}
-                </span>
+              <div className="flex justify-between mb-1" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px" }}>
+                <span style={{ color: "#6b6a9a" }}>PROGRESS</span>
+                <span style={{ color: "#d0d0ff" }}>{currentCount}/{targetCount}</span>
               </div>
-              <Progress value={pct} className="h-2" />
+              <div style={{ height: 10, border: "1px solid #2a1f5c", background: "#050510", position: "relative" }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: "#1dffa0", boxShadow: "0 0 6px #1dffa060", transition: "width 0.4s ease" }} />
+              </div>
             </div>
-            <div className="flex gap-2 mt-2 flex-wrap">
+            <div className="flex gap-2 mt-3 flex-wrap">
               {rewards.exp && (
-                <span className="text-xs text-primary flex items-center gap-1">
-                  <Star className="w-3 h-3" /> {rewards.exp} EXP
+                <span
+                  className="flex items-center gap-1"
+                  style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #7c3aed60", background: "#120820", padding: "3px 6px", color: "#c084fc" }}
+                >
+                  <Star className="w-2.5 h-2.5" /> {rewards.exp} EXP
                 </span>
               )}
               {rewards.gold && (
-                <span className="text-xs text-accent flex items-center gap-1">
-                  <Coins className="w-3 h-3" /> {rewards.gold} Gold
+                <span
+                  className="flex items-center gap-1"
+                  style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #e6a80060", background: "#130e00", padding: "3px 6px", color: "#e6a800" }}
+                >
+                  <Coins className="w-2.5 h-2.5" /> {rewards.gold} Gold
                 </span>
               )}
               {rewards.gems && (
-                <span className="text-xs text-secondary flex items-center gap-1">
-                  <Gem className="w-3 h-3" /> {rewards.gems} Gems
+                <span
+                  className="flex items-center gap-1"
+                  style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #22d3ee60", background: "#001618", padding: "3px 6px", color: "#22d3ee" }}
+                >
+                  <Gem className="w-2.5 h-2.5" /> {rewards.gems} Gems
                 </span>
               )}
             </div>
@@ -159,9 +186,12 @@ export default function Quests({ character, onCharacterUpdate }) {
             />
           )}
           {quest.status === "claimed" && (
-            <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-              Claimed
-            </Badge>
+            <span
+              className="flex items-center gap-1 shrink-0"
+              style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", border: "1px solid #1dffa050", background: "#001a0d", padding: "3px 7px", color: "#1dffa0" }}
+            >
+              ✓ Claimed
+            </span>
           )}
         </div>
       </motion.div>
@@ -184,27 +214,40 @@ export default function Quests({ character, onCharacterUpdate }) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="daily" className="gap-1 flex items-center justify-center">
-            <Clock className="w-4 h-4" /> Infinite
+        <TabsList
+          className="grid w-full grid-cols-3 rounded-none p-0 h-auto"
+          style={{ background: "#07071a", border: "2px solid #2a1f5c", gap: 0 }}
+        >
+          <TabsTrigger
+            value="daily"
+            className="gap-1 flex items-center justify-center rounded-none border-0 data-[state=active]:bg-[#e6a800] data-[state=active]:text-[#1a1a2e] data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#6b6a9a] font-['Press_Start_2P'] text-[8px] py-2.5"
+          >
+            <Clock className="w-3 h-3" /> Infinite
             {dailyQuests.filter(q => q.status !== "claimed").length > 0 && (
-              <span className="ml-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              <span className="ml-1 bg-destructive text-destructive-foreground text-[7px] rounded-none w-4 h-4 flex items-center justify-center">
                 {dailyQuests.filter(q => q.status !== "claimed").length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="weekly" className="gap-1 flex items-center justify-center">
-            <Calendar className="w-4 h-4" /> Weekly
+          <TabsTrigger
+            value="weekly"
+            className="gap-1 flex items-center justify-center rounded-none border-0 data-[state=active]:bg-[#e6a800] data-[state=active]:text-[#1a1a2e] data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#6b6a9a] font-['Press_Start_2P'] text-[8px] py-2.5"
+            style={{ borderLeft: "1px solid #2a1f5c", borderRight: "1px solid #2a1f5c" }}
+          >
+            <Calendar className="w-3 h-3" /> Weekly
             {weeklyQuests.filter(q => q.status !== "claimed").length > 0 && (
-              <span className="ml-1 bg-secondary text-secondary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              <span className="ml-1 bg-destructive text-destructive-foreground text-[7px] rounded-none w-4 h-4 flex items-center justify-center">
                 {weeklyQuests.filter(q => q.status !== "claimed").length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="story" className="gap-1 flex items-center justify-center">
-            <Sparkles className="w-4 h-4" /> Story
+          <TabsTrigger
+            value="story"
+            className="gap-1 flex items-center justify-center rounded-none border-0 data-[state=active]:bg-[#e6a800] data-[state=active]:text-[#1a1a2e] data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#6b6a9a] font-['Press_Start_2P'] text-[8px] py-2.5"
+          >
+            <Sparkles className="w-3 h-3" /> Story
             {storyQuests.filter(q => q.status !== "claimed").length > 0 && (
-              <span className="ml-1 bg-accent text-accent-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              <span className="ml-1 bg-destructive text-destructive-foreground text-[7px] rounded-none w-4 h-4 flex items-center justify-center">
                 {storyQuests.filter(q => q.status !== "claimed").length}
               </span>
             )}

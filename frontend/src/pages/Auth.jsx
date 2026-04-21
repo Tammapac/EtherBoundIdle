@@ -89,37 +89,56 @@ export default function Auth() {
     }
   };
 
+  const pixelLabel = "font-['Press_Start_2P'] text-[8px] tracking-wide mb-2 flex items-center gap-2";
+  const pixelInput = "rounded-none border-2 border-cyan-800 bg-[#0d0d2b] text-cyan-100 placeholder:text-cyan-900/60 focus:border-cyan-400 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none font-mono";
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#05050f] relative overflow-hidden">
+      {/* Pixel-art scanline overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{ backgroundImage: "repeating-linear-gradient(0deg, #000 0px, #000 1px, transparent 1px, transparent 4px)" }}
+      />
+      {/* Ambient glow blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="w-full max-w-md relative z-10"
+        className="w-full max-w-xl relative z-10"
       >
-        <div className="text-center mb-10">
+        {/* Logo */}
+        <div className="text-center mb-8">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className="inline-flex items-center gap-3 mb-4"
+            className="inline-flex items-center gap-3 mb-3"
           >
             <Shield className="w-10 h-10 text-cyan-400" />
-            <h1 className="font-orbitron text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent tracking-wider">
+            <h1 className="font-['Press_Start_2P'] text-2xl md:text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent tracking-wider">
               EtherBound
             </h1>
           </motion.div>
-          <p className="text-muted-foreground text-sm tracking-wide">
+          <p className="font-['Press_Start_2P'] text-[10px] text-muted-foreground tracking-wide leading-6">
             {mode === "reset" ? "Reset your password" : mode === "login" ? "Welcome back, Adventurer" : "Begin your journey"}
           </p>
         </div>
 
-        <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl p-6 md:p-8 shadow-lg shadow-cyan-500/5">
+        {/* Pixel-art card */}
+        <div
+          className="p-8 md:p-12"
+          style={{
+            background: "#0a0a1e",
+            border: "3px solid #22d3ee",
+            boxShadow: "0 0 0 3px #0a0a1e, 0 0 0 6px #7c3aed60, 6px 6px 0 6px #7c3aed30",
+          }}
+        >
+          {/* Tab buttons */}
           <div className="flex gap-2 mb-6">
             <PixelButton
               variant="ok"
@@ -135,16 +154,17 @@ export default function Auth() {
             />
           </div>
 
+          {/* Error / success banners */}
           <AnimatePresence mode="wait">
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2"
+                className="mb-4 p-3 bg-red-950/40 border-2 border-red-500/60 flex items-start gap-2"
               >
                 <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-                <p className="text-red-400 text-sm">{error}</p>
+                <p className="font-['Press_Start_2P'] text-[8px] text-red-400 leading-relaxed">{error}</p>
               </motion.div>
             )}
             {success && (
@@ -152,25 +172,25 @@ export default function Auth() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-start gap-2"
+                className="mb-4 p-3 bg-green-950/40 border-2 border-green-500/60 flex items-start gap-2"
               >
                 <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
-                <p className="text-green-400 text-sm">{success}</p>
+                <p className="font-['Press_Start_2P'] text-[8px] text-green-400 leading-relaxed">{success}</p>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <form onSubmit={mode === "reset" ? handleResetPassword : mode === "login" ? handleLogin : handleRegister} className="space-y-4">
+          <form onSubmit={mode === "reset" ? handleResetPassword : mode === "login" ? handleLogin : handleRegister} className="space-y-5">
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                <Mail className="w-4 h-4" /> Email
+              <label className={`${pixelLabel} text-cyan-300/70`}>
+                <Mail className="w-3 h-3" /> EMAIL
               </label>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="bg-muted/50 border-border/50 focus:border-primary/50"
+                className={pixelInput}
                 required
                 disabled={isLoading}
               />
@@ -184,14 +204,14 @@ export default function Auth() {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                    <User className="w-4 h-4" /> Username
+                  <label className={`${pixelLabel} text-cyan-300/70`}>
+                    <User className="w-3 h-3" /> USERNAME
                   </label>
                   <Input
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Your hero name"
-                    className="bg-muted/50 border-border/50 focus:border-primary/50"
+                    className={pixelInput}
                     maxLength={20}
                     required={mode === "register"}
                     disabled={isLoading}
@@ -202,29 +222,29 @@ export default function Auth() {
 
             {mode !== "reset" && (
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                  <Lock className="w-4 h-4" /> Password
+                <label className={`${pixelLabel} text-cyan-300/70`}>
+                  <Lock className="w-3 h-3" /> PASSWORD
                 </label>
                 <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="bg-muted/50 border-border/50 focus:border-primary/50"
+                  className={pixelInput}
                   required
                   minLength={6}
                   disabled={isLoading}
                 />
                 {mode === "register" && (
-                  <p className="text-xs text-muted-foreground mt-1">Minimum 6 characters</p>
+                  <p className="font-['Press_Start_2P'] text-[7px] text-cyan-900 mt-1">MIN 6 CHARACTERS</p>
                 )}
                 {mode === "login" && (
                   <button
                     type="button"
                     onClick={() => { setMode("reset"); setError(""); setSuccess(""); }}
-                    className="text-xs text-primary hover:text-primary/80 mt-1"
+                    className="font-['Press_Start_2P'] text-[7px] text-purple-400 hover:text-purple-300 mt-2 block transition-colors"
                   >
-                    Forgot password?
+                    FORGOT PASSWORD?
                   </button>
                 )}
               </div>
@@ -232,24 +252,24 @@ export default function Auth() {
 
             {mode === "reset" && (
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                  <KeyRound className="w-4 h-4" /> New Password
+                <label className={`${pixelLabel} text-cyan-300/70`}>
+                  <KeyRound className="w-3 h-3" /> NEW PASSWORD
                 </label>
                 <Input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
-                  className="bg-muted/50 border-border/50 focus:border-primary/50"
+                  className={pixelInput}
                   required
                   minLength={6}
                   disabled={isLoading}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Minimum 6 characters</p>
+                <p className="font-['Press_Start_2P'] text-[7px] text-cyan-900 mt-1">MIN 6 CHARACTERS</p>
               </div>
             )}
 
-            <div className="flex justify-center">
+            <div className="flex justify-center pt-1">
               <PixelButton
                 variant="ok"
                 label={
@@ -262,9 +282,10 @@ export default function Auth() {
             </div>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              {mode === "reset" ? "Remember your password?" : mode === "login" ? "No account yet?" : "Already have an account?"}
+          {/* Switch mode */}
+          <div className="mt-6 text-center space-y-2">
+            <p className="font-['Press_Start_2P'] text-[7px] text-cyan-900">
+              {mode === "reset" ? "REMEMBER YOUR PASSWORD?" : mode === "login" ? "NO ACCOUNT YET?" : "ALREADY HAVE AN ACCOUNT?"}
             </p>
             <Button
               variant="link"
@@ -273,16 +294,16 @@ export default function Auth() {
                 setError("");
                 setSuccess("");
               }}
-              className="text-primary hover:text-primary/80 font-medium"
+              className="font-['Press_Start_2P'] text-[8px] text-yellow-400 hover:text-yellow-300 no-underline hover:no-underline p-0 h-auto"
               disabled={isLoading}
             >
-              {mode === "reset" ? "Back to Login" : mode === "login" ? "Create one" : "Login instead"}
+              {mode === "reset" ? "BACK TO LOGIN" : mode === "login" ? "CREATE ONE" : "LOGIN INSTEAD"}
             </Button>
           </div>
         </div>
 
-        <p className="text-center text-muted-foreground/50 text-xs mt-8 tracking-wide">
-          All rights reserved and copyright by Tammapac
+        <p className="text-center font-['Press_Start_2P'] text-[6px] text-cyan-950/70 mt-6 tracking-widest">
+          ALL RIGHTS RESERVED &copy; TAMMAPAC
         </p>
       </motion.div>
     </div>

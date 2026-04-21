@@ -100,14 +100,14 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
       <aside
         className="hidden md:flex flex-col w-64"
         style={{
-          border: "2px solid #b8872a",
-          background: "#0f0e24",
+          border: "2px solid #2a1f5c",
+          background: "#07071a",
           position: "relative",
           zIndex: 10,
-          boxShadow: "4px 0 12px rgba(0,0,0,0.5)",
+          boxShadow: "4px 0 20px rgba(0,0,0,0.7), 2px 0 8px rgba(29,255,160,0.06)",
         }}
       >
-        <div className="p-4" style={{ borderBottom: "1px solid #c8973a" }}>
+        <div className="p-4" style={{ borderBottom: "2px solid #2a1f5c" }}>
           <h1
             className="text-base font-bold tracking-wider"
             style={{ fontFamily: "'Press Start 2P', monospace", color: "#c8973a" }}
@@ -126,17 +126,24 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
         </div>
 
         {character && (
-          <div className="p-4" style={{ borderBottom: "1px solid #c8973a" }}>
+          <div className="p-4" style={{ borderBottom: "2px solid #2a1f5c" }}>
             <button
               onClick={() => setProfileOpen(true)}
-              className="flex items-center gap-3 w-full hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors group"
+              className="flex items-center gap-3 w-full p-1 -m-1 transition-colors group"
+              style={{ background: "transparent" }}
             >
-              <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center group-hover:border-primary/60 transition-colors overflow-hidden">
+              <div
+                className="w-10 h-10 flex items-center justify-center overflow-hidden shrink-0"
+                style={{ border: "2px solid #2a1f5c", background: "#0d0d2a" }}
+              >
                 <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-1.5">
-                  <p className="font-semibold text-sm truncate">{character.name}</p>
+                  <p
+                    className="font-semibold text-sm truncate"
+                    style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "9px", color: "#e6a800" }}
+                  >{character.name}</p>
                   <RoleBadge role={currentUserRole} />
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -147,7 +154,7 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
               <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
             </button>
             <div className="flex gap-3 mt-3 text-xs">
-              <span className="flex items-center gap-1 text-accent">
+              <span className="flex items-center gap-1" style={{ color: "#e6a800" }}>
                 <Coins className="w-3 h-3" /> {(character.gold || 0).toLocaleString()}
               </span>
               <span className="flex items-center gap-1 text-secondary">
@@ -169,37 +176,39 @@ export default function GameLayout({ character, onCharacterUpdate, onBackToSelec
                   to={path}
                   className="flex items-center gap-3 px-3 py-2.5 transition-all"
                   style={{
-                    borderBottom: "1px solid #c8973a",
-                    background: active ? "rgba(200, 151, 58, 0.15)" : "transparent",
-                    color: active ? "#c8973a" : "#a89070",
+                    borderBottom: "1px solid #1a1040",
+                    borderLeft: active ? "3px solid #1dffa0" : "3px solid transparent",
+                    background: active ? "rgba(29,255,160,0.07)" : "transparent",
+                    color: active ? "#1dffa0" : "#6b6a9a",
                     fontFamily: "'Press Start 2P', monospace",
-                    fontSize: "8px",
+                    fontSize: "9px",
                     letterSpacing: "0.05em",
-                    transform: "scale(1)",
                     transition: "all 150ms ease",
                   }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(200,151,58,0.08)"; e.currentTarget.style.color = "#c8973a"; e.currentTarget.style.transform = "scale(1.03)"; }}
-                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#a89070"; e.currentTarget.style.transform = "scale(1)"; }}
+                  onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "rgba(110,60,200,0.15)"; e.currentTarget.style.color = "#a89fdf"; } }}
+                  onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#6b6a9a"; } }}
                 >
-                  <Icon className="w-4 h-4 shrink-0" style={{ color: active ? "#c8973a" : "#a89070" }} />
+                  <Icon className="w-4 h-4 shrink-0" style={{ color: active ? "#1dffa0" : "#6b6a9a" }} />
                   {label}
                 </Link>
               );
             })}
           </nav>
 
-        <div className="p-3 space-y-2" style={{ borderTop: "1px solid #c8973a" }}>
+        <div className="p-3 space-y-2" style={{ borderTop: "2px solid #2a1f5c" }}>
           <PixelButton
             variant="ok"
             label="CHARACTER SELECTION"
             onClick={onBackToSelection}
             className="w-full"
+            style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 2px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
           />
           <PixelButton
             variant="cancel"
             label="LOGOUT"
             onClick={() => handleLogout()}
             className="w-full"
+            style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 2px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
           />
         </div>
       </aside>

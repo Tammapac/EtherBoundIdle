@@ -1362,25 +1362,35 @@ export default function Battle({ character, onCharacterUpdate }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-orbitron text-xl font-bold">{region?.name || "Unknown"}</h2>
-          <p className="text-xs text-muted-foreground">Level {region?.levelRange?.[0]}–{region?.levelRange?.[1]}</p>
+          <h2 style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "13px", color: "#e0e0ff" }}>{region?.name || "Unknown"}</h2>
+          <p className="mt-1" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>Level {region?.levelRange?.[0]}–{region?.levelRange?.[1]}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Turn indicator */}
-          <div className={`flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-full border ${
-            isMyTurn ? "bg-primary/20 text-primary border-primary/30" : "bg-orange-500/20 text-orange-400 border-orange-500/30"
-          }`}>
+          <div
+            className="flex items-center gap-1.5 font-bold px-2 py-1"
+            style={isMyTurn
+              ? { fontFamily: "'Press Start 2P', monospace", fontSize: "8px", background: "#001a10", border: "2px solid #1dffa0", color: "#1dffa0" }
+              : { fontFamily: "'Press Start 2P', monospace", fontSize: "8px", background: "#1a0a00", border: "2px solid #f97316", color: "#f97316" }}
+          >
             {isMyTurn ? "⚔️ YOUR TURN" : "🐉 ENEMY TURN"}
           </div>
           {/* Auto-attack countdown */}
           {isMyTurn && autoAttackCountdown !== null && (
-            <div className={`text-xs font-bold px-2 py-1 rounded-full border ${
-              autoAttackCountdown <= 2 ? "bg-destructive/20 text-destructive border-destructive/30 animate-pulse" : "bg-muted text-muted-foreground border-border"
-            }`}>
+            <div
+              className={autoAttackCountdown <= 2 ? "animate-pulse" : ""}
+              style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", padding: "4px 8px", border: autoAttackCountdown <= 2 ? "2px solid #ef4444" : "2px solid #2a1f5c", background: autoAttackCountdown <= 2 ? "#1a0000" : "#07071a", color: autoAttackCountdown <= 2 ? "#ef4444" : "#6b6a9a" }}
+            >
               Auto: {autoAttackCountdown}s
             </div>
           )}
-          <Button variant={isIdle ? "default" : "outline"} size="sm" onClick={toggleIdle} className="gap-2">
+          <Button
+            variant={isIdle ? "default" : "outline"}
+            size="sm"
+            onClick={toggleIdle}
+            className="gap-2 rounded-none"
+            style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", background: isIdle ? "#e6a800" : "#07071a", border: "2px solid #2a1f5c", color: isIdle ? "#1a1a2e" : "#6b6a9a" }}
+          >
             {isIdle ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             {isIdle ? "Auto ON" : "Auto OFF"}
           </Button>
@@ -1417,16 +1427,22 @@ export default function Battle({ character, onCharacterUpdate }) {
                 ? { x: [0, 18, 0], transition: { duration: 0.25, ease: "easeOut" } }
                 : { x: 0 }
           }
-          className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
+          className="p-4 relative overflow-visible rpg-frame"
+          style={{ background: "#0d0d1a", border: "3px solid #e6a800", boxShadow: "inset 0 0 24px rgba(230,168,0,0.04), 2px 2px 0 #7a4a00" }}
         >
+          {/* Corner accent dots */}
+          <span className="absolute -top-[4px] -left-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
+          <span className="absolute -top-[4px] -right-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
+          <span className="absolute -bottom-[4px] -left-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
+          <span className="absolute -bottom-[4px] -right-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
           {playerNumNode}
           <div className="flex items-start gap-3 mb-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 flex items-center justify-center shrink-0" style={{ background: "#07071a", border: "2px solid #e6a800" }}>
               <img src={`/sprites/class_${character.class || "warrior"}.png`} alt={character.class} className="w-9 h-9" style={{ imageRendering: "pixelated" }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold">{character.name}</p>
-              <p className="text-xs text-muted-foreground">Lv.{character.level} {charClass.name}</p>
+              <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "9px", color: "#e0e0ff" }}>{character.name}</p>
+              <p className="mt-0.5" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>Lv.{character.level} {charClass.name}</p>
             </div>
             {/* Buff icons — right side of character header, inside the card */}
             {activePlayerBuffs.length > 0 && (
@@ -1472,20 +1488,20 @@ export default function Battle({ character, onCharacterUpdate }) {
               </div>
             )}
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2 mt-1">
             <PixelBar current={playerHp} max={actualMaxHp} type="hp" label="HP" />
             <PixelBar current={playerMp} max={actualMaxMp} type="mp" label="MP" />
             <PixelBar current={character.exp} max={character.exp_to_next} type="exp" label="EXP" />
           </div>
-          <div className="mt-2 flex gap-2 text-xs text-muted-foreground">
+          <div className="mt-2 flex gap-3">
             {(() => {
               const { derived: rd } = calculateFinalStats(character, equippedItems);
               const hpR = Math.max(Math.ceil(rd.hpRegen || 0), Math.floor(actualMaxHp * HP_REGEN_PER_TURN));
               const mpR = Math.max(Math.ceil(rd.mpRegen || 0), Math.floor(actualMaxMp * MP_REGEN_PER_TURN));
               return (
                 <>
-                  <span>+{hpR} HP/turn</span>
-                  <span>+{mpR} MP/turn</span>
+                  <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#ef444480" }}>+{hpR} HP/t</span>
+                  <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#3b82f680" }}>+{mpR} MP/t</span>
                 </>
               );
             })()}
@@ -1531,7 +1547,10 @@ export default function Battle({ character, onCharacterUpdate }) {
 
         {/* VS */}
         <div className="hidden md:flex items-center justify-center">
-          <div className="font-orbitron text-2xl font-bold text-primary/50">VS</div>
+          <div
+            className="font-['Press_Start_2P'] text-2xl font-bold text-[#e6a800]"
+            style={{ textShadow: "0 0 12px #e6a800, 2px 2px 0 #7a4a00" }}
+          >VS</div>
         </div>
 
         {/* Enemy */}
@@ -1543,8 +1562,14 @@ export default function Battle({ character, onCharacterUpdate }) {
                 ? { x: [0, -18, 0], transition: { duration: 0.25, ease: "easeOut" } }
                 : { x: 0, rotate: 0 }
           }
-          className="bg-card border border-border rounded-xl p-4 relative overflow-visible rpg-frame"
+          className="p-4 relative overflow-visible rpg-frame"
+          style={{ background: "#0d0d1a", border: "3px solid #e6a800", boxShadow: "inset 0 0 24px rgba(230,168,0,0.04), 2px 2px 0 #7a4a00" }}
         >
+          {/* Corner accent dots */}
+          <span className="absolute -top-[4px] -left-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
+          <span className="absolute -top-[4px] -right-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
+          <span className="absolute -bottom-[4px] -left-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
+          <span className="absolute -bottom-[4px] -right-[4px] w-2.5 h-2.5 bg-[#e6a800] z-10" />
           {enemyNumNode}
           <AttackVisual
             characterClass={character?.class}
@@ -1557,15 +1582,15 @@ export default function Battle({ character, onCharacterUpdate }) {
           {enemy ? (
             <>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-lg bg-destructive/20 border border-destructive/30 flex items-center justify-center">
+                <div className="w-12 h-12 flex items-center justify-center shrink-0" style={{ background: "#1a0000", border: "2px solid #e6a800" }}>
                   <Skull className="w-6 h-6 text-destructive" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold">{enemy.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "9px", color: "#f87171" }}>{enemy.name}</p>
+                  <p className="mt-0.5 flex items-center flex-wrap gap-1">
                     {enemy.isBoss && <Badge variant="destructive" className="mr-1 text-xs">BOSS</Badge>}
                     {enemy.isEmpowered && <Badge className="mr-1 text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Empowered</Badge>}
-                    Lv.{enemy.level || "?"} · DMG: {enemy.dmg}
+                    <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>Lv.{enemy.level || "?"} · DMG: {enemy.dmg}</span>
                   </p>
                   {/* Elemental Info */}
                   {enemy.key && (() => {
@@ -1611,16 +1636,18 @@ export default function Battle({ character, onCharacterUpdate }) {
                   </div>
                 )}
               </div>
-              <PixelBar current={enemyHp} max={enemy.maxHp} type="hp" label="HP" />
+              <div className="mt-2">
+                <PixelBar current={enemyHp} max={enemy.maxHp} type="hp" label="HP" />
+              </div>
             </>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">Searching for enemy...</div>
+            <div className="text-center py-8" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#6b6a9a" }}>Searching for enemy...</div>
           )}
         </motion.div>
       </div>
 
       {/* Skills Bar — compact grid */}
-      <div className="bg-card border border-border rounded-xl p-2 rpg-frame">
+      <div className="p-2 rpg-frame relative" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c", boxShadow: "2px 2px 0 #1a1040" }}>
         <div className="flex flex-wrap gap-1.5">
           {/* Basic attack */}
           <PixelButton
@@ -1628,6 +1655,7 @@ export default function Battle({ character, onCharacterUpdate }) {
             label="ATTACK"
             onClick={() => doPlayerAttack(null)}
             disabled={!isMyTurn || !enemy || enemyHp <= 0}
+            style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 2px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
           />
 
           {/* Skills */}
@@ -1636,11 +1664,11 @@ export default function Battle({ character, onCharacterUpdate }) {
             const noMp = playerMp < skill.mp;
             const disabled = !isMyTurn || onCd || noMp || !enemy || enemyHp <= 0;
             const elem = skill.element ? ELEMENT_CONFIG[skill.element] : null;
-            const buffColor = skill.buff === "defense" ? "border-blue-500/50 text-blue-400"
-              : skill.buff === "attack" ? "border-orange-500/50 text-orange-400"
-              : skill.special === "pickpocket" ? "border-yellow-500/50 text-yellow-400"
-              : elem ? `border-current/30 ${elem.color}`
-              : "border-secondary/40 text-secondary";
+            const buffColor = skill.buff === "defense" ? "text-blue-400"
+              : skill.buff === "attack" ? "text-orange-400"
+              : skill.special === "pickpocket" ? "text-yellow-400"
+              : elem ? elem.color
+              : "text-cyan-400";
             const elemBonus = elem?.stat ? (character?.[elem.stat] || 0) : 0;
             return (
               <button
@@ -1648,7 +1676,8 @@ export default function Battle({ character, onCharacterUpdate }) {
                 disabled={disabled}
                 onClick={() => doPlayerAttack(skill)}
                 title={`${skill.description}\n${skill.mp}MP · CD: ${skill.cooldown}T${elemBonus > 0 ? `\n+${elemBonus}% ${elem?.label} bonus` : ""}`}
-                className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border bg-muted/20 hover:bg-muted/50 hover:scale-110 hover:shadow-[0_0_12px_rgba(139,92,246,0.4)] hover:border-primary/60 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200 min-w-[52px] ${buffColor}`}
+                className={`relative flex flex-col items-center gap-0.5 px-2 py-1.5 hover:scale-110 hover:shadow-[0_0_12px_rgba(29,255,160,0.3)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none transition-all duration-200 min-w-[52px] ${buffColor}`}
+                style={{ background: "#07071a", border: "1px solid #22d3ee40" }}
               >
                 {(() => {
                   const folder = getSkillSpriteFolder(skill.id);
@@ -1656,15 +1685,15 @@ export default function Battle({ character, onCharacterUpdate }) {
                     ? <img src={`/sprites/skills/${folder}/${skill.id}.png`} alt={skill.name} style={{ width: 24, height: 24, imageRendering: "pixelated" }} onError={e => { e.target.style.display = "none"; }} />
                     : <span className="text-sm leading-none">{elem?.icon || <Zap className="w-3 h-3 inline" />}</span>;
                 })()}
-                <span className="text-[9px] font-medium leading-none text-center max-w-[60px] truncate">{skill.name}</span>
-                <span className="text-[8px] text-muted-foreground">{skill.mp}MP</span>
+                <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", lineHeight: 1.2 }} className="text-center max-w-[60px] truncate">{skill.name}</span>
+                <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "6px", color: "#6b6a9a" }}>{skill.mp}MP</span>
                 {onCd && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+                  <span className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground font-bold min-w-[16px] h-4 flex items-center justify-center px-0.5" style={{ fontSize: "7px" }}>
                     {cooldowns[skill.id]}T
                   </span>
                 )}
                 {elemBonus > 0 && !onCd && (
-                  <span className={`absolute -bottom-1.5 -right-1.5 text-[8px] font-bold ${elem?.color} bg-card border border-current/30 rounded-full px-1 leading-tight`}>
+                  <span className={`absolute -bottom-1.5 -right-1.5 font-bold ${elem?.color} bg-card border border-current/30 px-1 leading-tight`} style={{ fontSize: "7px" }}>
                     +{elemBonus}%
                   </span>
                 )}
@@ -1681,10 +1710,11 @@ export default function Battle({ character, onCharacterUpdate }) {
               label={`POTION (${stack.count})`}
               onClick={() => usePotionMutation.mutate(stack)}
               disabled={usePotionMutation.isPending || playerHp >= actualMaxHp}
+              style={{ background: "#07071a", border: "1px solid #22d3ee40", color: "#22d3ee" }}
             />
           ))}
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1.5 px-0.5">
+        <p className="mt-1.5 px-0.5" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>
           🛡 = Defense buff &nbsp;⚔ = Attack buff &nbsp;· Hover for details &nbsp;· CD in turns (T)
         </p>
       </div>
@@ -1710,9 +1740,9 @@ export default function Battle({ character, onCharacterUpdate }) {
       </AnimatePresence>
 
       {/* Battle Log */}
-      <div className="bg-card border border-border rounded-xl p-3 rpg-frame">
-        <h3 className="text-xs font-semibold text-muted-foreground mb-2">BATTLE LOG</h3>
-        <div className="space-y-0.5 max-h-48 overflow-y-auto">
+      <div className="p-3 rpg-frame relative" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c", boxShadow: "2px 2px 0 #1a1040" }}>
+        <h3 className="mb-3 tracking-widest" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "9px", color: "#1dffa0" }}>BATTLE LOG</h3>
+        <div className="space-y-1 max-h-48 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#2a1f5c #07071a" }}>
           {battleLog.map((log, i) => {
             const isShiny = log.includes("[SHINY]");
             const isMythic = log.includes("[MYTHIC]");
@@ -1721,17 +1751,19 @@ export default function Battle({ character, onCharacterUpdate }) {
             const isPartyAction = log.startsWith("🗡️");
             const isPartyLoot = log.includes("found [") || (log.includes("found ") && (log.includes("🏆") || log.includes("💎") || log.includes("🌟")));
             let cls = i === 0 ? "text-foreground" : "text-muted-foreground";
-            if (isShiny) cls = "text-cyan-300 font-bold animate-pulse";
-            else if (isMythic) cls = "text-purple-400 font-bold";
-            else if (isLegendary) cls = "text-yellow-400 font-semibold";
-            else if (isLevelUp) cls = "text-green-400 font-semibold";
-            else if (isPartyLoot) cls = "text-yellow-300 font-semibold";
+            if (isShiny) cls = "text-cyan-300 animate-pulse";
+            else if (isMythic) cls = "text-purple-400";
+            else if (isLegendary) cls = "text-yellow-400";
+            else if (isLevelUp) cls = "text-green-400";
+            else if (isPartyLoot) cls = "text-yellow-300";
             else if (isPartyAction) cls = i === 0 ? "text-blue-300" : "text-blue-400/70";
             return (
-              <p key={i} className={`text-xs ${cls}`}>{log}</p>
+              <p key={i} className={cls} style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", lineHeight: 1.8 }}>{log}</p>
             );
           })}
-          {battleLog.length === 0 && <p className="text-xs text-muted-foreground">Engage an enemy to begin combat.</p>}
+          {battleLog.length === 0 && (
+            <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>Engage an enemy to begin combat.</p>
+          )}
         </div>
       </div>
 

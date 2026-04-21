@@ -432,8 +432,9 @@ export default function GuildPage({ character, onCharacterUpdate }) {
         )}
       </AnimatePresence>
 
-      <h2 className="font-orbitron text-xl font-bold flex items-center gap-2">
-        <Users className="w-5 h-5 text-primary" /> Guilds
+      <h2 className="flex items-center gap-2">
+        <Users className="w-5 h-5" style={{ color: "#1dffa0" }} />
+        <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "14px", color: "#1dffa0" }}>Guilds</span>
       </h2>
 
       {myGuild ? (
@@ -441,13 +442,26 @@ export default function GuildPage({ character, onCharacterUpdate }) {
           <GuildHeader guild={myGuild} myRole={myRole} onLeave={() => leaveMutation.mutate()} isLeaving={leaveMutation.isPending} />
 
           <Tabs defaultValue="members">
-            <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-muted">
-              <TabsTrigger value="members" className="text-xs">Members</TabsTrigger>
-              <TabsTrigger value="boss" className="text-xs">Guild Boss</TabsTrigger>
-              <TabsTrigger value="perks" className="text-xs">Perks</TabsTrigger>
-              <TabsTrigger value="base" className="text-xs">Guild Base</TabsTrigger>
-              <TabsTrigger value="shop" className="text-xs">Shop</TabsTrigger>
-              <TabsTrigger value="chat" className="text-xs">Chat</TabsTrigger>
+            <TabsList
+              className="flex flex-wrap h-auto gap-1 p-1 rounded-none"
+              style={{ background: "#07071a", border: "2px solid #2a1f5c" }}
+            >
+              {[
+                { value: "members",  label: "Members"    },
+                { value: "boss",     label: "Guild Boss"  },
+                { value: "perks",    label: "Perks"       },
+                { value: "base",     label: "Guild Base"  },
+                { value: "shop",     label: "Shop"        },
+                { value: "chat",     label: "Chat"        },
+              ].map(({ value, label }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="rounded-none data-[state=active]:bg-[#e6a800] data-[state=active]:text-[#1a1a2e] data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#6b6a9a] font-['Press_Start_2P'] text-[7px] py-1.5 px-2.5"
+                >
+                  {label}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             <TabsContent value="members" className="mt-3">
@@ -508,61 +522,122 @@ export default function GuildPage({ character, onCharacterUpdate }) {
         </div>
       ) : (
         <Tabs defaultValue="browse">
-          <TabsList>
-            <TabsTrigger value="browse">Browse Guilds</TabsTrigger>
-            <TabsTrigger value="create">Create Guild</TabsTrigger>
+          <TabsList
+            className="rounded-none p-0 h-auto"
+            style={{ background: "#07071a", border: "2px solid #2a1f5c" }}
+          >
+            <TabsTrigger
+              value="browse"
+              className="rounded-none data-[state=active]:bg-[#e6a800] data-[state=active]:text-[#1a1a2e] data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#6b6a9a] font-['Press_Start_2P'] text-[8px] py-2.5 px-4"
+            >Browse Guilds</TabsTrigger>
+            <TabsTrigger
+              value="create"
+              className="rounded-none border-l data-[state=active]:bg-[#e6a800] data-[state=active]:text-[#1a1a2e] data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-[#6b6a9a] font-['Press_Start_2P'] text-[8px] py-2.5 px-4"
+              style={{ borderColor: "#2a1f5c" }}
+            >Create Guild</TabsTrigger>
           </TabsList>
 
           <TabsContent value="browse" className="mt-3 space-y-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Search guilds..." value={search} onChange={e => setSearch(e.target.value)} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#6b6a9a" }} />
+              <Input
+                className="pl-9 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                style={{
+                  background: "#07071a",
+                  border: "2px solid #2a1f5c",
+                  color: "#e0e0ff",
+                  fontFamily: "'Press Start 2P', monospace",
+                  fontSize: "8px",
+                }}
+                placeholder="Search guilds..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
             </div>
             {filteredGuilds.map(guild => (
-              <motion.div key={guild.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-secondary/20 flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-secondary" />
+              <motion.div
+                key={guild.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="relative p-4 flex items-center gap-4 overflow-visible"
+                style={{ background: "#0d0d1a", border: "2px solid #2a1f5c", boxShadow: "2px 2px 0 #1a1040" }}
+              >
+                {/* Corner accent dots */}
+                <span className="absolute -top-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+                <span className="absolute -top-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+                <span className="absolute -bottom-[3px] -left-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+                <span className="absolute -bottom-[3px] -right-[3px] w-2 h-2 z-10" style={{ background: "#e6a800" }} />
+
+                <div className="w-10 h-10 flex items-center justify-center flex-shrink-0" style={{ background: "#07071a", border: "2px solid #2a1f5c" }}>
+                  <Shield className="w-5 h-5" style={{ color: "#6b6a9a" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold truncate">{guild.name}</p>
-                    {guild.tag && <span className="text-xs text-muted-foreground font-mono">[{guild.tag}]</span>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="truncate" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "9px", color: "#e0e0ff" }}>{guild.name}</p>
+                    {guild.tag && (
+                      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a", border: "1px solid #2a1f5c", background: "#07071a", padding: "2px 5px" }}>[{guild.tag}]</span>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground">Lv.{guild.level} • {guild.member_count}/{guild.max_members || 20} Members</p>
-                  {guild.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{guild.description}</p>}
+                  <p className="mt-1" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>
+                    Lv.{guild.level} · {guild.member_count}/{guild.max_members || 20} Members
+                  </p>
+                  {guild.description && (
+                    <p className="truncate mt-0.5 text-xs" style={{ color: "#4a4a6a" }}>{guild.description}</p>
+                  )}
                 </div>
                 <PixelButton
                   variant="ok"
                   label={(guild.members?.length || 0) >= (guild.max_members || 20) ? "FULL" : "JOIN"}
                   onClick={() => joinMutation.mutate(guild)}
                   disabled={joinMutation.isPending || (guild.members?.length || 0) >= (guild.max_members || 20)}
+                  style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 3px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
                 />
               </motion.div>
             ))}
             {filteredGuilds.length === 0 && (
-              <p className="text-center py-8 text-muted-foreground">No guilds found. Create one!</p>
+              <p className="text-center py-8" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: "#6b6a9a" }}>No guilds found. Create one!</p>
             )}
           </TabsContent>
 
           <TabsContent value="create" className="mt-3">
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+            <div className="p-5 space-y-4" style={{ background: "#0d0d1a", border: "2px solid #2a1f5c" }}>
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="text-xs text-muted-foreground mb-1 block">Guild Name *</label>
-                  <Input placeholder="e.g. Shadow Legion" value={guildName} onChange={e => setGuildName(e.target.value)} maxLength={30} />
+                  <label className="mb-1 block" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>GUILD NAME *</label>
+                  <Input
+                    placeholder="e.g. Shadow Legion"
+                    value={guildName}
+                    onChange={e => setGuildName(e.target.value)}
+                    maxLength={30}
+                    className="rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    style={{ background: "#07071a", border: "2px solid #2a1f5c", color: "#e0e0ff", fontFamily: "'Press Start 2P', monospace", fontSize: "8px" }}
+                  />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Tag (3–5 chars)</label>
-                  <Input placeholder="SL" value={guildTag} onChange={e => setGuildTag(e.target.value.slice(0, 5))} maxLength={5} />
+                  <label className="mb-1 block" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>TAG (3–5)</label>
+                  <Input
+                    placeholder="SL"
+                    value={guildTag}
+                    onChange={e => setGuildTag(e.target.value.slice(0, 5))}
+                    maxLength={5}
+                    className="rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    style={{ background: "#07071a", border: "2px solid #2a1f5c", color: "#e0e0ff", fontFamily: "'Press Start 2P', monospace", fontSize: "8px" }}
+                  />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Description</label>
-                <Textarea placeholder="Describe your guild..." value={guildDesc} onChange={e => setGuildDesc(e.target.value)} className="h-20" />
+                <label className="mb-1 block" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>DESCRIPTION</label>
+                <Textarea
+                  placeholder="Describe your guild..."
+                  value={guildDesc}
+                  onChange={e => setGuildDesc(e.target.value)}
+                  className="h-20 rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  style={{ background: "#07071a", border: "2px solid #2a1f5c", color: "#e0e0ff", fontFamily: "'Press Start 2P', monospace", fontSize: "8px" }}
+                />
               </div>
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Creation Cost: <span className="text-accent font-semibold">500 Gold</span></span>
-                <span>Your Gold: <span className="text-accent font-semibold">{character.gold || 0}</span></span>
+              <div className="flex items-center justify-between" style={{ fontFamily: "'Press Start 2P', monospace", fontSize: "7px", color: "#6b6a9a" }}>
+                <span>Cost: <span style={{ color: "#e6a800" }}>500 Gold</span></span>
+                <span>Your Gold: <span style={{ color: "#e6a800" }}>{character.gold || 0}</span></span>
               </div>
               {createMutation.isError && <p className="text-destructive text-sm">{createMutation.error?.message}</p>}
               <PixelButton
@@ -571,6 +646,7 @@ export default function GuildPage({ character, onCharacterUpdate }) {
                 onClick={() => createMutation.mutate()}
                 disabled={!guildName.trim() || !guildTag.trim() || (character.gold || 0) < 500 || createMutation.isPending}
                 className="w-full"
+                style={{ background: "#e6a800", border: "2px solid #a07200", boxShadow: "0 3px 0 #7a5500, inset 0 1px 0 rgba(255,255,200,0.3)" }}
               />
             </div>
           </TabsContent>
