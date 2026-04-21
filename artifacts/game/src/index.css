@@ -98,21 +98,12 @@
   * {
     @apply border-border;
   }
-  /* UI smaller + fonts bigger:
-     - zoom 0.75 on #root shrinks the entire layout by 25%
-     - root font-size 24px makes text large (24 × 0.75 = 18px effective)
-     - Panels/spacing also use rem so they shrink with zoom
-       but text is proportionally bigger due to the high root value */
   html {
-    font-size: 24px;
+    font-size: 16px;
   }
   body {
     @apply bg-background text-foreground font-inter;
   }
-}
-
-#root {
-  zoom: 0.75;
 }
 
 ::-webkit-scrollbar {
